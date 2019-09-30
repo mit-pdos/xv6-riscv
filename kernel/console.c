@@ -21,6 +21,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "proc.h"
+#include "uart.h"
 
 #define BACKSPACE 0x100
 #define C(x)  ((x)-'@')  // Control-x

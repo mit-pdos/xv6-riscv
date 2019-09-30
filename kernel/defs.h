@@ -145,12 +145,6 @@ void            trapinithart(void);
 extern struct spinlock tickslock;
 void            usertrapret(void);
 
-// uart.c
-void            uartinit(void);
-void            uartintr(void);
-void            uartputc(int);
-int             uartgetc(void);
-
 // vm.c
 void            kvminit(void);
 void            kvminithart(void);
