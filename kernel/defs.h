@@ -1,4 +1,5 @@
 #include "context.h"
+#include "exec.h"
 #include "plic.h"
 
 struct buf;
@@ -23,9 +24,6 @@ void            bunpin(struct buf*);
 void            consoleinit(void);
 void            consoleintr(int);
 void            consputc(int);
-
-// exec.c
-int             exec(char*, char**);
 
 // file.c
 struct file*    filealloc(void);
