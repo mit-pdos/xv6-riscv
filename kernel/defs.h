@@ -1,5 +1,6 @@
 #include "context.h"
 #include "exec.h"
+#include "kalloc.h"
 #include "plic.h"
 #include "printf.h"
 
@@ -58,11 +59,6 @@ int             writei(struct inode*, int, uint64, uint, uint);
 void            ramdiskinit(void);
 void            ramdiskintr(void);
 void            ramdiskrw(struct buf*);
-
-// kalloc.c
-void*           kalloc(void);
-void            kfree(void *);
-void            kinit();
 
 // log.c
 void            initlog(int, struct superblock*);
