@@ -1,3 +1,5 @@
+#include "vm.h"
+
 #include "param.h"
 #include "types.h"
 #include "memlayout.h"
