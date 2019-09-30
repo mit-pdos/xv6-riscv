@@ -1,3 +1,5 @@
+#include "syscall.h"
+
 #include "types.h"
 #include "param.h"
 #include "memlayout.h"

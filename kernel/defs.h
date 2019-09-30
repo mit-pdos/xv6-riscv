@@ -4,6 +4,7 @@
 #include "kalloc.h"
 #include "plic.h"
 #include "printf.h"
+#include "syscall.h"
 
 struct buf;
 struct file;
@@ -114,14 +115,6 @@ char*           safestrcpy(char*, const char*, int);
 int             strlen(const char*);
 int             strncmp(const char*, const char*, uint);
 char*           strncpy(char*, const char*, int);
-
-// syscall.c
-int             argint(int, int*);
-int             argstr(int, char*, int);
-int             argaddr(int, uint64 *);
-int             fetchstr(uint64, char*, int);
-int             fetchaddr(uint64, uint64*);
-void            syscall();
 
 // trap.c
 extern uint     ticks;
