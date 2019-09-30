@@ -4,6 +4,8 @@
 
 #include <stdarg.h>
 
+#include "printf.h"
+
 #include "types.h"
 #include "param.h"
 #include "spinlock.h"
