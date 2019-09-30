@@ -1,3 +1,4 @@
+#include "console.h"
 #include "context.h"
 #include "exec.h"
 #include "kalloc.h"
@@ -21,11 +22,6 @@ void            brelse(struct buf*);
 void            bwrite(struct buf*);
 void            bpin(struct buf*);
 void            bunpin(struct buf*);
-
-// console.c
-void            consoleinit(void);
-void            consoleintr(int);
-void            consputc(int);
 
 // file.c
 struct file*    filealloc(void);
