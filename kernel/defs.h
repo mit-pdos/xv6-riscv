@@ -5,6 +5,7 @@
 #include "kalloc.h"
 #include "plic.h"
 #include "printf.h"
+#include "ramdisk.h"
 #include "sleeplock.h"
 #include "spinlock.h"
 #include "syscall.h"
@@ -47,11 +48,6 @@ struct inode*   nameiparent(char*, char*);
 int             readi(struct inode*, int, uint64, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
-
-// ramdisk.c
-void            ramdiskinit(void);
-void            ramdiskintr(void);
-void            ramdiskrw(struct buf*);
 
 // log.c
 void            initlog(int, struct superblock*);
