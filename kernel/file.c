@@ -2,6 +2,8 @@
 // Support functions for system calls that involve file descriptors.
 //
 
+#include "file.h"
+
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
@@ -9,7 +11,6 @@
 #include "fs.h"
 #include "spinlock.h"
 #include "sleeplock.h"
-#include "file.h"
 #include "stat.h"
 #include "proc.h"
 

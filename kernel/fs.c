@@ -9,6 +9,8 @@
 // routines.  The (higher-level) system call implementations
 // are in sysfile.c.
 
+#include "fs.h"
+
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
@@ -17,7 +19,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "sleeplock.h"
-#include "fs.h"
+#include "fs_format.h"
 #include "buf.h"
 #include "file.h"
 
