@@ -4,6 +4,7 @@
 #include "kalloc.h"
 #include "plic.h"
 #include "printf.h"
+#include "sleeplock.h"
 #include "spinlock.h"
 #include "syscall.h"
 #include "string.h"
@@ -14,7 +15,6 @@ struct file;
 struct inode;
 struct pipe;
 struct proc;
-struct sleeplock;
 struct stat;
 struct superblock;
 
@@ -94,12 +94,6 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
-
-// sleeplock.c
-void            acquiresleep(struct sleeplock*);
-void            releasesleep(struct sleeplock*);
-int             holdingsleep(struct sleeplock*);
-void            initsleeplock(struct sleeplock*, char*);
 
 // trap.c
 extern uint     ticks;
