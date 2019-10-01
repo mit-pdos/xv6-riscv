@@ -1,8 +1,18 @@
-#include "types.h"
-#include "param.h"
+#include "bio.h"
+#include "console.h"
+#include "cpu.h"
+#include "file.h"
+#include "kalloc.h"
 #include "memlayout.h"
+#include "param.h"
+#include "plic.h"
+#include "printf.h"
+#include "proc.h"
 #include "riscv.h"
-#include "defs.h"
+#include "trap.h"
+#include "types.h"
+#include "virtio_disk.h"
+#include "vm.h"
 
 volatile static int started = 0;
 
@@ -41,5 +51,5 @@ main()
     plicinithart();   // ask PLIC for device interrupts
   }
 
-  scheduler();        
+  scheduler();
 }

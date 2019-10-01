@@ -12,6 +12,7 @@ OBJS = \
   $K/string.o \
   $K/main.o \
   $K/vm.o \
+  $K/cpu.o \
   $K/proc.o \
   $K/swtch.o \
   $K/trampoline.o \

@@ -1,10 +1,14 @@
-#include "param.h"
-#include "types.h"
-#include "memlayout.h"
+#include "vm.h"
+
 #include "elf.h"
-#include "riscv.h"
-#include "defs.h"
 #include "fs.h"
+#include "kalloc.h"
+#include "memlayout.h"
+#include "param.h"
+#include "printf.h"
+#include "string.h"
+#include "riscv.h"
+#include "types.h"
 
 /*
  * the kernel's page table.

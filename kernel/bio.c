@@ -13,15 +13,17 @@
 // * Only one process at a time can use a buffer,
 //     so do not keep them longer than necessary.
 
+#include "bio.h"
 
-#include "types.h"
-#include "param.h"
-#include "spinlock.h"
-#include "sleeplock.h"
-#include "riscv.h"
-#include "defs.h"
-#include "fs.h"
 #include "buf.h"
+#include "fs.h"
+#include "param.h"
+#include "printf.h"
+#include "riscv.h"
+#include "sleeplock.h"
+#include "spinlock.h"
+#include "types.h"
+#include "virtio_disk.h"
 
 struct {
   struct spinlock lock;

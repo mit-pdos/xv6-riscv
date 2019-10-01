@@ -2,6 +2,8 @@
 // ramdisk that uses the disk image loaded by qemu -rdinit fs.img
 //
 
+#include "ramdisk.h"
+
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"

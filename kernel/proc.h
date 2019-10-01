@@ -1,32 +1,12 @@
-// Saved registers for kernel context switches.
-struct context {
-  uint64 ra;
-  uint64 sp;
+#pragma once
 
-  // callee-saved
-  uint64 s0;
-  uint64 s1;
-  uint64 s2;
-  uint64 s3;
-  uint64 s4;
-  uint64 s5;
-  uint64 s6;
-  uint64 s7;
-  uint64 s8;
-  uint64 s9;
-  uint64 s10;
-  uint64 s11;
-};
-
-// Per-CPU state.
-struct cpu {
-  struct proc *proc;          // The process running on this cpu, or null.
-  struct context scheduler;   // swtch() here to enter scheduler().
-  int noff;                   // Depth of push_off() nesting.
-  int intena;                 // Were interrupts enabled before push_off()?
-};
-
-extern struct cpu cpus[NCPU];
+#include "context.h"
+#include "file.h"
+#include "fs.h"
+#include "param.h"
+#include "spinlock.h"
+#include "riscv.h"
+#include "types.h"
 
 // per-process data for the trap handling code in trampoline.S.
 // sits in a page by itself just under the trampoline page in the
@@ -104,3 +84,25 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 };
+
+
+void            exit(int);
+int             fork(void);
+int             growproc(int);
+pagetable_t     proc_pagetable(struct proc *);
+void            proc_freepagetable(pagetable_t, uint64);
+int             kill(int);
+struct proc*    myproc();
+void            procinit(void);
+void            scheduler(void) __attribute__((noreturn));
+void            sched(void);
+void            setproc(struct proc*);
+void            sleep(void*, struct spinlock*);
+void            userinit(void);
+int             wait(uint64);
+void            wakeup(void*);
+void            yield(void);
+int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
+int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
+void            procdump(void);
+

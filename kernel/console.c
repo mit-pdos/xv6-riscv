@@ -11,6 +11,8 @@
 
 #include <stdarg.h>
 
+#include "console.h"
+
 #include "types.h"
 #include "param.h"
 #include "spinlock.h"
@@ -21,6 +23,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "proc.h"
+#include "uart.h"
 
 #define BACKSPACE 0x100
 #define C(x)  ((x)-'@')  // Control-x

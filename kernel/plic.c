@@ -1,8 +1,10 @@
-#include "types.h"
-#include "param.h"
+#include "plic.h"
+
+#include "cpu.h"
 #include "memlayout.h"
+#include "param.h"
 #include "riscv.h"
-#include "defs.h"
+#include "types.h"
 
 //
 // the riscv Platform Level Interrupt Controller (PLIC).
@@ -20,8 +22,8 @@ void
 plicinithart(void)
 {
   int hart = cpuid();
-  
-  // set uart's enable bit for this hart's S-mode. 
+
+  // set uart's enable bit for this hart's S-mode.
   *(uint32*)PLIC_SENABLE(hart)= (1 << UART0_IRQ) | (1 << VIRTIO0_IRQ);
 
   // set this hart's S-mode priority threshold to 0.
