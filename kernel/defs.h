@@ -3,6 +3,7 @@
 #include "context.h"
 #include "exec.h"
 #include "kalloc.h"
+#include "log.h"
 #include "plic.h"
 #include "printf.h"
 #include "ramdisk.h"
@@ -48,12 +49,6 @@ struct inode*   nameiparent(char*, char*);
 int             readi(struct inode*, int, uint64, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
-
-// log.c
-void            initlog(int, struct superblock*);
-void            log_write(struct buf*);
-void            begin_op();
-void            end_op();
 
 // pipe.c
 int             pipealloc(struct file**, struct file**);
