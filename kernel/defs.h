@@ -1,3 +1,4 @@
+#include "bio.h"
 #include "console.h"
 #include "context.h"
 #include "exec.h"
@@ -18,14 +19,6 @@ struct pipe;
 struct proc;
 struct stat;
 struct superblock;
-
-// bio.c
-void            binit(void);
-struct buf*     bread(uint, uint);
-void            brelse(struct buf*);
-void            bwrite(struct buf*);
-void            bpin(struct buf*);
-void            bunpin(struct buf*);
 
 // file.c
 struct file*    filealloc(void);
