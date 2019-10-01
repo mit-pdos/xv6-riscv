@@ -11,23 +11,26 @@
 
 #include "fs.h"
 
-#include "types.h"
-#include "riscv.h"
-#include "defs.h"
-#include "param.h"
-#include "stat.h"
-#include "spinlock.h"
-#include "proc.h"
-#include "sleeplock.h"
-#include "fs_format.h"
+#include "bio.h"
 #include "buf.h"
 #include "file.h"
+#include "fs_format.h"
+#include "log.h"
+#include "param.h"
+#include "printf.h"
+#include "proc.h"
+#include "riscv.h"
+#include "sleeplock.h"
+#include "spinlock.h"
+#include "stat.h"
+#include "string.h"
+#include "types.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 static void itrunc(struct inode*);
 // there should be one superblock per disk device, but we run with
 // only one device
-struct superblock sb; 
+struct superblock sb;
 
 // Read the super block.
 static void

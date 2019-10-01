@@ -1,12 +1,18 @@
 #include "proc.h"
 
 #include "cpu.h"
-#include "types.h"
-#include "param.h"
+#include "defs.h"
+#include "kalloc.h"
+#include "log.h"
 #include "memlayout.h"
+#include "param.h"
+#include "printf.h"
 #include "riscv.h"
 #include "spinlock.h"
-#include "defs.h"
+#include "string.h"
+#include "types.h"
+#include "trap.h"
+#include "vm.h"
 
 struct proc proc[NPROC];
 

@@ -4,12 +4,13 @@
 
 #include "kalloc.h"
 
-#include "types.h"
-#include "param.h"
 #include "memlayout.h"
-#include "spinlock.h"
+#include "param.h"
+#include "printf.h"
 #include "riscv.h"
-#include "defs.h"
+#include "spinlock.h"
+#include "string.h"
+#include "types.h"
 
 void freerange(void *pa_start, void *pa_end);
 

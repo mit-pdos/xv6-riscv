@@ -4,15 +4,17 @@
 
 #include "file.h"
 
-#include "types.h"
-#include "riscv.h"
-#include "defs.h"
-#include "param.h"
 #include "fs.h"
-#include "spinlock.h"
-#include "sleeplock.h"
-#include "stat.h"
+#include "log.h"
+#include "param.h"
+#include "printf.h"
 #include "proc.h"
+#include "riscv.h"
+#include "sleeplock.h"
+#include "spinlock.h"
+#include "stat.h"
+#include "types.h"
+#include "vm.h"
 
 struct devsw devsw[NDEV];
 struct {
