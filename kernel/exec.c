@@ -60,6 +60,9 @@ exec(char *path, char **argv)
   end_op();
   ip = 0;
 
+  // Synchronize the instruction and data streams.
+  asm volatile("fence.i");
+
   p = myproc();
   uint64 oldsz = p->sz;
 
