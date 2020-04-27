@@ -7,8 +7,10 @@
 void main();
 void timerinit();
 
-// entry.S needs one stack per CPU.
-__attribute__ ((aligned (16))) char stack0[4096 * NCPU];
+// entry.S needs one stack per CPU. The stack needs
+// to be at least 16B aligned, but the alignment can be
+// increased, e.g. to match the width of CPU cache line.
+__attribute__ ((aligned (16))) char stack0[STKSIZE * NCPU];
 
 // scratch area for timer interrupt, one per CPU.
 uint64 mscratch0[NCPU * 32];
