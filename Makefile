@@ -134,6 +134,7 @@ UPROGS=\
 	$U/_uptime\
 	$U/_usertests\
 	$U/_wc\
+	$U/_xargs\
 	$U/_zombie\
 
 fs.img: mkfs/mkfs README $(UPROGS)
