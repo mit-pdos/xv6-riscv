@@ -124,6 +124,7 @@ UPROGS=\
 	$U/_ln\
 	$U/_ls\
 	$U/_mkdir\
+  $U/_nsh\
 	$U/_pingpong\
 	$U/_primes\
 	$U/_rm\
