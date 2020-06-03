@@ -63,6 +63,11 @@ void*           kalloc(void);
 void            kfree(void *);
 void            kinit();
 
+// buddy.c
+void*           bd_alloc(int);
+void            bd_free(void *plist);
+void            bd_init();
+
 // log.c
 void            initlog(int, struct superblock*);
 void            log_write(struct buf*);

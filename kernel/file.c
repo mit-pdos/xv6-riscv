@@ -14,30 +14,41 @@
 #include "proc.h"
 
 struct devsw devsw[NDEV];
+
 struct {
   struct spinlock lock;
-  struct file file[NFILE];
+  struct file *file;
 } ftable;
 
 void
 fileinit(void)
 {
   initlock(&ftable.lock, "ftable");
+  ftable.file = 0;
 }
 
 // Allocate a file structure.
 struct file*
 filealloc(void)
 {
-  struct file *f;
+  struct file *p, *f;
 
   acquire(&ftable.lock);
-  for(f = ftable.file; f < ftable.file + NFILE; f++){
-    if(f->ref == 0){
-      f->ref = 1;
-      release(&ftable.lock);
-      return f;
-    }
+  for(p = 0, f = ftable.file; f != 0; p = f, f = f->next)
+    ;
+  // alloc
+  f = bd_alloc(sizeof(struct file));
+  f->next = 0;
+  if (p != 0) {
+    f->prev = p;
+    p->next = f;
+  } else {
+    f->prev = 0;
+  }
+  if(f->ref == 0){
+    f->ref = 1;
+    release(&ftable.lock);
+    return f;
   }
   release(&ftable.lock);
   return 0;
@@ -71,6 +82,17 @@ fileclose(struct file *f)
   ff = *f;
   f->ref = 0;
   f->type = FD_NONE;
+
+  if (f->prev == 0) {
+    ftable.file = f->next;
+    if (f->next != 0)
+      f->next->prev = 0;
+  } else {
+    f->prev->next = f->next;
+    f->next->prev = f->prev;
+  }
+  bd_free(f);
+
   release(&ftable.lock);
 
   if(ff.type == FD_PIPE){
