@@ -68,21 +68,23 @@ bd_init()
   initlock(&bd_table.lock, "buddytable");
   for (int i = 0; i < MAX_PAGES; i++) {
     bd_table.plist[i].index = i;
-    bd_table.plist[i].isalloc = 0;
-    bd_table.plist[i].pageaddr = 0;
+    bd_table.plist[i].isalloc = 1;
+    bd_table.plist[i].pageaddr = kalloc();
+    if (bd_table.plist[i].pageaddr == 0) {
+      panic("kalloc() error!! in buddy.c");
+    }
     int map_size = NSIZES * 16;
     memset(bd_table.plist[i].alloc, 0, map_size);
     // memset(bd_table.plist[i].split, 0, map_size);
   }
 
-  void *first_page = kalloc();
-  bd_table.plist[0].isalloc = 1;
-  bd_table.plist[0].pageaddr = first_page;
-
   for (int i = 0; i < NSIZES; i++) {
     lst_init(&bd_table.bd_sizes[i].free);
   }
-  lst_push(&bd_table.bd_sizes[MAX_SIZE].free, bd_table.plist[0].pageaddr);
+
+  for (int i = 0; i < MAX_PAGES; i++) {
+    lst_push(&bd_table.bd_sizes[MAX_SIZE].free, bd_table.plist[i].pageaddr);
+  }
 }
 
 int
