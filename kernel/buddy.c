@@ -26,7 +26,7 @@ struct pagelist {
   int isalloc;
   void *pageaddr;
   char alloc[NSIZES][16];
-  char split[NSIZES][16];
+  // char split[NSIZES][16];
 };
 
 struct {
@@ -72,7 +72,7 @@ bd_init()
     bd_table.plist[i].pageaddr = 0;
     int map_size = NSIZES * 16;
     memset(bd_table.plist[i].alloc, 0, map_size);
-    memset(bd_table.plist[i].split, 0, map_size);
+    // memset(bd_table.plist[i].split, 0, map_size);
   }
 
   void *first_page = kalloc();
@@ -115,24 +115,40 @@ int blk_index(int k, char *p, void *base_addr) {
 
 int blk_size(void *p, int pindex, void* base_addr) {
   for (int k = 0; k < NSIZES; k++) {
-    if(bit_isset(bd_table.plist[pindex].split[k+1], blk_index(k+1, p, base_addr))) {
+    if(bit_isset(bd_table.plist[pindex].alloc[k], blk_index(k, p, base_addr))) {
       return k;
     }
   }
   return 0;
 }
 
+void *addr(int k, int bi, void* base_addr) {
+  int n = bi * BLK_SIZE(k);
+  return base_addr + n;
+}
+
 void
 bd_free(void *p)
 {
-  // void *q;
+  void *q;
   int k;
   int pindex = get_page_index(p);
   void *pbase = bd_table.plist[pindex].pageaddr;
   k = blk_size(p, pindex, pbase);
-  // for (k = blk_size(p, pindex, pbase); k < MAX_SIZE; k++) {
-
-  // }
+  for (k = blk_size(p, pindex, pbase); k < MAX_SIZE; k++) {
+    int bi = blk_index(k, p, pbase);
+    bit_clear(bd_table.plist[pindex].alloc[k], bi);
+    int buddy = (bi % 2 == 0) ? bi+1 : bi-1;
+    if (bit_isset(bd_table.plist[pindex].alloc[k], buddy)) {
+      break;
+    }
+    q = addr(k, buddy, pbase);
+    lst_remove(q);
+    if (buddy % 2 == 0) {
+      p = q;
+    }
+    bit_clear(bd_table.plist[pindex].alloc[k+1], blk_index(k+1, p, pbase));
+  }
   lst_push(&bd_table.bd_sizes[k].free, p);
 }
 
@@ -159,7 +175,7 @@ bd_alloc(int nbytes)
   bit_set(bd_table.plist[pindex].alloc[k], blk_index(k, p, pbase));
   for (; k > fk; k--) {
     char *q = p + BLK_SIZE(k-1);
-    bit_set(bd_table.plist[pindex].split[k], blk_index(k, p, pbase));
+    // bit_set(bd_table.plist[pindex].split[k], blk_index(k, p, pbase));
     bit_set(bd_table.plist[pindex].alloc[k-1], blk_index(k-1, p, pbase));
     lst_push(&bd_table.bd_sizes[k-1].free, q);
   }
