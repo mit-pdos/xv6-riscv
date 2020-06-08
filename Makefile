@@ -125,7 +125,7 @@ UPROGS=\
 	$U/_ln\
 	$U/_ls\
 	$U/_mkdir\
-  $U/_nsh\
+	$U/_nsh\
 	$U/_pingpong\
 	$U/_primes\
 	$U/_rm\
@@ -133,6 +133,7 @@ UPROGS=\
 	$U/_sleep\
 	$U/_stressfs\
 	$U/_test\
+	$U/_testsbrk\
 	$U/_uptime\
 	$U/_usertests\
 	$U/_wc\
@@ -162,9 +163,13 @@ ifndef CPUS
 CPUS := 3
 endif
 
+FWDPORT = $(shell expr `id -u` % 5000 + 25999)
+
 QEMUEXTRA = -drive file=fs1.img,if=none,format=raw,id=x1 -device virtio-blk-device,drive=x1,bus=virtio-mmio-bus.1
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 3G -smp $(CPUS) -nographic
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+QEMUOPTS += -netdev user,id=net0,hostfwd=udp::$(PWDPORT)-:2000 -object filter-dump,id=net0,netdev=net0,file=packets.pcap
+QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
 
 qemu: $K/kernel fs.img
 	$(QEMU) $(QEMUOPTS)
