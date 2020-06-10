@@ -32,6 +32,11 @@ kvminit()
   // virtio mmio disk interface
   kvmmap(VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
 
+  // PCI-E ECAM(configuration space), for pci.c
+  kvmmap(ECAM, ECAM, 0x10000000, PTE_R | PTE_W);
+  // e1000's registers'
+  kvmmap(E1000_REG, E1000_REG, 0x20000, PTE_R | PTE_W);
+
   // CLINT
   kvmmap(CLINT, CLINT, 0x10000, PTE_R | PTE_W);
 

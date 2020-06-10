@@ -25,8 +25,12 @@
 #define VIRTIO0 0x10001000
 #define VIRTIO0_IRQ 1
 
-// e1000 interupt
-#define E1000_IRQ 23
+// pci
+#define ECAM 0x30000000L
+
+// e1000
+#define E1000_REG 0x50000000L
+#define E1000_IRQ 33
 
 // local interrupt controller, which contains the timer.
 #define CLINT 0x2000000L
