@@ -6,14 +6,15 @@
 #include "proc.h"
 #include "defs.h"
 #include "e1000_dev.h"
+#include "net.h"
 
 #define TX_RING_SIZE 16
-// static struct tx_desc tx_ring[TX_RING_SIZE] __attribute__((aligned(16)));
-// static struct mbuf *tx_mbufs[TX_RING_SIZE];
+static struct tx_desc tx_ring[TX_RING_SIZE] __attribute__((aligned(16)));
+static struct mbuf *tx_mbufs[TX_RING_SIZE];
 
 #define RX_RING_SIZE 16
 static struct rx_desc rx_ring[RX_RING_SIZE] __attribute__((aligned(16)));
-// static struct mbuf *rx_mbufs[RX_RING_SIZE];
+static struct mbuf *rx_mbufs[RX_RING_SIZE];
 
 // remember where the e1000's registers live.
 static volatile uint32 *regs;
@@ -36,23 +37,23 @@ e1000_init(uint32 *xregs)
   __sync_synchronize();
 
   // [E1000 14.5] Transmit initialization
-  // memset(tx_ring, 0, sizeof(tx_ring));
-  // for (i = 0; i < TX_RING_SIZE; i++) {
-  //   tx_ring[i].status = E1000_TXD_STAT_DD;
-  //   tx_mbufs[i] = 0;
-  // }
-  // regs[E1000_TDBAL] = (uint64) tx_ring;
-  // if(sizeof(tx_ring) % 128 != 0)
-  //   panic("e1000");
-  // regs[E1000_TDLEN] = sizeof(tx_ring);
-  // regs[E1000_TDH] = regs[E1000_TDT] = 0;
+  memset(tx_ring, 0, sizeof(tx_ring));
+  for (i = 0; i < TX_RING_SIZE; i++) {
+    tx_ring[i].status = E1000_TXD_STAT_DD;
+    tx_mbufs[i] = 0;
+  }
+  regs[E1000_TDBAL] = (uint64) tx_ring;
+  if(sizeof(tx_ring) % 128 != 0)
+    panic("e1000");
+  regs[E1000_TDLEN] = sizeof(tx_ring);
+  regs[E1000_TDH] = regs[E1000_TDT] = 0;
   
   // [E1000 14.4] Receive initialization
   memset(rx_ring, 0, sizeof(rx_ring));
   for (i = 0; i < RX_RING_SIZE; i++) {
-    // rx_mbufs[i] = kalloc();
-    // if (!rx_mbufs[i])
-    //   panic("e1000");
+    rx_mbufs[i] = mbufalloc(0);
+    if (!rx_mbufs[i])
+      panic("e1000");
     rx_ring[i].addr = (uint64) kalloc();
   }
   regs[E1000_RDBAL] = (uint64) rx_ring;
@@ -88,7 +89,43 @@ e1000_init(uint32 *xregs)
   regs[E1000_IMS] = (1 << 7); // RXDW -- Receiver Descriptor Write Back
 }
 
+int
+e1000_transmit(struct mbuf *m)
+{
+
+  int index = regs[E1000_TDH];
+  memmove((void *)rx_ring[index].addr, (void *)m->head, m->len);
+  rx_ring[index].length = m->len;
+  printf("status: %d\n", tx_ring[index].status);
+  tx_ring[index].cmd = E1000_TXD_CMD_RS;
+  regs[E1000_TDH] += 1;
+  printf("head: %d, tail: %d\n", regs[E1000_TDH], regs[E1000_TDT]);
+  return 1;
+}
+
+static void
+e1000_recv(void)
+{
+
+  // init
+  acquire(&e1000_lock);
+  int index = regs[E1000_RDH]-1;
+  if (regs[E1000_RDT] < RX_RING_SIZE)
+    regs[E1000_RDT] += 1;
+  else
+    regs[E1000_RDT] = 0;
+  release(&e1000_lock);
+
+  struct mbuf *m = mbufalloc(0);
+  int len = rx_ring[index].length;
+  memmove((void *)m->buf, (void *)rx_ring[index].addr, len);
+  mbufput(m, len);
+  net_rx(m);
+}
+
 void 
 e1000_intr() {
-  printf("interrupt!!!\n");
+  e1000_recv();
+  regs[E1000_ICR];
 }
+
