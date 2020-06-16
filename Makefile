@@ -143,6 +143,8 @@ UPROGS=\
 	$U/_wc\
 	$U/_xargs\
 	$U/_zombie\
+	$U/_socktest\
+
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

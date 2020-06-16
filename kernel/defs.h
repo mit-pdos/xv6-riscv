@@ -198,9 +198,16 @@ int             e1000_transmit(struct mbuf *);
 
 // net.c
 void            net_rx(struct mbuf *);
+void            net_tx_udp(struct mbuf *, uint32,
+                            uint16, uint16);
 
+
+// sysfile.c
+int             fdalloc(struct file *);
 // sysnet.c
+void            sockinit();
 void            sockrecvudp(struct mbuf *, uint32, uint16, uint16);
+void            socksend(struct file *, uint64 data, int n);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

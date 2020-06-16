@@ -195,6 +195,8 @@ filewrite(struct file *f, uint64 addr, int n)
       i += r;
     }
     ret = (i == n ? n : -1);
+  } else if (f->type == FD_SOCK) {
+    socksend(f, addr, n);
   } else {
     panic("filewrite");
   }

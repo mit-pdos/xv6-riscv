@@ -10,11 +10,9 @@
 
 #define TX_RING_SIZE 16
 static struct tx_desc tx_ring[TX_RING_SIZE] __attribute__((aligned(16)));
-static struct mbuf *tx_mbufs[TX_RING_SIZE];
 
 #define RX_RING_SIZE 16
 static struct rx_desc rx_ring[RX_RING_SIZE] __attribute__((aligned(16)));
-static struct mbuf *rx_mbufs[RX_RING_SIZE];
 
 // remember where the e1000's registers live.
 static volatile uint32 *regs;
@@ -40,7 +38,6 @@ e1000_init(uint32 *xregs)
   memset(tx_ring, 0, sizeof(tx_ring));
   for (i = 0; i < TX_RING_SIZE; i++) {
     tx_ring[i].status = E1000_TXD_STAT_DD;
-    tx_mbufs[i] = 0;
   }
   regs[E1000_TDBAL] = (uint64) tx_ring;
   if(sizeof(tx_ring) % 128 != 0)
@@ -51,9 +48,6 @@ e1000_init(uint32 *xregs)
   // [E1000 14.4] Receive initialization
   memset(rx_ring, 0, sizeof(rx_ring));
   for (i = 0; i < RX_RING_SIZE; i++) {
-    rx_mbufs[i] = mbufalloc(0);
-    if (!rx_mbufs[i])
-      panic("e1000");
     rx_ring[i].addr = (uint64) kalloc();
   }
   regs[E1000_RDBAL] = (uint64) rx_ring;
@@ -104,11 +98,6 @@ e1000_transmit(struct mbuf *m)
 
 
   regs[E1000_TDT] = (index + 1) % TX_RING_SIZE;
-
-  printf("va: %p, pa: %p\n", kvmpa((uint64)m->head), m->head);
-  printf("cmd: %d\n", tx_ring[index].cmd);
-  printf("status: %d\n", tx_ring[index].status);
-  printf("head: %d, tail: %d\n", regs[E1000_TDH], regs[E1000_TDT]);
 
   return 0;
 }

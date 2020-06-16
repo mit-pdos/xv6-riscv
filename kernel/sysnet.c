@@ -100,3 +100,33 @@ sockrecvudp(struct mbuf *m, uint32 raddr, uint16 lport, uint16 rport)
   //
   mbuffree(m);
 }
+
+// UDP only now
+void
+socksend(struct file *f, uint64 data, int n)
+{
+  struct sock *s = f->sock;
+  struct mbuf *m = mbufalloc(1518-(n+1));
+
+  memmove((void *)m->head, (void *)data, n);
+  mbufput(m, n);
+  net_tx_udp(m, s->raddr, s->lport, s->rport);
+}
+
+// system call method
+uint64
+sys_socket(void)
+{
+  struct file *f;
+  int raddr;
+  int lport, rport;
+
+  if(argint(0, (int *)&raddr) < 0 || argint(1, (int *)&lport) < 0 || argint(2, (int *)&rport) < 0)
+    return -1;
+
+  int fd;
+  if(sockalloc(&f, (uint32)raddr, (uint16)lport, (uint16)rport) != 0 || (fd = fdalloc(f)) < 0)
+    return -1;
+
+  return fd;
+}
