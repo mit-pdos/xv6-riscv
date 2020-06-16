@@ -92,15 +92,25 @@ e1000_init(uint32 *xregs)
 int
 e1000_transmit(struct mbuf *m)
 {
+  int index = regs[E1000_TDT];
+  
+  if(!tx_ring[index].status & E1000_TXD_STAT_DD)
+    return -1;
 
-  int index = regs[E1000_TDH];
-  memmove((void *)rx_ring[index].addr, (void *)m->head, m->len);
-  rx_ring[index].length = m->len;
+  tx_ring[index].addr = (uint64) m->head;
+  tx_ring[index].length = (uint16) m->len;
+  tx_ring[index].cmd = E1000_TXD_CMD_RS | E1000_TXD_CMD_EOP;
+  tx_ring[index].status = 0;
+
+
+  regs[E1000_TDT] = (index + 1) % TX_RING_SIZE;
+
+  printf("va: %p, pa: %p\n", kvmpa((uint64)m->head), m->head);
+  printf("cmd: %d\n", tx_ring[index].cmd);
   printf("status: %d\n", tx_ring[index].status);
-  tx_ring[index].cmd = E1000_TXD_CMD_RS;
-  regs[E1000_TDH] += 1;
   printf("head: %d, tail: %d\n", regs[E1000_TDH], regs[E1000_TDT]);
-  return 1;
+
+  return 0;
 }
 
 static void
@@ -108,24 +118,24 @@ e1000_recv(void)
 {
 
   // init
-  acquire(&e1000_lock);
-  int index = regs[E1000_RDH]-1;
-  if (regs[E1000_RDT] < RX_RING_SIZE)
-    regs[E1000_RDT] += 1;
-  else
-    regs[E1000_RDT] = 0;
-  release(&e1000_lock);
+  int index = (regs[E1000_RDT]+1) % RX_RING_SIZE;
+
+  if(!rx_ring[index].status & E1000_RXD_STAT_DD)
+    return;
 
   struct mbuf *m = mbufalloc(0);
   int len = rx_ring[index].length;
   memmove((void *)m->buf, (void *)rx_ring[index].addr, len);
   mbufput(m, len);
+
+  regs[E1000_RDT] = index;
+
   net_rx(m);
 }
 
 void 
 e1000_intr() {
   e1000_recv();
-  regs[E1000_ICR];
+  regs[E1000_ICR]; // clear pending interrupts
 }
 
