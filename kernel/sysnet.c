@@ -103,12 +103,14 @@ sockrecvudp(struct mbuf *m, uint32 raddr, uint16 lport, uint16 rport)
 
 // UDP only now
 void
-socksend(struct file *f, uint64 data, int n)
+socksend(struct file *f, uint64 addr, int n)
 {
   struct sock *s = f->sock;
   struct mbuf *m = mbufalloc(1518-(n+1));
+  struct proc *pr = myproc();
 
-  memmove((void *)m->head, (void *)data, n);
+  copyin(pr->pagetable, m->head, addr, n);
+
   mbufput(m, n);
   net_tx_udp(m, s->raddr, s->lport, s->rport);
 }

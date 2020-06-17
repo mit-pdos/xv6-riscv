@@ -14,6 +14,7 @@ main(int argc, char **argv)
 
   char test[] = "testdayo-n\n";
   write(sock, test, strlen(test));
+  close(sock);
   exit(0);
 }
 
