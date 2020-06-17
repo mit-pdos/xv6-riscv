@@ -6,15 +6,19 @@ int
 main(int argc, char **argv)
 {
   uint32 raddr = 0x0a000202;
-  uint16 lport = 26999;
-  uint16 rport = 2000;
-  int sock = socket(raddr, lport, rport);
-  printf("raddr: %x, lport: %d, rport: %d\n", raddr, lport, rport);
-  printf("sock: %d\n", sock);
+  uint16 lport = 26990;
+  uint16 rport = 1991;
+  int sock[100];
 
-  char test[] = "testdayo-n\n";
-  write(sock, test, strlen(test));
-  close(sock);
+  for(int i = 0; i < 10; i++) {
+    sock[i] = socket(raddr, lport+i, rport+i);
+    write(sock[i], "testdayo-n\n", 12);
+    printf("sock[%d]=%d, lport: %d, rport: %d\n", i, sock[i], lport+i, rport+i);
+  }
+
+  for(int i = 0; i < 10; i++) 
+    close(sock[i]);
+
   exit(0);
 }
 

@@ -80,6 +80,10 @@ bad:
   return -1;
 }
 
+void sockfree(struct sock *si) {
+  kfree((char*)si);
+}
+
 //
 // Your code here.
 //

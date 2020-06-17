@@ -204,8 +204,10 @@ void            net_tx_udp(struct mbuf *, uint32,
 
 // sysfile.c
 int             fdalloc(struct file *);
+
 // sysnet.c
 void            sockinit();
+void            sockfree();
 void            sockrecvudp(struct mbuf *, uint32, uint16, uint16);
 void            socksend(struct file *, uint64 data, int n);
 
