@@ -131,8 +131,8 @@ main(int argc, char *argv[])
   for(i = 2; i < argc; i++){
     // get rid of "user/"
     char *shortname;
-    if(strncmp(argv[i], "user/", 5) == 0)
-      shortname = argv[i] + 5;
+    if(strncmp(argv[i], "build/user/", 11) == 0)
+      shortname = argv[i] + 11;
     else
       shortname = argv[i];
     
