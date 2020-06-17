@@ -5,6 +5,7 @@ _*
 *.asm
 *.sym
 *.img
+build/**
 vectors.S
 bootblock
 entryother
@@ -17,3 +18,4 @@ user/usys.S
 .gdbinit
 .tags
 .editorconfig
+

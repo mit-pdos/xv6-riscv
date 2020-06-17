@@ -1,43 +1,43 @@
 K=kernel
 U=user
+BUILD_DIR=build
 
-OBJS = \
-  $K/entry.o \
-  $K/start.o \
-  $K/console.o \
-  $K/printf.o \
-  $K/uart.o \
-  $K/kalloc.o \
-  $K/spinlock.o \
-  $K/string.o \
-  $K/main.o \
-  $K/vm.o \
-  $K/proc.o \
-  $K/swtch.o \
-  $K/trampoline.o \
-  $K/trap.o \
-  $K/syscall.o \
-  $K/sysproc.o \
-  $K/bio.o \
-  $K/fs.o \
-  $K/log.o \
-  $K/sleeplock.o \
-  $K/file.o \
-  $K/pipe.o \
-  $K/exec.o \
-  $K/sysfile.o \
-  $K/kernelvec.o \
-  $K/plic.o \
-  $K/virtio_disk.o \
-  $K/buddy.o \
-  $K/pci.o \
-  $K/e1000.o \
-  $K/net.o \
-  $K/sysnet.o \
+KSRCS = \
+	$K/entry.S \
+	$K/start.c \
+	$K/console.c \
+	$K/printf.c \
+	$K/uart.c \
+	$K/kalloc.c \
+	$K/spinlock.c \
+	$K/string.c \
+	$K/main.c \
+	$K/vm.c \
+	$K/proc.c \
+	$K/swtch.c \
+	$K/trampoline.S \
+	$K/trap.c \
+	$K/syscall.c \
+	$K/sysproc.c \
+	$K/bio.c \
+	$K/fs.c \
+	$K/log.c \
+	$K/sleeplock.c \
+	$K/file.c \
+	$K/pipe.c \
+	$K/exec.c \
+	$K/sysfile.c \
+	$K/kernelvec.S \
+	$K/plic.c \
+	$K/virtio_disk.c \
+	$K/buddy.c \
+	$K/pci.c \
+	$K/e1000.c \
+	$K/net.c \
+	$K/sysnet.c \
 
-# riscv64-unknown-elf- or riscv64-linux-gnu-
-# perhaps in /opt/riscv/bin
-#TOOLPREFIX = 
+KOBJS=$(patsubst %.S,%.o, $(addprefix $(BUILD_DIR)/, $(KSRCS:.c=.o)))
+KDEPS=$(patsubst %.o,%.d, $(KOBJS))
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX
@@ -76,19 +76,42 @@ endif
 
 LDFLAGS = -z max-page-size=4096
 
-$K/kernel: $(OBJS) $K/kernel.ld $U/initcode
-	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) 
-	$(OBJDUMP) -S $K/kernel > $K/kernel.asm
-	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
-$U/initcode: $U/initcode.S
+kernel: $(KOBJS) $K/kernel.ld initcode
+	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $(BUILD_DIR)/$K/kernel $(KOBJS) 
+	$(OBJDUMP) -S $(BUILD_DIR)/$K/kernel > $(BUILD_DIR)/$K/kernel.asm
+	$(OBJDUMP) -t $(BUILD_DIR)/$K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(BUILD_DIR)/$K/kernel.sym
+
+initcode: $U/initcode.S
 	$(CC) $(CFLAGS) -nostdinc -I. -Ikernel -c $U/initcode.S -o $U/initcode.o
 	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o $U/initcode.out $U/initcode.o
 	$(OBJCOPY) -S -O binary $U/initcode.out $U/initcode
 	$(OBJDUMP) -S $U/initcode.o > $U/initcode.asm
 
-tags: $(OBJS) _init
+tags: $(KOBJS) _init
 	etags *.S *.c
+
+$(BUILD_DIR)/%.o: %.c
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $^
+
+$(BUILD_DIR)/%.o: %.S
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $^
+
+$(BUILD_DIR)/%.d : %.c
+	mkdir -p $(dir $@); \
+	$(CC) -MM $(CFLAGS) $< \
+	| sed 's/$(notdir $*).o/$(subst /,\/,$(patsubst %.d,%.o,$@) $@)/' > $@ ; \
+	[ -s $@ ] || rm -f $@ \
+
+$(BUILD_DIR)/%.d : %.S
+	mkdir -p $(dir $@); \
+	$(CC) -MM $(CFLAGS) $< \
+	| sed 's/$(notdir $*).o/$(subst /,\/,$(patsubst %.d,%.o,$@) $@)/' > $@ ; \
+	[ -s $@ ] || rm -f $@ \
 
 ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o
 
@@ -143,8 +166,6 @@ UPROGS=\
 	$U/_wc\
 	$U/_xargs\
 	$U/_zombie\
-	$U/_socktest\
-
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
@@ -172,19 +193,19 @@ endif
 FWDPORT = $(shell expr `id -u` % 5000 + 25999)
 
 QEMUEXTRA = -drive file=fs1.img,if=none,format=raw,id=x1 -device virtio-blk-device,drive=x1,bus=virtio-mmio-bus.1
-QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 3G -smp $(CPUS) -nographic
+QEMUOPTS = -machine virt -bios none -kernel $(BUILD_DIR)/$K/kernel -m 3G -smp $(CPUS) -nographic
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 QEMUOPTS += -netdev user,id=net0,hostfwd=udp::$(FWDPORT)-:2000 -object filter-dump,id=net0,netdev=net0,file=packets.pcap
 # QEMUOPTS += -netdev tap,id=net0,ifname=tap0 -object filter-dump,id=net0,netdev=net0,file=packets.pcap
 QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
 
-qemu: $K/kernel fs.img
+qemu: $(BUILD_DIR) kernel fs.img
 	$(QEMU) $(QEMUOPTS)
 
 .gdbinit: .gdbinit.tmpl-riscv
 	sed "s/:1234/:$(GDBPORT)/" < $^ > $@
 
-qemu-gdb: $K/kernel .gdbinit fs.img
+qemu-gdb: $(BUILD_DIR) kernel .gdbinit fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
