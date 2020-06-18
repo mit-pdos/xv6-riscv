@@ -17,4 +17,4 @@ user/usys.S
 .gdbinit
 .tags
 .editorconfig
-*.pcap
+packets.pcap

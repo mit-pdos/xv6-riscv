@@ -1,0 +1,5 @@
+KROOT=../
+
+NETOBJS = \
+	
+net.o: 
