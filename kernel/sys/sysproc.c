@@ -1,5 +1,5 @@
 #include "types.h"
-#include "riscv.h"
+#include "arch/riscv.h"
 #include "defs.h"
 #include "date.h"
 #include "param.h"

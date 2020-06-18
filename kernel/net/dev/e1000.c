@@ -1,12 +1,12 @@
 #include "types.h"
 #include "param.h"
 #include "memlayout.h"
-#include "riscv.h"
+#include "arch/riscv.h"
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
 #include "e1000_dev.h"
-#include "net.h"
+#include "net/mbuf.h"
 
 #define TX_RING_SIZE 16
 static struct tx_desc tx_ring[TX_RING_SIZE] __attribute__((aligned(16)));

@@ -6,7 +6,7 @@
 #include "kernel/include/fcntl.h"
 #include "kernel/include/syscall.h"
 #include "kernel/include/memlayout.h"
-#include "kernel/include/riscv.h"
+#include "kernel/include/arch/riscv.h"
 
 //
 // Tests xv6 system calls.  usertests without arguments runs them all

@@ -5,7 +5,7 @@
 //
 
 #include "types.h"
-#include "riscv.h"
+#include "arch/riscv.h"
 #include "defs.h"
 #include "param.h"
 #include "stat.h"

@@ -48,44 +48,71 @@ KSRCS = \
 	$K/entry.S \
 	$K/start.c \
 	$K/console.c \
-	$K/printf.c \
-	$K/uart.c \
-	$K/kalloc.c \
-	$K/spinlock.c \
-	$K/string.c \
 	$K/main.c \
-	$K/vm.c \
-	$K/proc.c \
 	$K/swtch.c \
 	$K/trampoline.S \
 	$K/trap.c \
 	$K/bio.c \
-	$K/fs.c \
 	$K/log.c \
-	$K/sleeplock.c \
-	$K/file.c \
-	$K/pipe.c \
-	$K/exec.c \
 	$K/kernelvec.S \
-	$K/plic.c \
-	$K/virtio_disk.c \
-	$K/buddy.c \
-	$K/pci.c \
-	$K/e1000.c \
 
+# Memory System
 KSRCS += \
-	$K/net/net.c \
+	$K/mem/vm.c \
+	# $K/mem/ramdisk.c \
 
+# Lock System
+KSRCS += \
+	$K/lock/sleeplock.c \
+	$K/lock/spinlock.c \
+
+# Process System
+KSRCS += \
+	$K/proc/proc.c \
+	$K/proc/pipe.c \
+	$K/proc/exec.c \
+
+# File System
+KSRCS += \
+	$K/fs/file.c \
+	$K/fs/fs.c \
+
+# Kernel Useful Library
+KSRCS += \
+	$K/lib/printf.c \
+	$K/lib/kalloc.c \
+	$K/lib/string.c \
+	$K/lib/buddy.c \
+	
+# Device System
+KSRCS += \
+	$K/dev/plic.c \
+	$K/dev/uart.c \
+	$K/dev/virtio_disk.c \
+	$K/dev/pci.c \
+
+# Network System
+KSRCS += \
+	$K/net/dev/e1000.c \
+	$K/net/mbuf.c \
+	$K/net/ethernet.c \
+	$K/net/arp.c \
+	$K/net/ipv4.c \
+	$K/net/udp.c \
+
+# System call and OS Interface for user
 KSRCS += \
 	$K/sys/sysproc.c \
 	$K/sys/sysfile.c \
 	$K/sys/sysnet.c \
 	$K/sys/syscall.c \
 
+ULIBSRCS = $U/ulib.c $U/usys.S $U/printf.c $U/umalloc.c
+
 
 KOBJS=$(patsubst %.S,%.o, $(addprefix $(BUILD_DIR)/, $(KSRCS:.c=.o)))
+# KOBJS += net.o
 
-ULIBSRCS = $U/ulib.c $U/usys.S $U/printf.c $U/umalloc.c
 ULIBOBJS = $(patsubst %.S,%.o, $(addprefix $(BUILD_DIR)/, $(ULIBSRCS:.c=.o)))
 
 UPROGS=\
@@ -114,6 +141,8 @@ UPROGS=\
   	_xargs\
   	_zombie\
   	_socktest\
+
+all: qemu
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
