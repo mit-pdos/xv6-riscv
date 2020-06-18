@@ -22,7 +22,7 @@ CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
-CFLAGS += -I.
+CFLAGS += -I. -Ikernel/include -Iuser/include
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
@@ -59,8 +59,6 @@ KSRCS = \
 	$K/swtch.c \
 	$K/trampoline.S \
 	$K/trap.c \
-	$K/syscall.c \
-	$K/sysproc.c \
 	$K/bio.c \
 	$K/fs.c \
 	$K/log.c \
@@ -68,15 +66,22 @@ KSRCS = \
 	$K/file.c \
 	$K/pipe.c \
 	$K/exec.c \
-	$K/sysfile.c \
 	$K/kernelvec.S \
 	$K/plic.c \
 	$K/virtio_disk.c \
 	$K/buddy.c \
 	$K/pci.c \
 	$K/e1000.c \
-	$K/net.c \
-	$K/sysnet.c \
+
+KSRCS += \
+	$K/net/net.c \
+
+KSRCS += \
+	$K/sys/sysproc.c \
+	$K/sys/sysfile.c \
+	$K/sys/sysnet.c \
+	$K/sys/syscall.c \
+
 
 KOBJS=$(patsubst %.S,%.o, $(addprefix $(BUILD_DIR)/, $(KSRCS:.c=.o)))
 
@@ -120,7 +125,7 @@ kernel: $(KOBJS) $K/kernel.ld initcode
 
 initcode: $U/initcode.S
 	@mkdir -p $(BUILD_DIR)/$U
-	$(CC) $(CFLAGS) -nostdinc -I. -Ikernel -c $U/initcode.S -o $(BUILD_DIR)/$U/initcode.o
+	$(CC) $(CFLAGS) -nostdinc -I. -Ikernel -Ikernel/include -c $U/initcode.S -o $(BUILD_DIR)/$U/initcode.o
 	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o $(BUILD_DIR)/$U/initcode.out $(BUILD_DIR)/$U/initcode.o
 	$(OBJCOPY) -S -O binary $(BUILD_DIR)/$U/initcode.out $(BUILD_DIR)/$U/initcode
 	$(OBJDUMP) -S $(BUILD_DIR)/$U/initcode.o > $(BUILD_DIR)/$U/initcode.asm
@@ -142,7 +147,7 @@ $(BUILD_DIR)/%.o: %.S
 	@mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) -o $@ $<
 
-mkfs/mkfs: mkfs/mkfs.c $K/fs.h
+mkfs/mkfs: mkfs/mkfs.c $K/include/fs.h
 	gcc -Werror -Wall -I. -o mkfs/mkfs mkfs/mkfs.c
 
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
