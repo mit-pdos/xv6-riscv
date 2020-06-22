@@ -5,7 +5,7 @@
 #include "proc.h"
 #include "net/byteorder.h"
 #include "net/mbuf.h"
-#include "net/net.h"
+#include "net/netutil.h"
 #include "net/ipv4.h"
 #include "net/udp.h"
 #include "defs.h"

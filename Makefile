@@ -93,12 +93,14 @@ KSRCS += \
 
 # Network System
 KSRCS += \
+	$K/net/netutil.c \
 	$K/net/dev/e1000.c \
 	$K/net/mbuf.c \
 	$K/net/ethernet.c \
 	$K/net/arp.c \
 	$K/net/ipv4.c \
 	$K/net/udp.c \
+	$K/net/tcp.c \
 
 # System call and OS Interface for user
 KSRCS += \

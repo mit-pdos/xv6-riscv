@@ -3,11 +3,11 @@
 #include "arch/riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "defs.h"
 #include "net/byteorder.h"
 #include "net/mbuf.h"
 #include "net/ethernet.h"
-#include "net/net.h"
-#include "defs.h"
+#include "net/netutil.h"
 
 uint8 local_mac[ETHADDR_LEN] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x56 };
 uint8 broadcast_mac[ETHADDR_LEN] = { 0xFF, 0XFF, 0XFF, 0XFF, 0XFF, 0XFF };

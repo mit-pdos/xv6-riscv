@@ -3,12 +3,12 @@
 #include "arch/riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "defs.h"
 #include "net/byteorder.h"
 #include "net/mbuf.h"
-#include "net/net.h"
+#include "net/netutil.h"
 #include "net/ethernet.h"
 #include "net/arp.h"
-#include "defs.h"
 
 extern uint8 local_mac[];
 extern uint32 local_ip;

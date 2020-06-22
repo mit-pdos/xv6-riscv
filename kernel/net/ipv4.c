@@ -6,7 +6,7 @@
 #include "proc.h"
 #include "net/byteorder.h"
 #include "net/mbuf.h"
-#include "net/net.h"
+#include "net/netutil.h"
 #include "net/ethernet.h"
 #include "net/ipv4.h"
 #include "defs.h"
@@ -95,12 +95,16 @@ net_rx_ip(struct mbuf *m)
   // is the packet addressed to us?
   if (htonl(iphdr->ip_dst) != local_ip)
     goto fail;
-  // can only support UDP
-  if (iphdr->ip_p != IPPROTO_UDP)
-    goto fail;
 
   len = ntohs(iphdr->ip_len) - sizeof(*iphdr);
-  net_rx_udp(m, len, iphdr);
+
+  if (iphdr->ip_p == IPPROTO_UDP) {
+    net_rx_udp(m, len, iphdr);
+  } else if (iphdr->ip_p == IPPROTO_TCP) {
+    net_rx_tcp(m, len, iphdr);
+  } else {
+    goto fail;
+  }
   return;
 
 fail:
