@@ -209,7 +209,8 @@ int             fdalloc(struct file *);
 void            sockinit();
 void            sockfree();
 void            sockrecvudp(struct mbuf *, uint32, uint16, uint16);
-void            socksend(struct file *, uint64 data, int n);
+int             sys_socksend(struct file *, uint64, int);
+int             sys_sockrecv(struct file *, uint64, int);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

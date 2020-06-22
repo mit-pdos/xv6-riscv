@@ -84,39 +84,26 @@ void sockfree(struct sock *si) {
   kfree((char*)si);
 }
 
-//
-// Your code here.
-//
-// Add and wire in methods to handle closing, reading,
-// and writing for network sockets.
-//
-
 // called by protocol handler layer to deliver UDP packets
 void
 sockrecvudp(struct mbuf *m, uint32 raddr, uint16 lport, uint16 rport)
 {
-  //
-  // Your code here.
-  //
-  // Find the socket that handles this mbuf and deliver it, waking
-  // any sleeping reader. Free the mbuf if there are no sockets
-  // registered to handle it.
-  //
+  acquire(&lock);
+  struct sock *sock;
+  sock = sockets;
+  while (sock) {
+    if (sock->raddr == raddr &&
+        sock->lport == lport &&
+        sock->rport == rport) {
+      release(&lock);
+      acquire(&sock->lock);
+      mbufq_pushtail(&sock->rxq, m);
+      release(&sock->lock);
+      return;
+    }
+  }
+  release(&lock);
   mbuffree(m);
-}
-
-// UDP only now
-void
-socksend(struct file *f, uint64 addr, int n)
-{
-  struct sock *s = f->sock;
-  struct mbuf *m = mbufalloc(1518-(n+1));
-  struct proc *pr = myproc();
-
-  copyin(pr->pagetable, m->head, addr, n);
-
-  mbufput(m, n);
-  net_tx_udp(m, s->raddr, s->lport, s->rport);
 }
 
 // system call method
@@ -136,3 +123,37 @@ sys_socket(void)
 
   return fd;
 }
+
+// UDP only now
+int
+sys_socksend(struct file *f, uint64 addr, int n)
+{
+  // TODO split data
+  struct sock *s = f->sock;
+  struct mbuf *m = mbufalloc(1518-(n+1));
+  struct proc *pr = myproc();
+
+  copyin(pr->pagetable, m->head, addr, n);
+
+  mbufput(m, n);
+  net_tx_udp(m, s->raddr, s->lport, s->rport);
+  return n;
+}
+
+int
+sys_sockrecv(struct file *f, uint64 addr, int n)
+{
+  struct sock *sock = f->sock;
+  struct mbufq *rxq = &sock->rxq;
+  struct proc *pr = myproc();
+
+  struct mbuf *m = mbufq_pophead(rxq);
+  // TODO fix busy wait
+  while (m == 0x0) {
+    m = mbufq_pophead(rxq);
+  }
+  copyout(pr->pagetable, addr, m->head, n);
+  mbuffree(m);
+  return n;
+}
+
