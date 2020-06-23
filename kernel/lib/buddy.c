@@ -10,7 +10,7 @@
 #define BLK_SIZE(k)   ((1L << (k)) * LEAF_SIZE) 
 #define HEAP_SIZE     BLK_SIZE(MAX_SIZE) // 4096
 #define ROUNDUP(n,sz) (((((n)-1)/(sz))+1)*(sz))
-#define MAX_PAGES     16
+#define MAX_PAGES     32
 
 struct bd_list {
   struct bd_list *prev;

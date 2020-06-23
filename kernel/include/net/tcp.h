@@ -1,4 +1,6 @@
 
+#define COLLISION_NUM 11
+
 #define TCP_CB_LEN 256
 
 #define TCP_FLG_FIN 0x01
@@ -8,7 +10,9 @@
 #define TCP_FLG_ACK 0x10
 #define TCP_FLG_URG 0x20
 
-#define TCP_HDR_LEN(hdr) (((hdr)->off >> 4) << 2)
+#define TCP_MIN_PORT 25000
+
+#define TCP_HDR_LEN(hdr) (((hdr)->offset >> 4) << 2)
 #define TCP_DATA_LEN(hdr, len) ((len)-TCP_HDR_LEN(hdr))
 
 struct tcp {
@@ -23,7 +27,7 @@ struct tcp {
   uint16 window;
   uint16 sum;
   uint16 urg;
-} __attribute__((packed));
+};
 
 enum tcp_cb_state {
   CLOSED,
@@ -40,7 +44,8 @@ enum tcp_cb_state {
 };
 
 struct tcp_cb {
-  enum tcp_state state;
+  int used;
+  enum tcp_cb_state state;
   uint16 port;
   struct {
     uint32 addr;

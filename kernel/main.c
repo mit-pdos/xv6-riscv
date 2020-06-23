@@ -30,6 +30,7 @@ main()
     fileinit();      // file table
     virtio_disk_init(); // emulated hard disk
     pci_init();
+    tcpinit();
     sockinit();
     userinit();      // first user process
     __sync_synchronize();

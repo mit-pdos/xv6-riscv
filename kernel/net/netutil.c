@@ -13,7 +13,7 @@ uint16 cksum16(uint16 *data, uint16 size, uint32 init) {
   uint32 sum;
   sum = init;
   while(size > 1) {
-    sum += *(data++);
+    sum += ntohs(*(data++));
     size -= 2;
   }
   if (size) {
@@ -21,5 +21,5 @@ uint16 cksum16(uint16 *data, uint16 size, uint32 init) {
   }
   sum = (sum & 0xffff) + (sum >> 16);
   sum = (sum & 0xffff) + (sum >> 16);
-  return ~(uint16)sum;
+  return ~sum;
 }
