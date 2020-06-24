@@ -36,7 +36,7 @@ void net_rx(struct mbuf *m)
 {
   struct eth *ethhdr;
   uint16 type;
-
+  
   ethhdr = mbufpullhdr(m, *ethhdr);
   if (!ethhdr) {
     mbuffree(m);
