@@ -142,7 +142,8 @@ UPROGS=\
   	_wc\
   	_xargs\
   	_zombie\
-  	_socktest\
+  	_sock_udp\
+  	_sock_tcp\
 
 all: qemu
 
@@ -193,11 +194,11 @@ fs.img: mkfs/mkfs README $(UPROGS)
 -include $(BUILD_DIR)/kernel/*.d $(BUILD_DIR)/user/*.d
 
 clean: 
-	-rm -r 	$U/initcode $U/initcode.out $K/kernel fs.img \
-			$U/*.d $U/*.o $U/*.asm $U/*.sym $U/_*\
-			.gdbinit \
-			$U/usys.S \
-			$(UPROGS)
+	# -rm -r 	$U/initcode $U/initcode.out $K/kernel fs.img \
+	# 		$U/*.d $U/*.o $U/*.asm $U/*.sym $U/_*\
+	# 		.gdbinit \
+	# 		$U/usys.S \
+	# 		$(UPROGS)
 	-rm -rf build
 
 ###################################
