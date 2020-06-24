@@ -1,0 +1,11 @@
+#! /bin/sh
+# Script to shut down a network (tap) device for qemu.
+# Initially this script is empty, but you can configure,
+# for example, accounting info here.
+
+echo "Executing qemu-ifdown"
+sudo ip link set $1 down
+sudo brctl delif br0 $1
+sudo ip link delete dev $1
+sudo ip link set br0 down
+sudo brctl delbr br0

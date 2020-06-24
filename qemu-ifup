@@ -1,0 +1,15 @@
+#! /bin/sh
+# Script to bring a network (tap) device for qemu up.
+# The idea is to add the tap device to the same bridge
+# as we have default routing to.
+
+USERID=`whoami`
+echo "Executing qemu-ifup"
+echo "Bringing up $1 for bridged mode..."
+sudo brctl addbr br0
+sleep 2
+sudo ip tuntap add user $USERID mode tap name $1
+sudo ip link set $1 up promisc on
+echo "Adding $1 to br0..."
+sudo brctl addif br0 $1
+sleep 2
