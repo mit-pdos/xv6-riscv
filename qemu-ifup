@@ -4,12 +4,21 @@
 # as we have default routing to.
 
 USERID=`whoami`
+HOSTTAP="taphost"
 echo "Executing qemu-ifup"
-echo "Bringing up $1 for bridged mode..."
-sudo brctl addbr br0
+echo "br0 setting..."
+sudo ip link add br0 type bridge
+ip address add 192.168.22.0/24 dev br0
+sudo ip link set dev br0 up promisc on
 sleep 2
-sudo ip tuntap add user $USERID mode tap name $1
+echo "Bringing up $1 for bridged mode..."
+sudo ip tuntap add dev $1 mode tap
+sudo ip tuntap add dev $HOSTTAP mode tap
 sudo ip link set $1 up promisc on
+sudo ip link set $HOSTTAP up promisc on
 echo "Adding $1 to br0..."
-sudo brctl addif br0 $1
+sudo ip link set dev $1 master br0
+sudo ip link set dev $HOSTTAP master br0
+ip address add 192.168.22.1/24 dev $HOSTTAP
+ip route add default via 192.168.22.0 dev br0
 sleep 2
