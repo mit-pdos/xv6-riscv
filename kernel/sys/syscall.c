@@ -4,7 +4,7 @@
 #include "arch/riscv.h"
 #include "spinlock.h"
 #include "proc.h"
-#include "syscall.h"
+#include "sys/syscall.h"
 #include "defs.h"
 
 // Fetch the uint64 at addr from the current process.

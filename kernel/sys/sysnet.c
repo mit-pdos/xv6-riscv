@@ -15,17 +15,7 @@
 #include "net/mbuf.h"
 #include "net/netutil.h"
 #include "net/tcp.h"
-
-struct sock {
-  struct sock *next; // the next socket in the list
-  uint32 raddr;      // the remote IPv4 address
-  uint16 sport;      // the local UDP port number
-  uint16 dport;      // the remote UDP port number
-  int stype;
-  struct spinlock lock; // protects the rxq
-  struct mbufq rxq;  // a queue of packets waiting to be received
-  struct tcp_cb *tcb;
-};
+#include "sys/sysnet.h"
 
 static struct spinlock lock;
 static struct sock *sockets;
@@ -37,7 +27,7 @@ sockinit(void)
 }
 
 int
-sockalloc(struct file **f, uint32 raddr, uint16 dport, int stype)
+sockalloc(struct file **f, uint32 raddr, uint16 sport, uint16 dport, int stype)
 {
   struct sock *si, *pos;
 
@@ -51,13 +41,12 @@ sockalloc(struct file **f, uint32 raddr, uint16 dport, int stype)
   // initialize objects
   si->raddr = raddr;
   // TODO source port decision
-  uint16 sport = 0;
   si->sport = sport;
   si->dport = dport;
   si->stype = stype;
 
   if(stype == SOCK_TCP || stype == SOCK_TCP_LISTEN) {
-    si->tcb = tcp_open(raddr, dport, stype);
+    si->tcb = tcp_open(raddr, sport, dport, stype);
     if (si->tcb == 0) {
       goto bad;
     }
@@ -130,18 +119,19 @@ sys_socket(void)
 {
   struct file *f;
   int raddr;
-  int dport;
+  int sport, dport;
   int stype;
 
   if(
     argint(0, (int *)&raddr) < 0 ||
     argint(1, (int *)&dport) < 0 ||
-    argint(2, (int *)&stype) < 0
+    argint(2, (int *)&sport) < 0 ||
+    argint(3, (int *)&stype) < 0
   )
     return -1;
 
   int fd;
-  if(sockalloc(&f, (uint32)raddr, (uint16)dport, stype) != 0 || (fd = fdalloc(f)) < 0)
+  if(sockalloc(&f, (uint32)raddr, (uint16)sport, (uint16)dport, stype) != 0 || (fd = fdalloc(f)) < 0)
     return -1;
 
   return fd;

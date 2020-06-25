@@ -69,4 +69,4 @@ struct tcp_cb {
   uint8 window[TCP_DEFAULT_WINDOW];
 };
 
-struct tcp_cb *tcp_open(uint32, uint16, int);
+struct tcp_cb *tcp_open(uint32, uint16, uint16, int);
