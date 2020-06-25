@@ -7,10 +7,11 @@ int
 main(int argc, char **argv)
 {
   uint32 raddr = 0x0a000202;
-  uint16 rport = 2001;
+  uint16 sport = 26001;
+  uint16 dport = 2001;
   int sock;
 
-  sock = socket(raddr, rport, SOCK_TCP_LISTEN);
+  sock = socket(raddr, sport, dport, SOCK_TCP_LISTEN);
 
   while(1) {
     char rbuf[256];

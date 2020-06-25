@@ -11,7 +11,7 @@
 #include "net/ipv4.h"
 #include "defs.h"
 
-uint32 local_ip = MAKE_IP_ADDR(10, 0, 2, 15); // qemu's idea of the guest IP
+uint32 local_ip = MAKE_IP_ADDR(192, 168, 22, 2); // qemu's idea of the guest IP
 
 
 // This code is lifted from FreeBSD's ping.c, and is copyright by the Regents

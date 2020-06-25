@@ -18,6 +18,8 @@ net_tx_eth(struct mbuf *m, uint16 ethtype)
 {
   struct eth *ethhdr;
 
+  printf("ikuze!\n");
+
   ethhdr = mbufpushhdr(m, *ethhdr);
   memmove(ethhdr->shost, local_mac, ETHADDR_LEN);
   // In a real networking stack, dhost would be set to the address discovered
@@ -36,6 +38,8 @@ void net_rx(struct mbuf *m)
 {
   struct eth *ethhdr;
   uint16 type;
+
+  printf("get!!\n");
   
   ethhdr = mbufpullhdr(m, *ethhdr);
   if (!ethhdr) {

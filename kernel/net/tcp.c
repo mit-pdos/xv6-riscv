@@ -13,15 +13,15 @@
 
 struct tcp_cb tcb_table[TCP_CB_LEN];
 
-struct tcp_cb* _get_tcb(uint32 raddr, uint16 dport, uint32 c) {
-  return &tcb_table[(raddr + dport + TCP_COLLISION_NUM * c) % TCP_CB_LEN];
+struct tcp_cb* _get_tcb(uint32 raddr, uint16 sport, uint32 c) {
+  return &tcb_table[(raddr + sport + TCP_COLLISION_NUM * c) % TCP_CB_LEN];
 }
 
-struct tcp_cb* get_tcb(uint32 raddr, uint16 dport) {
+struct tcp_cb* get_tcb(uint32 raddr, uint16 sport) {
   struct tcp_cb* tcb;
   for (int i = 0; i < TCP_CB_LEN; i++) {
-    tcb = _get_tcb(raddr, dport, i);
-    if (tcb->used && tcb->raddr == raddr && tcb->dport == dport) {
+    tcb = _get_tcb(raddr, sport, i);
+    if (tcb->used && tcb->raddr == raddr && tcb->sport == sport) {
       return tcb;
     }
     if (!tcb->used) {
@@ -72,15 +72,16 @@ static uint16 tcp_checksum(struct ipv4 *iphdr , struct tcp *tcphdr, uint16 len) 
   return cksum16((uint16 *)tcphdr, len, pseudo);
 }
 
-struct tcp_cb *tcp_open(uint32 raddr, uint16 dport, int stype) {
+struct tcp_cb *tcp_open(uint32 raddr, uint16 sport, uint16 dport, int stype) {
   struct tcp_cb *tcb;
 
-  tcb = get_tcb(raddr, dport);
+  tcb = get_tcb(raddr, sport);
   if (tcb != 0 && !tcb->used) {
     init_tcp_cb(tcb);
 
     tcb->raddr = raddr;
     tcb->dport = dport;
+    tcb->sport = sport;
 
     if (stype == SOCK_TCP) {
       struct mbuf *m = mbufalloc(ETH_MAX_SIZE);
@@ -192,6 +193,7 @@ void net_tx_tcp(struct tcp_cb *tcb, struct mbuf *m, uint8 flg) {
   tcphdr->flg = flg;
   printf("flg: %d\n", flg);
   tcphdr->wnd = htons(tcb->rcv.wnd);
+  // tcphdr->sum = tcp_checksum(iphdr, tcphdr, len);
   tcphdr->sum = 0;
   tcphdr->urg = 0;
 
@@ -221,6 +223,8 @@ void net_rx_tcp(struct mbuf *m, uint16 len, struct ipv4 *iphdr) {
 
   raddr = ntohl(iphdr->ip_src);
   dport = ntohs(tcphdr->dport);
+  uint16 sport = ntohs(tcphdr->sport);
+  // uint16 sport = 2001;
 
   tcb = get_tcb(raddr, dport);
 
@@ -246,6 +250,8 @@ void net_rx_tcp(struct mbuf *m, uint16 len, struct ipv4 *iphdr) {
       } else if (TCP_FLG_ISSET(flg, TCP_FLG_SYN)) {
         // TODO check security
         // TODO If the SEG.PRC is greater than the TCB.PRC
+        // TODO sport
+        tcb->dport = sport;
 
         tcb->rcv.wnd = sizeof(tcb->window);
         tcb->rcv.init_seq = ntohl(tcphdr->seq);
