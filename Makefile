@@ -98,6 +98,7 @@ KSRCS += \
 	$K/net/mbuf.c \
 	$K/net/ethernet.c \
 	$K/net/arp.c \
+	$K/net/arptable.c \
 	$K/net/ipv4.c \
 	$K/net/udp.c \
 	$K/net/tcp.c \
@@ -142,8 +143,9 @@ UPROGS=\
   	_wc\
   	_xargs\
   	_zombie\
-  	_sock_udp\
-  	_sock_tcp\
+  	_udp\
+  	_tcp\
+  	_tcplisten\
 
 all: qemu
 
@@ -221,7 +223,7 @@ QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-devic
 QEMUOPTS += -netdev tap,id=net0,ifname=$(TAPNAME),script=./qemu-ifup,downscript=./qemu-ifdown
 # QEMUOPTS += -netdev user,id=net0,hostfwd=udp::26000-:2000,hostfwd=tcp::26001-:2001
 QEMUOPTS += -object filter-dump,id=net0,netdev=net0,file=packets.pcap
-QEMUOPTS += -device e1000,netdev=net0,mac=52:55:00:d1:55:01,bus=pcie.0
+QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
 
 qemu: $(BUILD_DIR) kernel fs.img
 	$(QEMU) $(QEMUOPTS)

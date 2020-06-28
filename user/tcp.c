@@ -6,12 +6,12 @@
 int
 main(int argc, char **argv)
 {
-  uint32 raddr = 0x0a000202;
+  uint32 raddr = 0xc0a81600;
   uint16 sport = 26001;
   uint16 dport = 2001;
   int sock;
 
-  sock = socket(raddr, sport, dport, SOCK_TCP_LISTEN);
+  sock = socket(raddr, sport, dport, SOCK_TCP);
 
   while(1) {
     char rbuf[256];
