@@ -15,7 +15,7 @@ void net_rx_arp(struct mbuf *);
 void net_tx_ip(struct mbuf *, uint8, uint32);
 void net_rx_ip(struct mbuf *);
 
-void net_tx_eth(struct mbuf*, uint16);
+void net_tx_eth(struct mbuf*, uint16, uint32);
 void net_rx(struct mbuf*);
 
 // util

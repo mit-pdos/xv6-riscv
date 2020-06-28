@@ -69,7 +69,7 @@ net_tx_ip(struct mbuf *m, uint8 proto, uint32 dip)
   iphdr->ip_sum = in_cksum((unsigned char *)iphdr, sizeof(*iphdr));
 
   // now on to the ethernet layer
-  net_tx_eth(m, ETHTYPE_IP);
+  net_tx_eth(m, ETHTYPE_IP, dip);
 }
 
 // receives an IP packet
@@ -90,7 +90,7 @@ net_rx_ip(struct mbuf *m)
   if (in_cksum((unsigned char *)iphdr, sizeof(*iphdr)))
     goto fail;
   // can't support fragmented IP packets
-  if (htons(iphdr->ip_off) != 0)
+  if (IP_GET_OFF(htons(iphdr->ip_off)) != 0)
     goto fail;
   // is the packet addressed to us?
   if (htonl(iphdr->ip_dst) != local_ip)
