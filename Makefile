@@ -237,3 +237,6 @@ qemu-gdb: $(BUILD_DIR) kernel .gdbinit fs.img
 
 tags:
 	ctags -R -f .tags --exclude=build
+
+TESTMK=test.mk
+include $(TESTMK)
