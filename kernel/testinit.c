@@ -3,6 +3,7 @@
 #include "memlayout.h"
 #include "arch/riscv.h"
 #include "defs.h"
+#include "test/test.h"
 
 void timerinit();
 
@@ -57,7 +58,9 @@ test()
     plicinithart();   // ask PLIC for device interrupts
   }
 
-  scheduler();        
+  // 3-core
+  test_start();
+  scheduler();
 }
 
 // entry.S jumps here in machine mode on stack0.
