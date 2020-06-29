@@ -3,22 +3,8 @@
 # The idea is to add the tap device to the same bridge
 # as we have default routing to.
 
-USERID=`whoami`
-HOSTTAP="taphost"
 echo "Executing qemu-ifup"
-echo "br0 setting..."
-sudo ip link add br0 type bridge
-ip address add 192.168.22.0/24 dev br0
-sudo ip link set dev br0 up promisc on
-sleep 2
 echo "Bringing up $1 for bridged mode..."
 sudo ip tuntap add dev $1 mode tap
-sudo ip tuntap add dev $HOSTTAP mode tap
 sudo ip link set $1 up promisc on
-sudo ip link set $HOSTTAP up promisc on
-echo "Adding $1 to br0..."
-sudo ip link set dev $1 master br0
-sudo ip link set dev $HOSTTAP master br0
-ip address add 192.168.22.1/24 dev $HOSTTAP
-ip route add default via 192.168.22.0 dev br0
-sleep 2
+sudo ip route add 192.168.22.0/24 dev $1

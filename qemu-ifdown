@@ -3,12 +3,7 @@
 # Initially this script is empty, but you can configure,
 # for example, accounting info here.
 
+
 echo "Executing qemu-ifdown"
 sudo ip link set $1 down
-# sudo ip link set taphost down
-sudo brctl delif br0 $1
-# sudo brctl delif br0 taphost
 sudo ip link delete dev $1
-# sudo ip link delete dev taphost
-sudo ip link set br0 down
-sudo brctl delbr br0
