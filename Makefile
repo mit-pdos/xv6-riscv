@@ -114,7 +114,6 @@ ULIBSRCS = $U/ulib.c $U/usys.S $U/printf.c $U/umalloc.c
 
 
 KOBJS=$(patsubst %.S,%.o, $(addprefix $(BUILD_DIR)/, $(KSRCS:.c=.o)))
-# KOBJS += net.o
 
 ULIBOBJS = $(patsubst %.S,%.o, $(addprefix $(BUILD_DIR)/, $(ULIBSRCS:.c=.o)))
 
