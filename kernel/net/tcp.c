@@ -43,31 +43,36 @@ void free_tcp_cb(struct tcp_cb *tcb) {
 struct tcp_cb* get_tcb(uint32 raddr, uint16 sport, uint16 dport) {
   struct tcp_cb_entry* entry;
   struct tcp_cb *tcb;
+  struct tcp_cb *prev;
   entry = &tcb_table[(raddr + (sport << 16) + dport) % TCP_CB_LEN];
 
   acquire(&entry->lock);
   tcb = entry->head;
-  while(
-    tcb->next != 0 ||
-    (tcb->raddr == raddr && tcb->sport == sport && tcb->dport == dport)
-  ) {
+  prev = 0;
+  while (tcb != 0) {
+    if (tcb->raddr == raddr && tcb->sport == sport && tcb->dport == dport)
+      break;
+    prev = tcb;
     tcb = tcb->next;
   }
-
-  // next tcb
-  if (tcb != 0 && tcb->next == 0) {
-    tcb->next = bd_alloc(sizeof(struct tcp_cb));
-    tcb->next->prev = tcb;
-    tcb = tcb->next;
+  
   // new tcb
-  } else if(tcb == 0) {
+  if(tcb == 0) {
     tcb = bd_alloc(sizeof(struct tcp_cb));
   // Already exists
-  } else {
+  } else if (
+    tcb != 0 && 
+    tcb->raddr == raddr &&
+    tcb->sport == sport &&
+    tcb->dport == dport
+  ){
     release(&entry->lock);
     return tcb;
   }
   init_tcp_cb(tcb, raddr, sport, dport);
+  if (prev != 0)
+    prev->next = tcb;
+  tcb->prev = prev;
   release(&entry->lock);
   return tcb;
 }
