@@ -3,14 +3,10 @@
 #include "arch/riscv.h"
 #include "spinlock.h"
 #include "defs.h"
+#include "lib/buddy.h"
 
-#define LEAF_SIZE     32
-#define NSIZES        8
-#define MAX_SIZE     NSIZES-1
-#define BLK_SIZE(k)   ((1L << (k)) * LEAF_SIZE) 
-#define HEAP_SIZE     BLK_SIZE(MAX_SIZE) // 4096
-#define ROUNDUP(n,sz) (((((n)-1)/(sz))+1)*(sz))
-#define MAX_PAGES     64
+#define MAX_FREED PGSIZE * MAX_PAGES
+uint64 bd_allocated;
 
 struct bd_list {
   struct bd_list *prev;
@@ -23,7 +19,6 @@ struct sz_info {
 
 struct pagelist {
   int index;
-  int isalloc;
   void *pageaddr;
   char alloc[NSIZES][16];
   char split[NSIZES][16];
@@ -65,10 +60,10 @@ void bit_clear(char *map, int index) {
 void
 bd_init()
 {
+  bd_allocated = 0;
   initlock(&bd_table.lock, "buddytable");
   for (int i = 0; i < MAX_PAGES; i++) {
     bd_table.plist[i].index = i;
-    bd_table.plist[i].isalloc = 1;
     bd_table.plist[i].pageaddr = kalloc();
     if (bd_table.plist[i].pageaddr == 0) {
       panic("kalloc() error!! in buddy.c");
@@ -100,8 +95,6 @@ firstk(int n) {
 
 int get_page_index(void *addr) {
   for (int i = 0; i < MAX_PAGES; i++) {
-    if (bd_table.plist[i].isalloc == 0)
-      break;
     int offset = addr - bd_table.plist[i].pageaddr;
     if (0 <= offset && offset < HEAP_SIZE) {
       return i;
@@ -116,12 +109,13 @@ int blk_index(int k, char *p, void *base_addr) {
 }
 
 int blk_size(void *p, int pindex, void* base_addr) {
-  for (int k = 0; k < NSIZES; k++) {
+  int k;
+  for (k = 0; k < NSIZES; k++) {
     if(bit_isset(bd_table.plist[pindex].split[k+1], blk_index(k+1, p, base_addr))) {
       return k;
     }
   }
-  return 0;
+  return k-1;
 }
 
 void *addr(int k, int bi, void* base_addr) {
@@ -137,6 +131,8 @@ bd_free(void *p)
   int pindex = get_page_index(p);
   void *pbase = bd_table.plist[pindex].pageaddr;
   k = blk_size(p, pindex, pbase);
+  bd_allocated -= LEAF_SIZE << k;
+  acquire(&bd_table.lock);
   for (k = blk_size(p, pindex, pbase); k < MAX_SIZE; k++) {
     int bi = blk_index(k, p, pbase);
     bit_clear(bd_table.plist[pindex].alloc[k], bi);
@@ -153,6 +149,7 @@ bd_free(void *p)
     bit_clear(bd_table.plist[pindex].split[k+1], blk_index(k+1, p, pbase));
   }
   lst_push(&bd_table.bd_sizes[k].free, p);
+  release(&bd_table.lock);
 }
 
 void *
@@ -168,20 +165,20 @@ bd_alloc(int nbytes)
   if (k >= NSIZES)
     return 0;
 
+  acquire(&bd_table.lock);
   char *p = lst_pop(&bd_table.bd_sizes[k].free);
   int pindex = get_page_index(p);
   void *pbase = bd_table.plist[pindex].pageaddr;
-  // printf("size: %d\n", nbytes);
-  // printf("num: %d\n", num++);
-  // printf("pindex: %d\n", pindex);
-  // printf("pbase: %p %p %p\n", p, pbase, bd_table.plist[0].pageaddr);
   bit_set(bd_table.plist[pindex].alloc[k], blk_index(k, p, pbase));
+  bd_allocated += LEAF_SIZE << fk;
   for (; k > fk; k--) {
     char *q = p + BLK_SIZE(k-1);
     bit_set(bd_table.plist[pindex].split[k], blk_index(k, p, pbase));
     bit_set(bd_table.plist[pindex].alloc[k-1], blk_index(k-1, p, pbase));
     lst_push(&bd_table.bd_sizes[k-1].free, q);
   }
+  release(&bd_table.lock);
+
   return p;
 }
 

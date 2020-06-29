@@ -5,5 +5,7 @@
 #include "test/test.h"
 
 void test_start() {
-  printf("start testing...\n");
+  printf("start testing...\n\n");
+  
+  buddy_test();
 }

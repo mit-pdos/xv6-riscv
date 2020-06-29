@@ -58,7 +58,6 @@ test()
     plicinithart();   // ask PLIC for device interrupts
   }
 
-  // 3-core
   test_start();
   scheduler();
 }
