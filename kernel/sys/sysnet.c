@@ -124,8 +124,8 @@ sys_socket(void)
 
   if(
     argint(0, (int *)&raddr) < 0 ||
-    argint(1, (int *)&dport) < 0 ||
-    argint(2, (int *)&sport) < 0 ||
+    argint(1, (int *)&sport) < 0 ||
+    argint(2, (int *)&dport) < 0 ||
     argint(3, (int *)&stype) < 0
   )
     return -1;

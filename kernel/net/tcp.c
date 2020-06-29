@@ -11,52 +11,72 @@
 #include "net/ipv4.h"
 #include "net/tcp.h"
 
-struct tcp_cb tcb_table[TCP_CB_LEN];
+struct tcp_cb_entry tcb_table[TCP_CB_LEN];
 
-struct tcp_cb* _get_tcb(uint32 raddr, uint16 sport, uint32 c) {
-  return &tcb_table[(raddr + sport + TCP_COLLISION_NUM * c) % TCP_CB_LEN];
-}
-
-struct tcp_cb* get_tcb(uint32 raddr, uint16 sport) {
-  struct tcp_cb* tcb;
-  for (int i = 0; i < TCP_CB_LEN; i++) {
-    tcb = _get_tcb(raddr, sport, i);
-    if (tcb->used && tcb->raddr == raddr && tcb->sport == sport) {
-      return tcb;
-    }
-    if (!tcb->used) {
-      return tcb;
-    }
-  }
-  return 0;
-}
-
-void tcpinit() {
-  memset(tcb_table, 0, sizeof(tcb_table));
-  for (int i = 0; i < TCP_CB_LEN; i++) {
-    tcb_table[i].used = 0;
-    initlock(&tcb_table[i].lock, "tcblock");
-    mbufq_init(&tcb_table[i].txq);
-  }
-}
-
-void init_tcp_cb(struct tcp_cb *tcb) {
+void init_tcp_cb(struct tcp_cb *tcb, uint32 raddr, uint16 sport, uint16 dport) {
   if (tcb != 0) {
-    acquire(&tcb->lock);
-    tcb->used = 1;
+    memset(tcb, 0, sizeof(*tcb));
     tcb->state = CLOSED;
-    tcb->raddr = 0;
-    tcb->dport = 0;
-    release(&tcb->lock);
+    initlock(&tcb->lock, "tcb lock");
+    tcb->raddr = raddr;
+    tcb->sport = sport;
+    tcb->dport = dport;
+    tcb->prev = 0;
+    tcb->next = 0;
   }
 }
 
 void free_tcp_cb(struct tcp_cb *tcb) {
   if (tcb != 0) {
-    acquire(&tcb->lock);
-    memset(tcb, 0, sizeof(*tcb));
-    tcb->state = CLOSED;
-    release(&tcb->lock);
+    struct tcp_cb_entry *entry = &tcb_table[(tcb->raddr + (tcb->sport << 16) + tcb->dport) % TCP_CB_LEN];
+    acquire(&entry->lock);
+    if (tcb->next != 0)
+      tcb->next->prev = tcb->prev;
+    if (tcb->prev != 0)
+      tcb->prev->next = tcb->next;
+    else
+      entry->head = tcb->next;
+    release(&entry->lock);
+  }
+}
+
+struct tcp_cb* get_tcb(uint32 raddr, uint16 sport, uint16 dport) {
+  struct tcp_cb_entry* entry;
+  struct tcp_cb *tcb;
+  entry = &tcb_table[(raddr + (sport << 16) + dport) % TCP_CB_LEN];
+
+  acquire(&entry->lock);
+  tcb = entry->head;
+  while(
+    tcb->next != 0 ||
+    (tcb->raddr == raddr && tcb->sport == sport && tcb->dport == dport)
+  ) {
+    tcb = tcb->next;
+  }
+
+  // next tcb
+  if (tcb != 0 && tcb->next == 0) {
+    tcb->next = bd_alloc(sizeof(struct tcp_cb));
+    tcb->next->prev = tcb;
+    tcb = tcb->next;
+  // new tcb
+  } else if(tcb == 0) {
+    tcb = bd_alloc(sizeof(struct tcp_cb));
+  // Already exists
+  } else {
+    release(&entry->lock);
+    return tcb;
+  }
+  init_tcp_cb(tcb, raddr, sport, dport);
+  release(&entry->lock);
+  return tcb;
+}
+
+void tcpinit() {
+  memset(tcb_table, 0, sizeof(tcb_table));
+  for (int i = 0; i < TCP_CB_LEN; i++) {
+    tcb_table[i].head = 0;
+    initlock(&tcb_table[i].lock, "tcb entry lock");
   }
 }
 
@@ -75,27 +95,17 @@ static uint16 tcp_checksum(struct ipv4 *iphdr , struct tcp *tcphdr, uint16 len) 
 struct tcp_cb *tcp_open(uint32 raddr, uint16 sport, uint16 dport, int stype) {
   struct tcp_cb *tcb;
 
-  tcb = get_tcb(raddr, sport);
-  if (tcb != 0 && !tcb->used) {
-    init_tcp_cb(tcb);
-
-    tcb->raddr = raddr;
-    tcb->dport = dport;
-    tcb->sport = sport;
-
-    if (stype == SOCK_TCP) {
-      struct mbuf *m = mbufalloc(ETH_MAX_SIZE);
-      net_tx_tcp(tcb, m, TCP_FLG_SYN);
-      tcb->state = SYN_SENT;
-    } else {
-      tcb->state = LISTEN;
-    }
+  tcb = get_tcb(raddr, sport, dport);
+  if (stype == SOCK_TCP) {
+    struct mbuf *m = mbufalloc(ETH_MAX_SIZE);
+    net_tx_tcp(tcb, m, TCP_FLG_SYN);
+    tcb->state = SYN_SENT;
+  } else {
+    tcb->state = LISTEN;
+  }
   // TODO LISTEN STATE
   // -> chenge the connection from passive to active
-  } else {
-    // "error: connection already exists"
-    return 0;
-  }
+  // "error: connection already exists"
 
   return tcb;
 }
@@ -104,7 +114,7 @@ struct tcp_cb *tcp_open(uint32 raddr, uint16 sport, uint16 dport, int stype) {
 int tcp_send(struct tcp_cb *tcb) {
   enum tcp_cb_state state = tcb->state;
 
-  if (TCP_FLG_ISSET(state, CLOSED) || tcb->used == 0) {
+  if (TCP_FLG_ISSET(state, CLOSED)) {
     // "error: connection illegal for this process"
     return -1;
   }
@@ -145,7 +155,7 @@ int tcp_send(struct tcp_cb *tcb) {
 
 int tcp_recv(struct tcp_cb *tcb, struct mbuf *m, struct tcp *tcphdr) {
   enum tcp_cb_state state = tcb->state;
-  if (TCP_FLG_ISSET(state, CLOSED) || tcb->used == 0) {
+  if (TCP_FLG_ISSET(state, CLOSED)) {
     // "error: connection illegal for this process"
     return -1;
   }
@@ -207,7 +217,7 @@ void net_tx_tcp(struct tcp_cb *tcb, struct mbuf *m, uint8 flg) {
 // segment arrives
 void net_rx_tcp(struct mbuf *m, uint16 len, struct ipv4 *iphdr) {
   struct tcp *tcphdr;
-  uint16 dport;
+  uint16 dport, sport;
   uint32 raddr;
   struct tcp_cb *tcb = 0;
 
@@ -223,65 +233,65 @@ void net_rx_tcp(struct mbuf *m, uint16 len, struct ipv4 *iphdr) {
 
   raddr = ntohl(iphdr->ip_src);
   dport = ntohs(tcphdr->dport);
-  uint16 sport = ntohs(tcphdr->sport);
-  // uint16 sport = 2001;
+  sport = ntohs(tcphdr->sport);
 
-  tcb = get_tcb(raddr, dport);
+  tcb = get_tcb(raddr, dport, sport);
 
+  printf("ok?\n");
   acquire(&tcb->lock);
-  if (tcb == 0 || !tcb->used) {
+  if (tcb == 0) {
     goto fail;
   }
+  printf("ok!\n");
 
-  if (tcb->used) {
-    uint8 flg = tcphdr->flg;
+  uint8 flg = tcphdr->flg;
 
-    // TODO check seq & ack
+  // TODO check seq & ack
 
-    if (tcb->state == CLOSED) {
+  if (tcb->state == CLOSED) {
+    goto fail;
+  } else if (tcb->state == LISTEN) {
+    // If received SYN, send SYN,ACK
+    if (TCP_FLG_ISSET(flg, TCP_FLG_RST)) {
       goto fail;
-    } else if (tcb->state == LISTEN) {
-      // If received SYN, send SYN,ACK
-      if (TCP_FLG_ISSET(flg, TCP_FLG_RST)) {
-        goto fail;
-      } else if (TCP_FLG_ISSET(flg, TCP_FLG_ACK)) {
-        goto fail;
-        // TODO send RST
-      } else if (TCP_FLG_ISSET(flg, TCP_FLG_SYN)) {
-        // TODO check security
-        // TODO If the SEG.PRC is greater than the TCB.PRC
-        // TODO sport
-        tcb->dport = sport;
+    } else if (TCP_FLG_ISSET(flg, TCP_FLG_ACK)) {
+      goto fail;
+      // TODO send RST
+    } else if (TCP_FLG_ISSET(flg, TCP_FLG_SYN)) {
+      // TODO check security
+      // TODO If the SEG.PRC is greater than the TCB.PRC
+      // TODO sport
+      tcb->dport = sport;
 
-        tcb->rcv.wnd = sizeof(tcb->window);
-        tcb->rcv.init_seq = ntohl(tcphdr->seq);
-        tcb->rcv.nxt_seq = tcb->rcv.init_seq + 1;
-        tcb->snd.init_seq = 0;
-        tcb->snd.nxt_seq = 0;
-        struct mbuf *m = mbufalloc(ETH_MAX_SIZE);
-        net_tx_tcp(tcb, m, TCP_FLG_SYN | TCP_FLG_ACK);
-        tcb->snd.nxt_seq = tcb->rcv.init_seq + 1;
-        tcb->snd.unack = tcb->rcv.init_seq;
-        // TODO timeout
-        tcb->state = SYN_RCVD;
-      } else {
-        goto fail;
-      }
-    } else if (tcb->state == SYN_SENT) {
-    } else if (tcb->state == SYN_RCVD) {
-    } else if (tcb->state == ESTAB) {
-    } else if (tcb->state == FIN_WAIT_1) {
-    } else if (tcb->state == FIN_WAIT_2) {
-    } else if (tcb->state == CLOSING) {
-    } else if (tcb->state == TIME_WAIT) {
-    } else if (tcb->state == CLOSE_WAIT) {
-    } else if (tcb->state == LAST_ACK) {
+      // TODO window
+      tcb->rcv.wnd = 65535;
+      tcb->rcv.init_seq = ntohl(tcphdr->seq);
+      tcb->rcv.nxt_seq = tcb->rcv.init_seq + 1;
+      tcb->snd.init_seq = 0;
+      tcb->snd.nxt_seq = 0;
+      struct mbuf *m = mbufalloc(ETH_MAX_SIZE);
+      net_tx_tcp(tcb, m, TCP_FLG_SYN | TCP_FLG_ACK);
+      tcb->snd.nxt_seq = tcb->rcv.init_seq + 1;
+      tcb->snd.unack = tcb->rcv.init_seq;
+      // TODO timeout
+      tcb->state = SYN_RCVD;
     } else {
-
+      goto fail;
     }
+  } else if (tcb->state == SYN_SENT) {
+  } else if (tcb->state == SYN_RCVD) {
+  } else if (tcb->state == ESTAB) {
+  } else if (tcb->state == FIN_WAIT_1) {
+  } else if (tcb->state == FIN_WAIT_2) {
+  } else if (tcb->state == CLOSING) {
+  } else if (tcb->state == TIME_WAIT) {
+  } else if (tcb->state == CLOSE_WAIT) {
+  } else if (tcb->state == LAST_ACK) {
+  } else {
 
-    // TODO URG process
   }
+
+  // TODO URG process
 
   release(&tcb->lock);
   return;

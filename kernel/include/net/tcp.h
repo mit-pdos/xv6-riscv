@@ -47,7 +47,6 @@ enum tcp_cb_state {
 };
 
 struct tcp_cb {
-  int used;
   struct spinlock lock;
   enum tcp_cb_state state;
   uint16 sport;
@@ -66,7 +65,14 @@ struct tcp_cb {
     uint32 wnd;
   } rcv;
   struct mbufq txq;
-  uint8 window[TCP_DEFAULT_WINDOW];
+  // uint8 window[TCP_DEFAULT_WINDOW];
+  struct tcp_cb *prev;
+  struct tcp_cb *next;
+};
+
+struct tcp_cb_entry {
+  struct spinlock lock;
+  struct tcp_cb *head;
 };
 
 struct tcp_cb *tcp_open(uint32, uint16, uint16, int);

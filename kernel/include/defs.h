@@ -201,8 +201,8 @@ void            net_rx(struct mbuf *);
 void            net_tx_udp(struct mbuf *, uint32,
                             uint16, uint16);
 
-// arptable.c
-void            arptable_init();
+// arp.c
+void            arpinit();
 
 // tcp.c
 void            tcpinit();

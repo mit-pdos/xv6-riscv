@@ -11,6 +11,8 @@
 #include "net/arp.h"
 #include "net/netutil.h"
 
+extern struct mbufq arp_q;
+
 uint8 local_mac[ETHADDR_LEN] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x56 };
 uint8 broadcast_mac[ETHADDR_LEN] = { 0xFF, 0XFF, 0XFF, 0XFF, 0XFF, 0XFF };
 
@@ -21,16 +23,14 @@ net_tx_eth(struct mbuf *m, uint16 ethtype, uint32 dip)
   struct eth *ethhdr;
 
   ethhdr = mbufpushhdr(m, *ethhdr);
+  ethhdr->type = htons(ethtype);
   memmove(ethhdr->shost, local_mac, ETHADDR_LEN);
 
   if (ethtype != ETHTYPE_ARP && arptable_get(dip, (uint8 *)&ethhdr->dhost) == -1) {
-    net_tx_arp(ARP_OP_REQUEST, broadcast_mac, dip);
-    mbuffree(m);
+    mbufq_pushtail(&arp_q, m);
     return;
   }
 
-  // memmove(ethhdr->dhost, broadcast_mac, ETHADDR_LEN);
-  ethhdr->type = htons(ethtype);
   if (e1000_transmit(m)) {
     mbuffree(m);
   }

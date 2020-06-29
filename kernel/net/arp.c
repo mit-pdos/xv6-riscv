@@ -15,6 +15,13 @@ extern struct arp_tabel arptable;
 extern uint8 local_mac[];
 extern uint32 local_ip;
 
+struct mbufq arp_q;
+
+void arpinit() {
+  mbufq_init(&arp_q);
+  arptable_init();
+}
+
 // sends an ARP packet
 int
 net_tx_arp(uint16 op, uint8 dmac[ETHADDR_LEN], uint32 dip)
@@ -75,6 +82,13 @@ net_rx_arp(struct mbuf *m)
   // check if our IP was solicited
   if (ntohs(arphdr->op) != ARP_OP_REQUEST || tip != local_ip)
     goto done;
+
+  // check queue
+  while(!mbufq_empty(&arp_q)) {
+    // struct mbuf *wait_m;
+    // mbufq_pophead()
+    break;
+  }
 
   // handle the ARP request
   net_tx_arp(ARP_OP_REPLY, smac, sip);
