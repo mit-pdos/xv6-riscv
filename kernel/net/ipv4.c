@@ -6,12 +6,12 @@
 #include "proc.h"
 #include "net/byteorder.h"
 #include "net/mbuf.h"
-#include "net/net.h"
+#include "net/netutil.h"
 #include "net/ethernet.h"
 #include "net/ipv4.h"
 #include "defs.h"
 
-uint32 local_ip = MAKE_IP_ADDR(10, 0, 2, 15); // qemu's idea of the guest IP
+uint32 local_ip = MAKE_IP_ADDR(192, 168, 22, 2); // qemu's idea of the guest IP
 
 
 // This code is lifted from FreeBSD's ping.c, and is copyright by the Regents
@@ -69,7 +69,7 @@ net_tx_ip(struct mbuf *m, uint8 proto, uint32 dip)
   iphdr->ip_sum = in_cksum((unsigned char *)iphdr, sizeof(*iphdr));
 
   // now on to the ethernet layer
-  net_tx_eth(m, ETHTYPE_IP);
+  net_tx_eth(m, ETHTYPE_IP, dip);
 }
 
 // receives an IP packet
@@ -90,17 +90,21 @@ net_rx_ip(struct mbuf *m)
   if (in_cksum((unsigned char *)iphdr, sizeof(*iphdr)))
     goto fail;
   // can't support fragmented IP packets
-  if (htons(iphdr->ip_off) != 0)
+  if (IP_GET_OFF(htons(iphdr->ip_off)) != 0)
     goto fail;
   // is the packet addressed to us?
   if (htonl(iphdr->ip_dst) != local_ip)
     goto fail;
-  // can only support UDP
-  if (iphdr->ip_p != IPPROTO_UDP)
-    goto fail;
 
   len = ntohs(iphdr->ip_len) - sizeof(*iphdr);
-  net_rx_udp(m, len, iphdr);
+
+  if (iphdr->ip_p == IPPROTO_UDP) {
+    net_rx_udp(m, len, iphdr);
+  } else if (iphdr->ip_p == IPPROTO_TCP) {
+    net_rx_tcp(m, len, iphdr);
+  } else {
+    goto fail;
+  }
   return;
 
 fail:

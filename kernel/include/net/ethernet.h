@@ -11,3 +11,4 @@ struct eth {
 #define ETHTYPE_IP  0x0800 // Internet protocol
 #define ETHTYPE_ARP 0x0806 // Address resolution protocol
 
+#define ETH_MAX_SIZE 1518

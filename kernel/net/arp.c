@@ -3,15 +3,24 @@
 #include "arch/riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "defs.h"
 #include "net/byteorder.h"
 #include "net/mbuf.h"
-#include "net/net.h"
+#include "net/netutil.h"
 #include "net/ethernet.h"
 #include "net/arp.h"
-#include "defs.h"
+#include "net/arptable.h"
 
+extern struct arp_tabel arptable;
 extern uint8 local_mac[];
 extern uint32 local_ip;
+
+struct mbufq arp_q;
+
+void arpinit() {
+  mbufq_init(&arp_q);
+  arptable_init();
+}
 
 // sends an ARP packet
 int
@@ -39,7 +48,7 @@ net_tx_arp(uint16 op, uint8 dmac[ETHADDR_LEN], uint32 dip)
   arphdr->tip = htonl(dip);
 
   // header is ready, send the packet
-  net_tx_eth(m, ETHTYPE_ARP);
+  net_tx_eth(m, ETHTYPE_ARP, dip);
   return 0;
 }
 
@@ -63,15 +72,25 @@ net_rx_arp(struct mbuf *m)
     goto done;
   }
 
+  
+  memmove(smac, arphdr->sha, ETHADDR_LEN); // sender's ethernet address
+  tip = ntohl(arphdr->tip); // target IP address
+  sip = ntohl(arphdr->sip); // sender's IP address (qemu's slirp)
+  arptable_add(sip, smac);
+
   // only requests are supported so far
   // check if our IP was solicited
-  tip = ntohl(arphdr->tip); // target IP address
   if (ntohs(arphdr->op) != ARP_OP_REQUEST || tip != local_ip)
     goto done;
 
+  // check queue
+  while(!mbufq_empty(&arp_q)) {
+    // struct mbuf *wait_m;
+    // mbufq_pophead()
+    break;
+  }
+
   // handle the ARP request
-  memmove(smac, arphdr->sha, ETHADDR_LEN); // sender's ethernet address
-  sip = ntohl(arphdr->sip); // sender's IP address (qemu's slirp)
   net_tx_arp(ARP_OP_REPLY, smac, sip);
 
 done:

@@ -13,15 +13,9 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "net/mbuf.h"
-
-struct sock {
-  struct sock *next; // the next socket in the list
-  uint32 raddr;      // the remote IPv4 address
-  uint16 lport;      // the local UDP port number
-  uint16 rport;      // the remote UDP port number
-  struct spinlock lock; // protects the rxq
-  struct mbufq rxq;  // a queue of packets waiting to be received
-};
+#include "net/netutil.h"
+#include "net/tcp.h"
+#include "sys/sysnet.h"
 
 static struct spinlock lock;
 static struct sock *sockets;
@@ -33,7 +27,7 @@ sockinit(void)
 }
 
 int
-sockalloc(struct file **f, uint32 raddr, uint16 lport, uint16 rport)
+sockalloc(struct file **f, uint32 raddr, uint16 sport, uint16 dport, int stype)
 {
   struct sock *si, *pos;
 
@@ -46,8 +40,20 @@ sockalloc(struct file **f, uint32 raddr, uint16 lport, uint16 rport)
 
   // initialize objects
   si->raddr = raddr;
-  si->lport = lport;
-  si->rport = rport;
+  // TODO source port decision
+  si->sport = sport;
+  si->dport = dport;
+  si->stype = stype;
+
+  if(stype == SOCK_TCP || stype == SOCK_TCP_LISTEN) {
+    si->tcb = tcp_open(raddr, sport, dport, stype);
+    if (si->tcb == 0) {
+      goto bad;
+    }
+  } else {
+    si->tcb = 0;
+  }
+
   initlock(&si->lock, "sock");
   mbufq_init(&si->rxq);
   (*f)->type = FD_SOCK;
@@ -60,8 +66,9 @@ sockalloc(struct file **f, uint32 raddr, uint16 lport, uint16 rport)
   pos = sockets;
   while (pos) {
     if (pos->raddr == raddr &&
-        pos->lport == lport &&
-	pos->rport == rport) {
+        pos->sport == sport &&
+        pos->dport == dport
+    ) {
       release(&lock);
       goto bad;
     }
@@ -86,39 +93,45 @@ void sockfree(struct sock *si) {
 
 // called by protocol handler layer to deliver UDP packets
 void
-sockrecvudp(struct mbuf *m, uint32 raddr, uint16 lport, uint16 rport)
+sockrecvudp(struct mbuf *m, uint32 raddr, uint16 sport, uint16 dport)
 {
   acquire(&lock);
   struct sock *sock;
   sock = sockets;
   while (sock) {
     if (sock->raddr == raddr &&
-        sock->lport == lport &&
-        sock->rport == rport) {
+        sock->sport == sport &&
+        sock->dport == dport) {
       release(&lock);
       acquire(&sock->lock);
       mbufq_pushtail(&sock->rxq, m);
       release(&sock->lock);
       return;
     }
+    sock = sock->next;
   }
   release(&lock);
   mbuffree(m);
 }
 
-// system call method
 uint64
 sys_socket(void)
 {
   struct file *f;
   int raddr;
-  int lport, rport;
+  int sport, dport;
+  int stype;
 
-  if(argint(0, (int *)&raddr) < 0 || argint(1, (int *)&lport) < 0 || argint(2, (int *)&rport) < 0)
+  if(
+    argint(0, (int *)&raddr) < 0 ||
+    argint(1, (int *)&sport) < 0 ||
+    argint(2, (int *)&dport) < 0 ||
+    argint(3, (int *)&stype) < 0
+  )
     return -1;
 
   int fd;
-  if(sockalloc(&f, (uint32)raddr, (uint16)lport, (uint16)rport) != 0 || (fd = fdalloc(f)) < 0)
+  if(sockalloc(&f, (uint32)raddr, (uint16)sport, (uint16)dport, stype) != 0 || (fd = fdalloc(f)) < 0)
     return -1;
 
   return fd;
@@ -136,7 +149,13 @@ sys_socksend(struct file *f, uint64 addr, int n)
   copyin(pr->pagetable, m->head, addr, n);
 
   mbufput(m, n);
-  net_tx_udp(m, s->raddr, s->lport, s->rport);
+  if (s->stype == SOCK_TCP || s->stype == SOCK_TCP_LISTEN) {
+    // TODO 
+    if (s->tcb != 0)
+      net_tx_tcp(s->tcb, m, 0);
+  } else {
+    net_tx_udp(m, s->raddr, s->sport, s->dport);
+  }
   return n;
 }
 

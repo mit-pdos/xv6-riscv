@@ -201,6 +201,11 @@ void            net_rx(struct mbuf *);
 void            net_tx_udp(struct mbuf *, uint32,
                             uint16, uint16);
 
+// arp.c
+void            arpinit();
+
+// tcp.c
+void            tcpinit();
 
 // sysfile.c
 int             fdalloc(struct file *);

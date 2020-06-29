@@ -23,7 +23,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int socket(uint32, uint16, uint16);
+int socket(uint32, uint16, uint16, int);
 
 // ulib.c
 int stat(const char*, struct stat*);

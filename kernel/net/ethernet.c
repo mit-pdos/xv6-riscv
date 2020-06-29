@@ -3,28 +3,34 @@
 #include "arch/riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "defs.h"
 #include "net/byteorder.h"
 #include "net/mbuf.h"
 #include "net/ethernet.h"
-#include "net/net.h"
-#include "defs.h"
+#include "net/arptable.h"
+#include "net/arp.h"
+#include "net/netutil.h"
+
+extern struct mbufq arp_q;
 
 uint8 local_mac[ETHADDR_LEN] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x56 };
 uint8 broadcast_mac[ETHADDR_LEN] = { 0xFF, 0XFF, 0XFF, 0XFF, 0XFF, 0XFF };
 
 // sends an ethernet packet
 void
-net_tx_eth(struct mbuf *m, uint16 ethtype)
+net_tx_eth(struct mbuf *m, uint16 ethtype, uint32 dip)
 {
   struct eth *ethhdr;
 
   ethhdr = mbufpushhdr(m, *ethhdr);
-  memmove(ethhdr->shost, local_mac, ETHADDR_LEN);
-  // In a real networking stack, dhost would be set to the address discovered
-  // through ARP. Because we don't support enough of the ARP protocol, set it
-  // to broadcast instead.
-  memmove(ethhdr->dhost, broadcast_mac, ETHADDR_LEN);
   ethhdr->type = htons(ethtype);
+  memmove(ethhdr->shost, local_mac, ETHADDR_LEN);
+
+  if (ethtype != ETHTYPE_ARP && arptable_get(dip, (uint8 *)&ethhdr->dhost) == -1) {
+    mbufq_pushtail(&arp_q, m);
+    return;
+  }
+
   if (e1000_transmit(m)) {
     mbuffree(m);
   }

@@ -1,16 +1,17 @@
 #include "kernel/include/types.h"
 #include "kernel/include/stat.h"
+#include "kernel/include/net/netutil.h"
 #include "user/user.h"
 
 int
 main(int argc, char **argv)
 {
   uint32 raddr = 0x0a000202;
-  uint16 lport = 26999;
-  uint16 rport = 2000;
+  uint16 sport = 26001;
+  uint16 dport = 2000;
   int sock;
 
-  sock = socket(raddr, lport, rport);
+  sock = socket(raddr, sport, dport, SOCK_UDP);
 
   while(1) {
     char rbuf[256];
