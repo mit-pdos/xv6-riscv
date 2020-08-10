@@ -16,9 +16,7 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 extern char trampoline[]; // trampoline.S
 
 /*
- * create a direct-map page table for the kernel and
- * turn on paging. called early, in supervisor mode.
- * the page allocator is already initialized.
+ * create a direct-map page table for the kernel.
  */
 void
 kvminit()
@@ -67,10 +65,10 @@ kvminithart()
 // A 64-bit virtual address is split into five fields:
 //   39..63 -- must be zero.
 //   30..38 -- 9 bits of level-2 index.
-//   21..39 -- 9 bits of level-1 index.
+//   21..29 -- 9 bits of level-1 index.
 //   12..20 -- 9 bits of level-0 index.
-//    0..12 -- 12 bits of byte offset within the page.
-static pte_t *
+//    0..11 -- 12 bits of byte offset within the page.
+pte_t *
 walk(pagetable_t pagetable, uint64 va, int alloc)
 {
   if(va >= MAXVA)
@@ -278,7 +276,7 @@ uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 
 // Recursively free page-table pages.
 // All leaf mappings must already have been removed.
-static void
+void
 freewalk(pagetable_t pagetable)
 {
   // there are 2^9 = 512 PTEs in a page table.
@@ -301,7 +299,8 @@ freewalk(pagetable_t pagetable)
 void
 uvmfree(pagetable_t pagetable, uint64 sz)
 {
-  uvmunmap(pagetable, 0, sz, 1);
+  if(sz > 0)
+    uvmunmap(pagetable, 0, sz, 1);
   freewalk(pagetable);
 }
 

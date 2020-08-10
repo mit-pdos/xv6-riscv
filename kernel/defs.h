@@ -52,6 +52,7 @@ struct inode*   nameiparent(char*, char*);
 int             readi(struct inode*, int, uint64, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
+void            itrunc(struct inode*);
 
 // ramdisk.c
 void            ramdiskinit(void);
@@ -149,6 +150,7 @@ void            usertrapret(void);
 void            uartinit(void);
 void            uartintr(void);
 void            uartputc(int);
+void            uartputc_sync(int);
 int             uartgetc(void);
 
 // vm.c
@@ -173,7 +175,6 @@ int             copyinstr(pagetable_t, char *, uint64, uint64);
 // plic.c
 void            plicinit(void);
 void            plicinithart(void);
-uint64          plic_pending(void);
 int             plic_claim(void);
 void            plic_complete(int);
 

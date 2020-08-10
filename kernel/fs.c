@@ -22,7 +22,6 @@
 #include "file.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
-static void itrunc(struct inode*);
 // there should be one superblock per disk device, but we run with
 // only one device
 struct superblock sb; 
@@ -406,11 +405,8 @@ bmap(struct inode *ip, uint bn)
 }
 
 // Truncate inode (discard contents).
-// Only called when the inode has no links
-// to it (no directory entries referring to it)
-// and has no in-memory reference to it (is
-// not an open file or current directory).
-static void
+// Caller must hold ip->lock.
+void
 itrunc(struct inode *ip)
 {
   int i, j;
@@ -463,7 +459,7 @@ readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n)
   struct buf *bp;
 
   if(off > ip->size || off + n < off)
-    return -1;
+    return 0;
   if(off + n > ip->size)
     n = ip->size - off;
 
@@ -476,7 +472,7 @@ readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n)
     }
     brelse(bp);
   }
-  return n;
+  return tot;
 }
 
 // Write data to inode.

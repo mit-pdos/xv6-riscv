@@ -22,6 +22,352 @@
 char buf[BUFSZ];
 char name[3];
 
+// what if you pass ridiculous pointers to system calls
+// that read user memory with copyin?
+void
+copyin(char *s)
+{
+  uint64 addrs[] = { 0x80000000LL, 0xffffffffffffffff };
+
+  for(int ai = 0; ai < 2; ai++){
+    uint64 addr = addrs[ai];
+    
+    int fd = open("copyin1", O_CREATE|O_WRONLY);
+    if(fd < 0){
+      printf("open(copyin1) failed\n");
+      exit(1);
+    }
+    int n = write(fd, (void*)addr, 8192);
+    if(n >= 0){
+      printf("write(fd, %p, 8192) returned %d, not -1\n", addr, n);
+      exit(1);
+    }
+    close(fd);
+    unlink("copyin1");
+    
+    n = write(1, (char*)addr, 8192);
+    if(n > 0){
+      printf("write(1, %p, 8192) returned %d, not -1 or 0\n", addr, n);
+      exit(1);
+    }
+    
+    int fds[2];
+    if(pipe(fds) < 0){
+      printf("pipe() failed\n");
+      exit(1);
+    }
+    n = write(fds[1], (char*)addr, 8192);
+    if(n > 0){
+      printf("write(pipe, %p, 8192) returned %d, not -1 or 0\n", addr, n);
+      exit(1);
+    }
+    close(fds[0]);
+    close(fds[1]);
+  }
+}
+
+// what if you pass ridiculous pointers to system calls
+// that write user memory with copyout?
+void
+copyout(char *s)
+{
+  uint64 addrs[] = { 0x80000000LL, 0xffffffffffffffff };
+
+  for(int ai = 0; ai < 2; ai++){
+    uint64 addr = addrs[ai];
+
+    int fd = open("README", 0);
+    if(fd < 0){
+      printf("open(README) failed\n");
+      exit(1);
+    }
+    int n = read(fd, (void*)addr, 8192);
+    if(n > 0){
+      printf("read(fd, %p, 8192) returned %d, not -1 or 0\n", addr, n);
+      exit(1);
+    }
+    close(fd);
+
+    int fds[2];
+    if(pipe(fds) < 0){
+      printf("pipe() failed\n");
+      exit(1);
+    }
+    n = write(fds[1], "x", 1);
+    if(n != 1){
+      printf("pipe write failed\n");
+      exit(1);
+    }
+    n = read(fds[0], (void*)addr, 8192);
+    if(n > 0){
+      printf("read(pipe, %p, 8192) returned %d, not -1 or 0\n", addr, n);
+      exit(1);
+    }
+    close(fds[0]);
+    close(fds[1]);
+  }
+}
+
+// what if you pass ridiculous string pointers to system calls?
+void
+copyinstr1(char *s)
+{
+  uint64 addrs[] = { 0x80000000LL, 0xffffffffffffffff };
+
+  for(int ai = 0; ai < 2; ai++){
+    uint64 addr = addrs[ai];
+
+    int fd = open((char *)addr, O_CREATE|O_WRONLY);
+    if(fd >= 0){
+      printf("open(%p) returned %d, not -1\n", addr, fd);
+      exit(1);
+    }
+  }
+}
+
+// what if a string system call argument is exactly the size
+// of the kernel buffer it is copied into, so that the null
+// would fall just beyond the end of the kernel buffer?
+void
+copyinstr2(char *s)
+{
+  char b[MAXPATH+1];
+
+  for(int i = 0; i < MAXPATH; i++)
+    b[i] = 'x';
+  b[MAXPATH] = '\0';
+  
+  int ret = unlink(b);
+  if(ret != -1){
+    printf("unlink(%s) returned %d, not -1\n", b, ret);
+    exit(1);
+  }
+
+  int fd = open(b, O_CREATE | O_WRONLY);
+  if(fd != -1){
+    printf("open(%s) returned %d, not -1\n", b, fd);
+    exit(1);
+  }
+
+  ret = link(b, b);
+  if(ret != -1){
+    printf("link(%s, %s) returned %d, not -1\n", b, b, ret);
+    exit(1);
+  }
+
+  char *args[] = { "xx", 0 };
+  ret = exec(b, args);
+  if(ret != -1){
+    printf("exec(%s) returned %d, not -1\n", b, fd);
+    exit(1);
+  }
+
+  int pid = fork();
+  if(pid < 0){
+    printf("fork failed\n");
+    exit(1);
+  }
+  if(pid == 0){
+    static char big[PGSIZE+1];
+    for(int i = 0; i < PGSIZE; i++)
+      big[i] = 'x';
+    big[PGSIZE] = '\0';
+    char *args2[] = { big, big, big, 0 };
+    ret = exec("echo", args2);
+    if(ret != -1){
+      printf("exec(echo, BIG) returned %d, not -1\n", fd);
+      exit(1);
+    }
+    exit(747); // OK
+  }
+
+  int st = 0;
+  wait(&st);
+  if(st != 747){
+    printf("exec(echo, BIG) succeeded, should have failed\n");
+    exit(1);
+  }
+}
+
+// what if a string argument crosses over the end of last user page?
+void
+copyinstr3(char *s)
+{
+  sbrk(8192);
+  uint64 top = (uint64) sbrk(0);
+  if((top % PGSIZE) != 0){
+    sbrk(PGSIZE - (top % PGSIZE));
+  }
+  top = (uint64) sbrk(0);
+  if(top % PGSIZE){
+    printf("oops\n");
+    exit(1);
+  }
+
+  char *b = (char *) (top - 1);
+  *b = 'x';
+
+  int ret = unlink(b);
+  if(ret != -1){
+    printf("unlink(%s) returned %d, not -1\n", b, ret);
+    exit(1);
+  }
+
+  int fd = open(b, O_CREATE | O_WRONLY);
+  if(fd != -1){
+    printf("open(%s) returned %d, not -1\n", b, fd);
+    exit(1);
+  }
+
+  ret = link(b, b);
+  if(ret != -1){
+    printf("link(%s, %s) returned %d, not -1\n", b, b, ret);
+    exit(1);
+  }
+
+  char *args[] = { "xx", 0 };
+  ret = exec(b, args);
+  if(ret != -1){
+    printf("exec(%s) returned %d, not -1\n", b, fd);
+    exit(1);
+  }
+}
+
+// test O_TRUNC.
+void
+truncate1(char *s)
+{
+  char buf[32];
+  
+  unlink("truncfile");
+  int fd1 = open("truncfile", O_CREATE|O_WRONLY|O_TRUNC);
+  write(fd1, "abcd", 4);
+  close(fd1);
+
+  int fd2 = open("truncfile", O_RDONLY);
+  int n = read(fd2, buf, sizeof(buf));
+  if(n != 4){
+    printf("%s: read %d bytes, wanted 4\n", s, n);
+    exit(1);
+  }
+
+  fd1 = open("truncfile", O_WRONLY|O_TRUNC);
+
+  int fd3 = open("truncfile", O_RDONLY);
+  n = read(fd3, buf, sizeof(buf));
+  if(n != 0){
+    printf("aaa fd3=%d\n", fd3);
+    printf("%s: read %d bytes, wanted 0\n", s, n);
+    exit(1);
+  }
+
+  n = read(fd2, buf, sizeof(buf));
+  if(n != 0){
+    printf("bbb fd2=%d\n", fd2);
+    printf("%s: read %d bytes, wanted 0\n", s, n);
+    exit(1);
+  }
+  
+  write(fd1, "abcdef", 6);
+
+  n = read(fd3, buf, sizeof(buf));
+  if(n != 6){
+    printf("%s: read %d bytes, wanted 6\n", s, n);
+    exit(1);
+  }
+
+  n = read(fd2, buf, sizeof(buf));
+  if(n != 2){
+    printf("%s: read %d bytes, wanted 2\n", s, n);
+    exit(1);
+  }
+
+  unlink("truncfile");
+
+  close(fd1);
+  close(fd2);
+  close(fd3);
+}
+
+// write to an open FD whose file has just been truncated.
+// this causes a write at an offset beyond the end of the file.
+// such writes fail on xv6 (unlike POSIX) but at least
+// they don't crash.
+void
+truncate2(char *s)
+{
+  unlink("truncfile");
+
+  int fd1 = open("truncfile", O_CREATE|O_TRUNC|O_WRONLY);
+  write(fd1, "abcd", 4);
+
+  int fd2 = open("truncfile", O_TRUNC|O_WRONLY);
+
+  int n = write(fd1, "x", 1);
+  if(n != -1){
+    printf("%s: write returned %d, expected -1\n", s, n);
+    exit(1);
+  }
+
+  unlink("truncfile");
+  close(fd1);
+  close(fd2);
+}
+
+void
+truncate3(char *s)
+{
+  int pid, xstatus;
+
+  close(open("truncfile", O_CREATE|O_TRUNC|O_WRONLY));
+  
+  pid = fork();
+  if(pid < 0){
+    printf("%s: fork failed\n", s);
+    exit(1);
+  }
+
+  if(pid == 0){
+    for(int i = 0; i < 100; i++){
+      char buf[32];
+      int fd = open("truncfile", O_WRONLY);
+      if(fd < 0){
+        printf("%s: open failed\n", s);
+        exit(1);
+      }
+      int n = write(fd, "1234567890", 10);
+      if(n != 10){
+        printf("%s: write got %d, expected 10\n", s, n);
+        exit(1);
+      }
+      close(fd);
+      fd = open("truncfile", O_RDONLY);
+      read(fd, buf, sizeof(buf));
+      close(fd);
+    }
+    exit(0);
+  }
+
+  for(int i = 0; i < 150; i++){
+    int fd = open("truncfile", O_CREATE|O_WRONLY|O_TRUNC);
+    if(fd < 0){
+      printf("%s: open failed\n", s);
+      exit(1);
+    }
+    int n = write(fd, "xxx", 3);
+    if(n != 3){
+      printf("%s: write got %d, expected 3\n", s, n);
+      exit(1);
+    }
+    close(fd);
+  }
+
+  wait(&xstatus);
+  unlink("truncfile");
+  exit(xstatus);
+}
+  
+
 // does chdir() call iput(p->cwd) in a transaction?
 void
 iputtest(char *s)
@@ -1038,7 +1384,11 @@ concreate(char *s)
       close(open(file, 0));
       close(open(file, 0));
       close(open(file, 0));
+      close(open(file, 0));
+      close(open(file, 0));
     } else {
+      unlink(file);
+      unlink(file);
       unlink(file);
       unlink(file);
       unlink(file);
@@ -1106,7 +1456,7 @@ bigdir(char *s)
     name[2] = '0' + (i % 64);
     name[3] = '\0';
     if(link("bd", name) != 0){
-      printf("%s: bigdir link failed\n", s);
+      printf("%s: bigdir link(bd, %s) failed\n", s, name);
       exit(1);
     }
   }
@@ -1335,8 +1685,8 @@ bigfile(char *s)
   enum { N = 20, SZ=600 };
   int fd, i, total, cc;
 
-  unlink("bigfile");
-  fd = open("bigfile", O_CREATE | O_RDWR);
+  unlink("bigfile.dat");
+  fd = open("bigfile.dat", O_CREATE | O_RDWR);
   if(fd < 0){
     printf("%s: cannot create bigfile", s);
     exit(1);
@@ -1350,7 +1700,7 @@ bigfile(char *s)
   }
   close(fd);
 
-  fd = open("bigfile", 0);
+  fd = open("bigfile.dat", 0);
   if(fd < 0){
     printf("%s: cannot open bigfile\n", s);
     exit(1);
@@ -1379,7 +1729,7 @@ bigfile(char *s)
     printf("%s: read bigfile wrong total\n", s);
     exit(1);
   }
-  unlink("bigfile");
+  unlink("bigfile.dat");
 }
 
 void
@@ -1418,6 +1768,14 @@ fourteen(char *s)
     printf("%s: mkdir 12345678901234/123456789012345 succeeded!\n", s);
     exit(1);
   }
+
+  // clean up
+  unlink("123456789012345/12345678901234");
+  unlink("12345678901234/12345678901234");
+  unlink("12345678901234/12345678901234/12345678901234");
+  unlink("123456789012345/123456789012345/123456789012345");
+  unlink("12345678901234/123456789012345");
+  unlink("12345678901234");
 }
 
 void
@@ -1512,7 +1870,8 @@ dirfile(char *s)
   close(fd);
 }
 
-// test that iput() is called at the end of _namei()
+// test that iput() is called at the end of _namei().
+// also tests empty file names.
 void
 iref(char *s)
 {
@@ -1537,6 +1896,12 @@ iref(char *s)
     if(fd >= 0)
       close(fd);
     unlink("xx");
+  }
+
+  // clean up
+  for(i = 0; i < NINODE + 1; i++){
+    chdir("..");
+    unlink("irefd");
   }
 
   chdir("/");
@@ -2087,13 +2452,35 @@ badarg(char *s)
   exit(0);
 }
 
+//
+// use sbrk() to count how many free physical memory pages there are.
+//
+int
+countfree()
+{
+  uint64 sz0 = (uint64)sbrk(0);
+  int n = 0;
+
+  while(1){
+    uint64 a = (uint64) sbrk(4096);
+    if(a == 0xffffffffffffffff){
+      break;
+    }
+    // modify the memory to make sure it's really allocated.
+    *(char *)(a - 1) = 1;
+    n += 1;
+  }
+  sbrk(-((uint64)sbrk(0) - sz0));
+  return n;
+}
+
 // run each test in its own process. run returns 1 if child's exit()
 // indicates success.
 int
 run(void f(char *), char *s) {
   int pid;
   int xstatus;
-  
+
   printf("test %s: ", s);
   if((pid = fork()) < 0) {
     printf("runtest: fork error\n");
@@ -2105,9 +2492,9 @@ run(void f(char *), char *s) {
   } else {
     wait(&xstatus);
     if(xstatus != 0) 
-      printf("FAILED\n", s);
+      printf("FAILED\n");
     else
-      printf("OK\n", s);
+      printf("OK\n");
     return xstatus == 0;
   }
 }
@@ -2115,15 +2502,30 @@ run(void f(char *), char *s) {
 int
 main(int argc, char *argv[])
 {
-  char *n = 0;
-  if(argc > 1) {
-    n = argv[1];
+  int continuous = 0;
+  char *justone = 0;
+
+  if(argc == 2 && strcmp(argv[1], "-c") == 0){
+    continuous = 1;
+  } else if(argc == 2 && argv[1][0] != '-'){
+    justone = argv[1];
+  } else if(argc > 1){
+    printf("Usage: usertests [-c] [testname]\n");
+    exit(1);
   }
   
   struct test {
     void (*f)(char *);
     char *s;
   } tests[] = {
+    {copyin, "copyin"},
+    {copyout, "copyout"},
+    {copyinstr1, "copyinstr1"},
+    {copyinstr2, "copyinstr2"},
+    {copyinstr3, "copyinstr3"},
+    {truncate1, "truncate1"},
+    {truncate2, "truncate2"},
+    {truncate3, "truncate3"},
     {reparent2, "reparent2"},
     {pgbug, "pgbug" },
     {sbrkbugs, "sbrkbugs" },
@@ -2173,25 +2575,48 @@ main(int argc, char *argv[])
     {bigdir, "bigdir"}, // slow
     { 0, 0},
   };
-    
-  printf("usertests starting\n");
 
-  if(open("usertests.ran", 0) >= 0){
-    printf("already ran user tests -- rebuild fs.img (rm fs.img; make fs.img)\n");
-    exit(1);
+  if(continuous){
+    printf("continuous usertests starting\n");
+    while(1){
+      int fail = 0;
+      int free0 = countfree();
+      for (struct test *t = tests; t->s != 0; t++) {
+        if(!run(t->f, t->s)){
+          fail = 1;
+          break;
+        }
+      }
+      if(fail){
+        printf("SOME TESTS FAILED\n");
+        exit(1);
+      }
+      int free1 = countfree();
+      if(free1 < free0){
+        printf("FAILED -- lost some free pages\n");
+        exit(1);
+      }
+    }
   }
-  close(open("usertests.ran", O_CREATE));
 
+  printf("usertests starting\n");
+  int free0 = countfree();
   int fail = 0;
   for (struct test *t = tests; t->s != 0; t++) {
-    if((n == 0) || strcmp(t->s, n) == 0) {
+    if((justone == 0) || strcmp(t->s, justone) == 0) {
       if(!run(t->f, t->s))
         fail = 1;
     }
   }
-  if(!fail)
-    printf("ALL TESTS PASSED\n");
-  else
+
+  if(fail){
     printf("SOME TESTS FAILED\n");
-  exit(1);   // not reached.
+    exit(1);
+  } else if(countfree() < free0){
+    printf("FAILED -- lost some free pages\n");
+    exit(1);
+  } else {
+    printf("ALL TESTS PASSED\n");
+    exit(0);
+  }
 }

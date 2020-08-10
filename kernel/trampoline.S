@@ -20,7 +20,7 @@ uservec:
         # in supervisor mode, but with a
         # user page table.
         #
-        # sscratch points to where the process's p->tf is
+        # sscratch points to where the process's p->trapframe is
         # mapped into user space, at TRAPFRAME.
         #
         
@@ -60,20 +60,20 @@ uservec:
         sd t5, 272(a0)
         sd t6, 280(a0)
 
-	# save the user a0 in p->tf->a0
+	# save the user a0 in p->trapframe->a0
         csrr t0, sscratch
         sd t0, 112(a0)
 
-        # restore kernel stack pointer from p->tf->kernel_sp
+        # restore kernel stack pointer from p->trapframe->kernel_sp
         ld sp, 8(a0)
 
-        # make tp hold the current hartid, from p->tf->kernel_hartid
+        # make tp hold the current hartid, from p->trapframe->kernel_hartid
         ld tp, 32(a0)
 
-        # load the address of usertrap(), p->tf->kernel_trap
+        # load the address of usertrap(), p->trapframe->kernel_trap
         ld t0, 16(a0)
 
-        # restore kernel page table from p->tf->kernel_satp
+        # restore kernel page table from p->trapframe->kernel_satp
         ld t1, 0(a0)
         csrw satp, t1
         sfence.vma zero, zero

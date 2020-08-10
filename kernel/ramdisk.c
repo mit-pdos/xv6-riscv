@@ -1,5 +1,5 @@
 //
-// ramdisk that uses the disk image loaded by qemu -rdinit fs.img
+// ramdisk that uses the disk image loaded by qemu -initrd fs.img
 //
 
 #include "types.h"
