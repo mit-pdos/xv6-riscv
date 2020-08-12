@@ -55,6 +55,10 @@
 // each surrounded by invalid guard pages.
 #define KSTACK(p) (TRAMPOLINE - ((p)+1)* 2*PGSIZE)
 
+// size of per-cpu C stack, equal to PGSIZE.
+#define STKSHIFT 12
+#define STKSIZE (1 << STKSHIFT)
+
 // User memory layout.
 // Address zero first:
 //   text
