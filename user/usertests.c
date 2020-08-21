@@ -2006,6 +2006,12 @@ sbrkmuch(char *s)
     printf("%s: sbrk test failed to grow big address space; enough phys mem?\n", s);
     exit(1);
   }
+
+  // touch each page to make sure it exists.
+  char *eee = sbrk(0);
+  for(char *pp = a; pp < eee; pp += 4096)
+    *pp = 1;
+
   lastaddr = (char*) (BIG-1);
   *lastaddr = 99;
 
@@ -2087,7 +2093,12 @@ sbrkfail(char *s)
   for(i = 0; i < sizeof(pids)/sizeof(pids[0]); i++){
     if((pids[i] = fork()) == 0){
       // allocate a lot of memory
-      sbrk(BIG - (uint64)sbrk(0));
+      char *p0 = sbrk(BIG - (uint64)sbrk(0));
+      if((uint64)p0 != 0xffffffffffffffffLL){
+        char *p1 = sbrk(0);
+        for(char *p2 = p0; p2 < p1; p2 += 4096)
+          *p2 = 1;
+      }
       write(fds[1], "x", 1);
       // sit around until killed
       for(;;) sleep(1000);
@@ -2452,6 +2463,43 @@ badarg(char *s)
   exit(0);
 }
 
+// test the exec() code that cleans up if it runs out
+// of memory. it's really a test that such a condition
+// doesn't cause a panic.
+void
+execout(char *s)
+{
+  for(int avail = 0; avail < 15; avail++){
+    int pid = fork();
+    if(pid < 0){
+      printf("fork failed\n");
+      exit(1);
+    } else if(pid == 0){
+      // allocate all of memory.
+      while(1){
+        uint64 a = (uint64) sbrk(4096);
+        if(a == 0xffffffffffffffffLL)
+          break;
+        *(char*)(a + 4096 - 1) = 1;
+      }
+
+      // free a few pages, in order to let exec() make some
+      // progress.
+      for(int i = 0; i < avail; i++)
+        sbrk(-4096);
+      
+      close(1);
+      char *args[] = { "echo", "x", 0 };
+      exec("echo", args);
+      exit(0);
+    } else {
+      wait((int*)0);
+    }
+  }
+
+  exit(0);
+}
+
 //
 // use sbrk() to count how many free physical memory pages there are.
 //
@@ -2467,7 +2515,7 @@ countfree()
       break;
     }
     // modify the memory to make sure it's really allocated.
-    *(char *)(a - 1) = 1;
+    *(char *)(a + 4096 - 1) = 1;
     n += 1;
   }
   sbrk(-((uint64)sbrk(0) - sz0));
@@ -2520,6 +2568,7 @@ main(int argc, char *argv[])
     void (*f)(char *);
     char *s;
   } tests[] = {
+    {execout, "execout"},
     {copyin, "copyin"},
     {copyout, "copyout"},
     {copyinstr1, "copyinstr1"},

@@ -436,10 +436,9 @@ sys_exec(void)
     }
     argv[i] = kalloc();
     if(argv[i] == 0)
-      panic("sys_exec kalloc");
-    if(fetchstr(uarg, argv[i], PGSIZE) < 0){
       goto bad;
-    }
+    if(fetchstr(uarg, argv[i], PGSIZE) < 0)
+      goto bad;
   }
 
   int ret = exec(path, argv);
