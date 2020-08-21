@@ -81,12 +81,6 @@ def test_xargs():
 
 @test(1, "time")
 def test_time():
-    try:
-        with open('time.txt') as f:
-            d = f.read().strip()
-            if not re.match(r'^\d+$', d):
-                raise AssertionError('time.txt does not contain a single integer (number of hours spent on the lab)')
-    except IOError:
-        raise AssertionError('Cannot read time.txt')
+    check_time()
     
 run_tests()

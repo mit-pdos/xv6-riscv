@@ -45,7 +45,9 @@ def test(points, title=None, parent=None):
             fail = None
             start = time.time()
             CURRENT_TEST = run_test
-            sys.stdout.write("%s: " % title)
+            sys.stdout.write("== Test %s == " % title)
+            if parent:
+                sys.stdout.write("\n")
             sys.stdout.flush()
             try:
                 if parent_failed:
@@ -57,8 +59,8 @@ def test(points, title=None, parent=None):
             # Display and handle test result
             POSSIBLE += points
             if points:
-                print("%s" % \
-                    (color("red", "FAIL") if fail else color("green", "OK")), end=' ')
+                print("%s: %s" % (title, \
+                    (color("red", "FAIL") if fail else color("green", "OK"))), end=' ')
             if time.time() - start > 0.1:
                 print("(%.1fs)" % (time.time() - start), end=' ')
             print()
@@ -198,7 +200,7 @@ def assert_lines_match(text, *regexps, **kw):
 # Utilities
 #
 
-__all__ += ["make", "maybe_unlink", "reset_fs", "color", "random_str"]
+__all__ += ["make", "maybe_unlink", "reset_fs", "color", "random_str", "check_time"]
 
 MAKE_TIMESTAMP = 0
 
@@ -245,6 +247,17 @@ def reset_fs():
 def random_str(n=8):
     letters = string.ascii_letters + string.digits
     return ''.join(random.choice(letters) for _ in range(n))
+
+def check_time():
+    try:
+        print("")
+        with open('time.txt') as f:
+            d = f.read().strip()
+            if not re.match(r'^\d+$', d):
+                raise AssertionError('time.txt does not contain a single integer (number of hours spent on the lab)')
+    except IOError:
+        raise AssertionError('Cannot read time.txt')
+
 
 ##################################################################
 # Controllers
