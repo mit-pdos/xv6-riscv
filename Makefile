@@ -237,7 +237,7 @@ grade:
 ##
 
 
-WEBSUB := https://6s081.scripts.mit.edu/2020/handin.py
+WEBSUB := https://6828.scripts.mit.edu/2020/handin.py
 
 handin: tarball-pref myapi.key
 	@SUF=$(LAB); \
