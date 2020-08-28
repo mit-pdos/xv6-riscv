@@ -45,6 +45,8 @@ char uart_tx_buf[UART_TX_BUF_SIZE];
 int uart_tx_w; // write next to uart_tx_buf[uart_tx_w++]
 int uart_tx_r; // read next from uart_tx_buf[uar_tx_r++]
 
+extern volatile int panicked; // from printf.c
+
 void uartstart();
 
 void
@@ -85,6 +87,12 @@ void
 uartputc(int c)
 {
   acquire(&uart_tx_lock);
+
+  if(panicked){
+    for(;;)
+      ;
+  }
+
   while(1){
     if(((uart_tx_w + 1) % UART_TX_BUF_SIZE) == uart_tx_r){
       // buffer is full.
@@ -108,6 +116,11 @@ void
 uartputc_sync(int c)
 {
   push_off();
+
+  if(panicked){
+    for(;;)
+      ;
+  }
 
   // wait for Transmit Holding Empty to be set in LSR.
   while((ReadReg(LSR) & LSR_TX_IDLE) == 0)

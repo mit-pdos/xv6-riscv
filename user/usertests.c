@@ -997,6 +997,11 @@ mem(char *s)
   } else {
     int xstatus;
     wait(&xstatus);
+    if(xstatus == -1){
+      // probably page fault, so might be lazy lab,
+      // so OK.
+      exit(0);
+    }
     exit(xstatus);
   }
 }
@@ -1955,9 +1960,31 @@ sbrkbasic(char *s)
   char *c, *a, *b;
 
   // does sbrk() return the expected failure value?
-  a = sbrk(TOOMUCH);
-  if(a != (char*)0xffffffffffffffffL){
-    printf("%s: sbrk(<toomuch>) returned %p\n", a);
+  pid = fork();
+  if(pid < 0){
+    printf("fork failed in sbrkbasic\n");
+    exit(1);
+  }
+  if(pid == 0){
+    a = sbrk(TOOMUCH);
+    if(a == (char*)0xffffffffffffffffL){
+      // it's OK if this fails.
+      exit(0);
+    }
+    
+    for(b = a; b < a+TOOMUCH; b += 4096){
+      *b = 99;
+    }
+    
+    // we should not get here! either sbrk(TOOMUCH)
+    // should have failed, or (with lazy allocation)
+    // a pagefault should have killed this process.
+    exit(1);
+  }
+
+  wait(&xstatus);
+  if(xstatus == 1){
+    printf("%s: too much memory allocated!\n", s);
     exit(1);
   }
 
@@ -2093,12 +2120,7 @@ sbrkfail(char *s)
   for(i = 0; i < sizeof(pids)/sizeof(pids[0]); i++){
     if((pids[i] = fork()) == 0){
       // allocate a lot of memory
-      char *p0 = sbrk(BIG - (uint64)sbrk(0));
-      if((uint64)p0 != 0xffffffffffffffffLL){
-        char *p1 = sbrk(0);
-        for(char *p2 = p0; p2 < p1; p2 += 4096)
-          *p2 = 1;
-      }
+      sbrk(BIG - (uint64)sbrk(0));
       write(fds[1], "x", 1);
       // sit around until killed
       for(;;) sleep(1000);
@@ -2128,18 +2150,22 @@ sbrkfail(char *s)
     exit(1);
   }
   if(pid == 0){
-    // allocate a lot of memory
+    // allocate a lot of memory.
+    // this should produce a page fault,
+    // and thus not complete.
     a = sbrk(0);
     sbrk(10*BIG);
     int n = 0;
     for (i = 0; i < 10*BIG; i += PGSIZE) {
       n += *(a+i);
     }
+    // print n so the compiler doesn't optimize away
+    // the for loop.
     printf("%s: allocate a lot of memory succeeded %d\n", n);
     exit(1);
   }
   wait(&xstatus);
-  if(xstatus != -1)
+  if(xstatus != -1 && xstatus != 2)
     exit(1);
 }
 
@@ -2502,23 +2528,67 @@ execout(char *s)
 
 //
 // use sbrk() to count how many free physical memory pages there are.
+// touches the pages to force allocation.
+// because out of memory with lazy allocation results in the process
+// taking a fault and being killed, fork and report back.
 //
 int
 countfree()
 {
-  uint64 sz0 = (uint64)sbrk(0);
-  int n = 0;
+  int fds[2];
 
-  while(1){
-    uint64 a = (uint64) sbrk(4096);
-    if(a == 0xffffffffffffffff){
-      break;
+  if(pipe(fds) < 0){
+    printf("pipe() failed in countfree()\n");
+    exit(1);
+  }
+  
+  int pid = fork();
+
+  if(pid < 0){
+    printf("fork failed in countfree()\n");
+    exit(1);
+  }
+
+  if(pid == 0){
+    close(fds[0]);
+    
+    while(1){
+      uint64 a = (uint64) sbrk(4096);
+      if(a == 0xffffffffffffffff){
+        break;
+      }
+
+      // modify the memory to make sure it's really allocated.
+      *(char *)(a + 4096 - 1) = 1;
+
+      // report back one more page.
+      if(write(fds[1], "x", 1) != 1){
+        printf("write() failed in countfree()\n");
+        exit(1);
+      }
     }
-    // modify the memory to make sure it's really allocated.
-    *(char *)(a + 4096 - 1) = 1;
+
+    exit(0);
+  }
+
+  close(fds[1]);
+
+  int n = 0;
+  while(1){
+    char c;
+    int cc = read(fds[0], &c, 1);
+    if(cc < 0){
+      printf("read() failed in countfree()\n");
+      exit(1);
+    }
+    if(cc == 0)
+      break;
     n += 1;
   }
-  sbrk(-((uint64)sbrk(0) - sz0));
+
+  close(fds[0]);
+  wait((int*)0);
+  
   return n;
 }
 
@@ -2645,7 +2715,7 @@ main(int argc, char *argv[])
       }
       int free1 = countfree();
       if(free1 < free0){
-        printf("FAILED -- lost some free pages\n");
+        printf("FAILED -- lost %d free pages\n", free0 - free1);
         if(continuous != 2)
           exit(1);
       }
@@ -2654,6 +2724,7 @@ main(int argc, char *argv[])
 
   printf("usertests starting\n");
   int free0 = countfree();
+  int free1 = 0;
   int fail = 0;
   for (struct test *t = tests; t->s != 0; t++) {
     if((justone == 0) || strcmp(t->s, justone) == 0) {
@@ -2665,8 +2736,8 @@ main(int argc, char *argv[])
   if(fail){
     printf("SOME TESTS FAILED\n");
     exit(1);
-  } else if(countfree() < free0){
-    printf("FAILED -- lost some free pages\n");
+  } else if((free1 = countfree()) < free0){
+    printf("FAILED -- lost some free pages %d (out of %d)\n", free1, free0);
     exit(1);
   } else {
     printf("ALL TESTS PASSED\n");

@@ -292,8 +292,8 @@ go(int which_child)
   }
 }
 
-int
-main()
+void
+iter()
 {
   unlink("a");
   unlink("b");
@@ -330,4 +330,20 @@ main()
   wait(&st2);
 
   exit(0);
+}
+
+int
+main()
+{
+  while(1){
+    int pid = fork();
+    if(pid == 0){
+      iter();
+      exit(0);
+    }
+    if(pid > 0){
+      wait(0);
+    }
+    sleep(20);
+  }
 }
