@@ -37,6 +37,7 @@ void
 usertrap(void)
 {
   int which_dev = 0;
+  struct cpu *c = mycpu();
 
   if((r_sstatus() & SSTATUS_SPP) != 0)
     panic("usertrap: not from user mode");
@@ -76,8 +77,9 @@ usertrap(void)
   if(p->killed)
     exit(-1);
 
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  // give up the CPU if this is a timer interrupt or
+  // we have received a timer interrupt in kernel mode.
+  if ( which_dev == 2 || c->need_dispatch != 0 )
     yield();
 
   usertrapret();
@@ -134,9 +136,9 @@ void
 kerneltrap()
 {
   int which_dev = 0;
-  uint64 sepc = r_sepc();
   uint64 sstatus = r_sstatus();
   uint64 scause = r_scause();
+  struct cpu *c = mycpu();
   
   if((sstatus & SSTATUS_SPP) == 0)
     panic("kerneltrap: not from supervisor mode");
@@ -149,14 +151,10 @@ kerneltrap()
     panic("kerneltrap");
   }
 
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
-    yield();
-
-  // the yield() may have caused some traps to occur,
-  // so restore trap registers for use by kernelvec.S's sepc instruction.
-  w_sepc(sepc);
-  w_sstatus(sstatus);
+  // If interrupt occurs when the process runs in kernel mode, we should postpone
+  // giving up the CPU by  timer interrupts until the kernel returns to user space.
+  if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+    c->need_dispatch = 1;
 }
 
 void

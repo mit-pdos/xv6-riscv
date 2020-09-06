@@ -505,6 +505,7 @@ sched(void)
   if(intr_get())
     panic("sched interruptible");
 
+  mycpu()->need_dispatch = 0;  // Clear delayed dispatching flag
   intena = mycpu()->intena;
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
