@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+
+import re
+from gradelib import *
+
+r = Runner(save("xv6.out"))
+
+@test(0, "running lazytests")
+def test_lazytests():
+    r.run_qemu(shell_script([
+        'lazytests'
+    ]))
+
+@test(20, "lazy: map", parent=test_lazytests)
+def test_filetest():
+    r.match("^test lazy unmap: OK$")
+
+@test(20, "lazy: unmap", parent=test_lazytests)
+def test_memtest():
+    r.match("test lazy alloc: OK$")
+
+@test(0, "usertests")
+def test_usertests():
+    r.run_qemu(shell_script([
+        'usertests'
+    ]), timeout=300)
+
+def usertest_check(testcase, nextcase, output):
+    if not re.search(r'\ntest {}: [\s\S]*OK\ntest {}'.format(testcase, nextcase), output):
+        raise AssertionError('Failed ' + testcase)
+
+@test(4, "usertests: pgbug", parent=test_usertests)
+def test_pgbug():
+    usertest_check("pgbug", "sbrkbugs", r.qemu.output)
+
+@test(4, "usertests: sbrkbugs", parent=test_usertests)
+def test_sbrkbugs():
+    usertest_check("sbrkbugs", "badarg", r.qemu.output)
+
+@test(4, "usertests: argptest", parent=test_usertests)
+def test_argptest():
+    usertest_check("argptest", "createdelete", r.qemu.output)
+
+@test(4, "usertests: sbrkmuch", parent=test_usertests)
+def test_sbrkmuch():
+    usertest_check("sbrkmuch", "kernmem", r.qemu.output)
+
+@test(4, "usertests: sbrkfail", parent=test_usertests)
+def test_sbrkfail():
+    usertest_check("sbrkfail", "sbrkarg", r.qemu.output)
+
+@test(5, "usertests: sbrkarg", parent=test_usertests)
+def test_sbrkarg():
+    usertest_check("sbrkarg", "validatetest", r.qemu.output)
+
+@test(5, "usertests: stacktest", parent=test_usertests)
+def test_stacktest():
+    usertest_check("stacktest", "opentest", r.qemu.output)
+
+@test(19, "usertests: all tests", parent=test_usertests)
+def test_usertests_all():
+    r.match('^ALL TESTS PASSED$')
+
+@test(1, "time")
+def test_time():
+    check_time()
+
+run_tests()
