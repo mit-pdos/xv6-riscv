@@ -233,6 +233,53 @@ copyinstr3(char *s)
   }
 }
 
+// See if the kernel refuses to read/write user memory that the
+// application doesn't have anymore, because it returned it.
+void
+rwsbrk()
+{
+  int fd, n;
+  
+  uint64 a = (uint64) sbrk(8192);
+
+  if(a == 0xffffffffffffffffLL) {
+    printf("sbrk(rwsbrk) failed\n");
+    exit(1);
+  }
+  
+  if ((uint64) sbrk(-8192) ==  0xffffffffffffffffLL) {
+    printf("sbrk(rwsbrk) shrink failed\n");
+    exit(1);
+  }
+
+  fd = open("rwsbrk", O_CREATE|O_WRONLY);
+  if(fd < 0){
+    printf("open(rwsbrk) failed\n");
+    exit(1);
+  }
+  n = write(fd, (void*)(a+4096), 1024);
+  if(n >= 0){
+    printf("write(fd, %p, 1024) returned %d, not -1\n", a+4096, n);
+    exit(1);
+  }
+  close(fd);
+  unlink("rwsbrk");
+
+  fd = open("README", O_RDONLY);
+  if(fd < 0){
+    printf("open(rwsbrk) failed\n");
+    exit(1);
+  }
+  n = read(fd, (void*)(a+4096), 10);
+  if(n >= 0){
+    printf("read(fd, %p, 10) returned %d, not -1\n", a+4096, n);
+    exit(1);
+  }
+  close(fd);
+  
+  exit(0);
+}
+
 // test O_TRUNC.
 void
 truncate1(char *s)
@@ -2644,6 +2691,7 @@ main(int argc, char *argv[])
     {copyinstr1, "copyinstr1"},
     {copyinstr2, "copyinstr2"},
     {copyinstr3, "copyinstr3"},
+    {rwsbrk, "rwsbrk" },
     {truncate1, "truncate1"},
     {truncate2, "truncate2"},
     {truncate3, "truncate3"},
