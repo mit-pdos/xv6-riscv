@@ -57,9 +57,198 @@ def test_sbrkarg():
 def test_stacktest():
     usertest_check("stacktest", "opentest", r.qemu.output)
 
-@test(19, "usertests: all tests", parent=test_usertests)
-def test_usertests_all():
-    r.match('^ALL TESTS PASSED$')
+@test(1, "usertests: execout", parent=test_usertests)
+def test_execout():
+    usertest_check("execout", "copyin", r.qemu.output)
+
+@test(1, "usertests: copyin", parent=test_usertests)
+def test_copyin():
+    usertest_check("copyin", "copyout", r.qemu.output)
+
+@test(1, "usertests: copyout", parent=test_usertests)
+def test_copyout():
+    usertest_check("copyout", "copyinstr1", r.qemu.output)
+
+@test(1, "usertests: copyinstr1", parent=test_usertests)
+def test_copyinstr1():
+    usertest_check("copyinstr1", "copyinstr2", r.qemu.output)
+
+@test(1, "usertests: copyinstr2", parent=test_usertests)
+def test_copyinstr2():
+    usertest_check("copyinstr2", "copyinstr3", r.qemu.output)
+
+@test(1, "usertests: copyinstr3", parent=test_usertests)
+def test_copyinstr3():
+    usertest_check("copyinstr3", "rwsbrk", r.qemu.output)
+
+@test(1, "usertests: rwsbrk", parent=test_usertests)
+def test_rwsbrk():
+    usertest_check("rwsbrk", "truncate1", r.qemu.output)
+
+@test(1, "usertests: truncate1", parent=test_usertests)
+def test_truncate1():
+    usertest_check("truncate1", "truncate2", r.qemu.output)
+
+@test(1, "usertests: truncate2", parent=test_usertests)
+def test_truncate2():
+    usertest_check("truncate2", "truncate3", r.qemu.output)
+
+@test(1, "usertests: truncate3", parent=test_usertests)
+def test_truncate3():
+    usertest_check("truncate3", "reparent2", r.qemu.output)
+
+@test(1, "usertests: reparent2", parent=test_usertests)
+def test_reparent2():
+    usertest_check("reparent2", "pgbug", r.qemu.output)
+
+@test(1, "usertests: badarg", parent=test_usertests)
+def test_badarg():
+    usertest_check("badarg", "reparent", r.qemu.output)
+
+@test(1, "usertests: reparent", parent=test_usertests)
+def test_reparent():
+    usertest_check("reparent", "twochildren", r.qemu.output)
+
+@test(1, "usertests: twochildren", parent=test_usertests)
+def test_twochildren():
+    usertest_check("twochildren", "forkfork", r.qemu.output)
+
+@test(1, "usertests: forkfork", parent=test_usertests)
+def test_forkfork():
+    usertest_check("forkfork", "forkforkfork", r.qemu.output)
+
+@test(1, "usertests: forkforkfork", parent=test_usertests)
+def test_forkforkfork():
+    usertest_check("forkforkfork", "argptest", r.qemu.output)
+
+@test(1, "usertests: createdelete", parent=test_usertests)
+def test_createdelete():
+    usertest_check("createdelete", "linkunlink", r.qemu.output)
+
+@test(1, "usertests: linkunlink", parent=test_usertests)
+def test_linkunlink():
+    usertest_check("linkunlink", "linktest", r.qemu.output)
+
+@test(1, "usertests: linktest", parent=test_usertests)
+def test_linktest():
+    usertest_check("linktest", "unlinkread", r.qemu.output)
+
+@test(1, "usertests: unlinkread", parent=test_usertests)
+def test_unlinkread():
+    usertest_check("unlinkread", "concreate", r.qemu.output)
+
+@test(1, "usertests: concreate", parent=test_usertests)
+def test_concreate():
+    usertest_check("concreate", "subdir", r.qemu.output)
+
+@test(1, "usertests: subdir", parent=test_usertests)
+def test_subdir():
+    usertest_check("subdir", "fourfiles", r.qemu.output)
+
+@test(1, "usertests: fourfiles", parent=test_usertests)
+def test_fourfiles():
+    usertest_check("fourfiles", "sharedfd", r.qemu.output)
+
+@test(1, "usertests: sharedfd", parent=test_usertests)
+def test_sharedfd():
+    usertest_check("sharedfd", "exectest", r.qemu.output)
+
+@test(1, "usertests: exectest", parent=test_usertests)
+def test_exectest():
+    usertest_check("exectest", "bigargtest", r.qemu.output)
+
+@test(1, "usertests: bigargtest", parent=test_usertests)
+def test_bigargtest():
+    usertest_check("bigargtest", "bigwrite", r.qemu.output)
+
+@test(1, "usertests: bigwrite", parent=test_usertests)
+def test_bigwrite():
+    usertest_check("bigwrite", "bsstest", r.qemu.output)
+
+@test(1, "usertests: bsstest", parent=test_usertests)
+def test_bsstest():
+    usertest_check("bsstest", "sbrkbasic", r.qemu.output)
+
+@test(1, "usertests: sbrkbasic", parent=test_usertests)
+def test_sbrkbasic():
+    usertest_check("sbrkbasic", "sbrkmuch", r.qemu.output)
+
+@test(1, "usertests: kernmem", parent=test_usertests)
+def test_kernmem():
+    usertest_check("kernmem", "sbrkfail", r.qemu.output)
+
+@test(1, "usertests: validatetest", parent=test_usertests)
+def test_validatetest():
+    usertest_check("validatetest", "stacktest", r.qemu.output)
+
+@test(1, "usertests: opentest", parent=test_usertests)
+def test_opentest():
+    usertest_check("opentest", "writetest", r.qemu.output)
+
+@test(1, "usertests: writetest", parent=test_usertests)
+def test_writetest():
+    usertest_check("writetest", "writebig", r.qemu.output)
+
+@test(1, "usertests: writebig", parent=test_usertests)
+def test_writebig():
+    usertest_check("writebig", "createtest", r.qemu.output)
+
+@test(1, "usertests: createtest", parent=test_usertests)
+def test_createtest():
+    usertest_check("createtest", "openiput", r.qemu.output)
+
+@test(1, "usertests: openiput", parent=test_usertests)
+def test_openiput():
+    usertest_check("openiput", "exitiput", r.qemu.output)
+
+@test(1, "usertests: exitiput", parent=test_usertests)
+def test_exitiput():
+    usertest_check("exitiput", "iput", r.qemu.output)
+
+@test(1, "usertests: iput", parent=test_usertests)
+def test_iput():
+    usertest_check("iput", "mem", r.qemu.output)
+
+@test(1, "usertests: mem", parent=test_usertests)
+def test_mem():
+    usertest_check("mem", "pipe1", r.qemu.output)
+
+@test(1, "usertests: pipe1", parent=test_usertests)
+def test_pipe1():
+    usertest_check("pipe1", "preempt", r.qemu.output)
+
+@test(1, "usertests: preempt", parent=test_usertests)
+def test_preempt():
+    usertest_check("preempt", "exitwait", r.qemu.output)
+
+@test(1, "usertests: exitwait", parent=test_usertests)
+def test_exitwait():
+    usertest_check("exitwait", "rmdot", r.qemu.output)
+
+@test(1, "usertests: rmdot", parent=test_usertests)
+def test_rmdot():
+    usertest_check("rmdot", "fourteen", r.qemu.output)
+
+@test(1, "usertests: fourteen", parent=test_usertests)
+def test_fourteen():
+    usertest_check("fourteen", "bigfile", r.qemu.output)
+
+@test(1, "usertests: bigfile", parent=test_usertests)
+def test_bigfile():
+    usertest_check("bigfile", "dirfile", r.qemu.output)
+
+@test(1, "usertests: dirfile", parent=test_usertests)
+def test_dirfile():
+    usertest_check("dirfile", "iref", r.qemu.output)
+
+@test(1, "usertests: iref", parent=test_usertests)
+def test_iref():
+    usertest_check("iref", "forktest", r.qemu.output)
+
+@test(1, "usertests: forktest", parent=test_usertests)
+def test_forktest():
+    usertest_check("forktest", "bigdir", r.qemu.output)
+
 
 @test(1, "time")
 def test_time():
