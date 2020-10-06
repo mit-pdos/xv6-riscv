@@ -21,6 +21,9 @@
 #include "riscv.h"
 #include "defs.h"
 #include "proc.h"
+#include "ioctl.h"
+#include "termios.h"
+
 
 #define BACKSPACE 0x100
 #define C(x)  ((x)-'@')  // Control-x
@@ -50,7 +53,16 @@ struct {
   uint r;  // Read index
   uint w;  // Write index
   uint e;  // Edit index
+  // support for simple RAW mode
+  struct termios termios;
 } cons;
+
+void
+consechoc(int c)
+{
+  if(cons.termios.c_lflag & ECHO)
+    consputc(c);
+}
 
 //
 // user write()s to the console go here.
@@ -180,6 +192,21 @@ consoleintr(int c)
   release(&cons.lock);
 }
 
+int
+consoleioctl(struct inode *ip, int req, void *ttyctl)
+{
+  struct termios *termios_p = (struct termios *)ttyctl;
+  if(req != TCGETA && req != TCSETA)
+    return -1;
+//  if(argint(2, (void*)&termios_p, sizeof(*termios_p)) < 0)
+//    return -1;
+  if(req == TCGETA)
+    *termios_p = cons.termios;
+  else
+    cons.termios = *termios_p;
+  return 0;
+}
+
 void
 consoleinit(void)
 {
@@ -191,4 +218,8 @@ consoleinit(void)
   // to consoleread and consolewrite.
   devsw[CONSOLE].read = consoleread;
   devsw[CONSOLE].write = consolewrite;
+  devsw[CONSOLE].ioctl = consoleioctl;
+
+  cons.termios.c_lflag = ECHO | ICANON;
+  //cons.locking = 1;
 }
