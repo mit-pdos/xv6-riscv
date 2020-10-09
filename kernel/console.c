@@ -53,6 +53,7 @@ struct {
   uint r;  // Read index
   uint w;  // Write index
   uint e;  // Edit index
+
   // support for simple RAW mode
   struct termios termios;
 } cons;
@@ -170,23 +171,24 @@ consoleintr(int c)
     }
     break;
   default:
-    if(c != 0 && cons.e-cons.r < INPUT_BUF){
-      c = (c == '\r') ? '\n' : c;
-
-      // echo back to the user.
-      consputc(c);
-
-      // store for consumption by consoleread().
-      cons.buf[cons.e++ % INPUT_BUF] = c;
-
-      if(c == '\n' || c == C('D') || cons.e == cons.r+INPUT_BUF){
-        // wake up consoleread() if a whole line (or end-of-file)
-        // has arrived.
-        cons.w = cons.e;
-        wakeup(&cons.r);
-      }
-    }
     break;
+  }
+  if(c != 0 && cons.e-cons.r < INPUT_BUF){
+    c = (c == '\r') ? '\n' : c;
+
+    // echo back to the user.
+    consputc(c);
+
+    // store for consumption by consoleread().
+    cons.buf[cons.e++ % INPUT_BUF] = c;
+
+    if(c == '\n' || c == C('D') || cons.e == cons.r+INPUT_BUF
+      || (cons.termios.c_lflag & ICANON) == 0){
+      // wake up consoleread() if a whole line (or end-of-file)
+      // has arrived.
+      cons.w = cons.e;
+      wakeup(&cons.r);
+    }
   }
   
   release(&cons.lock);

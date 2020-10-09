@@ -19,6 +19,7 @@ void init_term(){
   tcsetattr(0, TCSANOW, &termios);
   printf("init_term4 %p\nand %d\n", &termios, termios.c_lflag);
 }
+
 void restore_term(){
   printf("restore_term1 %p\nand %d\n", &termios, termios.c_lflag);
   termios.c_lflag |= ICANON;
