@@ -20,6 +20,7 @@ int tcsetattr(int, int, const struct termios *);
 /* c_lflag bits */
 #define ECHO	0000010
 #define ICANON	0000002
+#define KRIS 0000777
 
 /* tcsetattr uses these */
 #define	TCSANOW		0

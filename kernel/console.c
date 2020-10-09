@@ -200,10 +200,24 @@ consoleioctl(struct inode *ip, int req, void *ttyctl)
     return -1;
 //  if(argint(2, (void*)&termios_p, sizeof(*termios_p)) < 0)
 //    return -1;
-  if(req == TCGETA)
-    *termios_p = cons.termios;
-  else
-    cons.termios = *termios_p;
+
+  acquire(&cons.lock);
+  if(req == TCGETA) {
+    //*termios_p = cons.termios;
+    if(either_copyout(1, (uint64)termios_p, (void *)&(cons.termios), sizeof(*termios_p)) == -1)
+    {
+      release(&cons.lock);
+      return -1;
+    }
+  } else { /* TCSETA */
+    //cons.termios = *termios_p;
+    if(either_copyin(&termios_p, 1, (uint64)&(cons.termios), sizeof(struct termios)) == -1)
+    {
+      release(&cons.lock);
+      return -1;
+    }
+  }
+  release(&cons.lock);
   return 0;
 }
 
