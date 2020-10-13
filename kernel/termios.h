@@ -18,9 +18,9 @@ void cfmakeraw(struct termios *);
 int tcsetattr(int, int, const struct termios *);
 
 /* c_lflag bits */
-#define ECHO	0000010
-#define ICANON	0000002
-#define KRIS 0000777
+#define ECHO	(1 << 0)
+#define ICANON	(1 << 1)
+#define KRIS (1 << 2)
 
 /* tcsetattr uses these */
 #define	TCSANOW		0

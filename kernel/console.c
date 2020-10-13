@@ -58,6 +58,11 @@ struct {
   struct termios termios;
 } cons;
 
+int is_set(unsigned mask)
+{
+    return (cons.termios.c_lflag & (mask)) != 0;
+}
+
 void
 consechoc(int c)
 {
@@ -113,7 +118,7 @@ consoleread(int user_dst, uint64 dst, int n)
 
     c = cons.buf[cons.r++ % INPUT_BUF];
 
-    if(c == C('D')){  // end-of-file
+    if(c == C('D') && cons.termios.c_lflag & ICANON) {  // end-of-file
       if(n < target){
         // Save ^D for next time, to make sure
         // caller gets a 0-byte result.
@@ -130,7 +135,7 @@ consoleread(int user_dst, uint64 dst, int n)
     dst++;
     --n;
 
-    if(c == '\n'){
+    if(c == '\n' && cons.termios.c_lflag & ICANON){
       // a whole line has arrived, return to
       // the user-level read().
       break;
@@ -152,32 +157,35 @@ consoleintr(int c)
 {
   acquire(&cons.lock);
 
-  switch(c){
-  case C('P'):  // Print process list.
-    procdump();
-    break;
-  case C('U'):  // Kill line.
-    while(cons.e != cons.w &&
-          cons.buf[(cons.e-1) % INPUT_BUF] != '\n'){
-      cons.e--;
-      consputc(BACKSPACE);
+  if(cons.termios.c_lflag & ICANON){
+    switch(c){
+    case C('P'):  // Print process list.
+      procdump();
+      break;
+    case C('U'):  // Kill line.
+      while(cons.e != cons.w &&
+            cons.buf[(cons.e-1) % INPUT_BUF] != '\n'){
+        cons.e--;
+        consputc(BACKSPACE);
+      }
+      break;
+    case C('H'): // Backspace
+    case '\x7f':
+      if(cons.e != cons.w){
+        cons.e--;
+        consputc(BACKSPACE);
+      }
+      break;
+    default:
+      break;
     }
-    break;
-  case C('H'): // Backspace
-  case '\x7f':
-    if(cons.e != cons.w){
-      cons.e--;
-      consputc(BACKSPACE);
-    }
-    break;
-  default:
-    break;
   }
   if(c != 0 && cons.e-cons.r < INPUT_BUF){
     c = (c == '\r') ? '\n' : c;
 
     // echo back to the user.
-    consputc(c);
+    if(cons.termios.c_lflag & ECHO)
+       consputc(c);
 
     // store for consumption by consoleread().
     cons.buf[cons.e++ % INPUT_BUF] = c;
@@ -186,6 +194,9 @@ consoleintr(int c)
       || (cons.termios.c_lflag & ICANON) == 0){
       // wake up consoleread() if a whole line (or end-of-file)
       // has arrived.
+      cons.w = cons.e;
+      wakeup(&cons.r);
+    } else {
       cons.w = cons.e;
       wakeup(&cons.r);
     }
@@ -237,5 +248,7 @@ consoleinit(void)
   devsw[CONSOLE].ioctl = consoleioctl;
 
   cons.termios.c_lflag = ECHO | ICANON;
+
+  printf("setting console termios %p\n", cons.termios.c_lflag);
   //cons.locking = 1;
 }

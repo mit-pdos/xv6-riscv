@@ -5,26 +5,25 @@
 #include <unistd.h>
 #include "kernel/termios.h"
 
+struct termios saved;
 struct termios termios;
 char ch;
 
 // term
 void init_term(){
-  memset(&termios, 0, sizeof(termios));
-  printf("init_term1 %p\nand %d\n", &termios, termios.c_lflag);
-  tcgetattr(0, &termios);
-  printf("init_term2 %p\nand %d\n", &termios, termios.c_lflag);
+  memset(&termios, 0, sizeof(struct termios));
+  memset(&saved, 0, sizeof(struct termios));
+  tcgetattr(0, &saved);
+  printf("init_term2 %p\nand %d\n", &saved, saved.c_lflag);
   termios.c_lflag &= ~ICANON;
+  termios.c_lflag &= ~ECHO;
   printf("init_term3 %p\nand %d\n", &termios, termios.c_lflag);
   tcsetattr(0, TCSANOW, &termios);
-  printf("init_term4 %p\nand %d\n", &termios, termios.c_lflag);
 }
 
 void restore_term(){
-  printf("restore_term1 %p\nand %d\n", &termios, termios.c_lflag);
-  termios.c_lflag |= ICANON;
-  printf("restore_term2 %p\nand %d\n", &termios, termios.c_lflag);
-  tcsetattr(0, TCSANOW, &termios);
+  printf("restore_term2 %p\nand %d\n", &saved, saved.c_lflag);
+  tcsetattr(0, TCSANOW, &saved);
   printf("restore_term3 %p\nand %d\n", &termios, termios.c_lflag);
 }
 
@@ -35,13 +34,15 @@ int main(int argc, char *argv[]){
 
   init_term();
 
-//   char c;
-
-//   while(1){
-//     read(0, &c, 1);
-//     if(ch == 'q') break;
-//     write(1, &c, 1);
-//   }
+  char c;
+  char fence = '|';
+  
+  while(1){
+    read(0, &c, 1);
+    if(c == 'q') break;
+    write(1, &fence, 1);
+    write(1, &c, 1);
+  }
 
   restore_term();
 
