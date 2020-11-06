@@ -67,5 +67,6 @@ int main(int argc, char *argv[]) {
 
     // print # of ticks in nrounds
     printf("# of ticks in %d rounds: %d\n", n, uptime() - start_tick);
+    // printf("%d\n", rtctime());
     exit(0);
 }

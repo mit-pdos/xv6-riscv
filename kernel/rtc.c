@@ -9,40 +9,63 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-// #include "traps.h"
 #include "fs.h"
-// #include "mmu.h"
 #include "rtc.h"
 #include "sleeplock.h"
 #include "file.h"
+#include <stdarg.h>
 
-#define Reg(reg) ((volatile unsigned char *)(RTC0 + reg))
-#define RTC_SECONDS 0
-#define RTC_MINUTES 2
-#define RTC_HOURS 4
-#define RTC_MONTH 8
+// referred implimentation of TWL92230C
+#define Reg(reg) ((volatile long *)(RTC0 + reg))
+#define RTC_SECONDS 0x23
+#define RTC_MINUTES 0x24
+#define RTC_HOURS 0x25
+#define RTC_DAY 0x26
+#define RTC_MONTH 0x27
+#define RTC_YEAR 0x28
 
 #define ReadReg(reg) (*(Reg(reg)))
 #define WriteReg(reg, v) (*(Reg(reg)) = (v))
 
-static unsigned char get_rtc(unsigned char addr) {
+static unsigned char get_rtc(unsigned long addr) {
     unsigned char val;
 
-    WriteReg(Reg(0), addr);
-    val = ReadReg(Reg(1));
+    // WriteReg(Reg(0x00), addr);
+    // val = ReadReg(Reg(0x01));
+    val = ReadReg(Reg(addr));
 
-    return val;
-    // return 0;
+    // return val;
+    return 0;
 }
 
-static int rtcread(int user_dst, uint64 dst, int n) {
-    struct rtcdate t;
+void fill_rtcdate(struct rtcdate *t) {
+    unsigned char seconds = 0;
+    unsigned char minutes = 0;
+    unsigned char hours = 0;
+    unsigned char month = 0;
+
+    seconds = get_rtc(RTC_SECONDS);
+    minutes = get_rtc(RTC_MINUTES);
+    hours = get_rtc(RTC_HOURS);
+    month = get_rtc(RTC_MONTH);
+    t->seconds = seconds;
+    t->minutes = minutes;
+    t->hours = hours;
+    t->month = month;
+}
+
+static int rtcread(int user_dst, uint64 dst, int n, ...) {
+    va_list ap;
+    struct rtcdate t, *tt;
+
+    va_start(ap, n);
+    tt = va_arg(ap, struct rtcdate *);
 
     /* Get the current time from RTC */
-    unsigned char seconds;
-    unsigned char minutes;
-    unsigned char hours;
-    unsigned char month;
+    unsigned char seconds = 0;
+    unsigned char minutes = 0;
+    unsigned char hours = 0;
+    unsigned char month = 0;
 
     seconds = get_rtc(RTC_SECONDS);
     minutes = get_rtc(RTC_MINUTES);
@@ -52,10 +75,10 @@ static int rtcread(int user_dst, uint64 dst, int n) {
     t.minutes = minutes;
     t.hours = hours;
     t.month = month;
-    *((struct rtcdate *)dst) = t;
+    tt = &t;
 
-    return sizeof(t);
-    // return 0;
+    va_end(ap);
+    return sizeof(*tt);
 }
 
 // int rtcwrite(int user_src, uint64 src, int n) {

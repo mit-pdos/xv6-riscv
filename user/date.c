@@ -10,10 +10,10 @@ int main(int argc, char *argv[]) {
     fd = open("rtc", O_RDWR);
 
     if (argc == 1) {
-        read(fd, &t, sizeof(t));
+        read(fd, &t, sizeof(t), &t);
         printf("hello\n");
-        // printf(0, "BSD: MM:hh:mm:ss: %d:%d:%d:%d: \n", t.month, t.hours,
-        //        t.minutes, t.seconds);
+        printf("BSD: MM:hh:mm:ss: %d:%d:%d:%d: \n", t.month, t.hours, t.minutes,
+               t.seconds);
         // printf(0, "MM:hh:mm:ss:  %d%d:%d%d:%d%d:%d%d\n", (t.month & 0xF0) >>
         // 4,
         //        t.month & 0x0F, (t.hours & 0xF0) >> 4, t.hours & 0x0F,

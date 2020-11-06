@@ -21,7 +21,7 @@ int main(void) {
     dup(0);  // stdout
     dup(0);  // stderr
     if (open("rtc", O_RDWR) < 0) {
-        mknod("rtc", RTC, 0);
+        mknod("rtc", RTC, 1);
         open("rtc", O_RDWR);
     }
 

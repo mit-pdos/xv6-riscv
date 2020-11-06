@@ -28,6 +28,7 @@ int exec(char*, char**);
 
 // rtc.c
 void rtcinit(void);
+void fill_rtcdate(struct rtcdate*);
 
 // file.c
 struct file* filealloc(void);
