@@ -1,13 +1,12 @@
 # xv6-riscv-win
 
-[ccckmit](https://github.com/ccckmit) fork the project form github.
+[ccckmit](https://github.com/ccckmit) fork the project form the following github repository.
 
 * https://github.com/mit-pdos/xv6-riscv
 
 However, the original xv6-riscv can only be compiled & run on Linux.
 
-ccckmit port the [mkfs.c](https://github.com/mit-pdos/xv6-riscv/tree/riscv/mkfs/mkfs.c) 
-into windows + git bash, and compile it successfully.
+ccckmit port the [mkfs.c](https://github.com/mit-pdos/xv6-riscv/tree/riscv/mkfs/mkfs.c) into standard C and run on (windows + git bash) successfully.
 
 ## Prerequisites For Windows
 
