@@ -11,9 +11,8 @@
 
 #include <stdarg.h>
 
-#include "types.h"
+#include "console.h"
 #include "param.h"
-#include "spinlock.h"
 #include "sleeplock.h"
 #include "fs.h"
 #include "file.h"
@@ -41,16 +40,7 @@ consputc(int c)
   }
 }
 
-struct {
-  struct spinlock lock;
-  
-  // input
-#define INPUT_BUF 128
-  char buf[INPUT_BUF];
-  uint r;  // Read index
-  uint w;  // Write index
-  uint e;  // Edit index
-} cons;
+struct console cons;
 
 //
 // user write()s to the console go here.
@@ -174,8 +164,9 @@ consoleintr(int c)
     }
     break;
   }
-  
-  release(&cons.lock);
+  if (holding(&cons.lock)){
+    release(&cons.lock);
+  }
 }
 
 void
@@ -189,4 +180,5 @@ consoleinit(void)
   // to consoleread and consolewrite.
   devsw[CONSOLE].read = consoleread;
   devsw[CONSOLE].write = consolewrite;
+  cons.locking = 1;
 }

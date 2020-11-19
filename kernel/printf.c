@@ -4,7 +4,9 @@
 
 #include <stdarg.h>
 
-#include "types.h"
+#include "console.h"
+// #include "spinlock.h"
+// #include "types.h"
 #include "param.h"
 #include "spinlock.h"
 #include "sleeplock.h"
@@ -17,11 +19,7 @@
 
 volatile int panicked = 0;
 
-// lock to avoid interleaving concurrent printf's.
-static struct {
-  struct spinlock lock;
-  int locking;
-} pr;
+extern struct console cons;
 
 static char digits[] = "0123456789abcdef";
 
@@ -67,9 +65,9 @@ printf(char *fmt, ...)
   int i, c, locking;
   char *s;
 
-  locking = pr.locking;
-  if(locking)
-    acquire(&pr.lock);
+  locking = cons.locking;
+  if(locking && !holding(&cons.lock))
+    acquire(&cons.lock);
 
   if (fmt == 0)
     panic("null fmt");
@@ -111,24 +109,17 @@ printf(char *fmt, ...)
   }
 
   if(locking)
-    release(&pr.lock);
+    release(&cons.lock);
 }
 
 void
 panic(char *s)
 {
-  pr.locking = 0;
+  cons.locking = 0;
   printf("panic: ");
   printf(s);
   printf("\n");
   panicked = 1; // freeze uart output from other CPUs
   for(;;)
     ;
-}
-
-void
-printfinit(void)
-{
-  initlock(&pr.lock, "pr");
-  pr.locking = 1;
 }
