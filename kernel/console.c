@@ -164,9 +164,8 @@ consoleintr(int c)
     }
     break;
   }
-  if (holding(&cons.lock)){
+  if (holding(&cons.lock))
     release(&cons.lock);
-  }
 }
 
 void

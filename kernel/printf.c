@@ -5,8 +5,6 @@
 #include <stdarg.h>
 
 #include "console.h"
-// #include "spinlock.h"
-// #include "types.h"
 #include "param.h"
 #include "spinlock.h"
 #include "sleeplock.h"
