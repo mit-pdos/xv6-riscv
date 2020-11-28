@@ -21,6 +21,9 @@
 #include "riscv.h"
 #include "defs.h"
 #include "proc.h"
+#include "ioctl.h"
+#include "termios.h"
+
 
 #define BACKSPACE 0x100
 #define C(x)  ((x)-'@')  // Control-x
@@ -50,7 +53,22 @@ struct {
   uint r;  // Read index
   uint w;  // Write index
   uint e;  // Edit index
+
+  // support for simple RAW mode
+  struct termios termios;
 } cons;
+
+int is_set(unsigned mask)
+{
+    return (cons.termios.c_lflag & (mask)) != 0;
+}
+
+void
+consechoc(int c)
+{
+  if(cons.termios.c_lflag & ECHO)
+    consputc(c);
+}
 
 //
 // user write()s to the console go here.
@@ -98,7 +116,7 @@ consoleread(int user_dst, uint64 dst, int n)
 
     c = cons.buf[cons.r++ % INPUT_BUF];
 
-    if(c == C('D')){  // end-of-file
+    if(c == C('D') && cons.termios.c_lflag & ICANON) {  // end-of-file
       if(n < target){
         // Save ^D for next time, to make sure
         // caller gets a 0-byte result.
@@ -115,7 +133,7 @@ consoleread(int user_dst, uint64 dst, int n)
     dst++;
     --n;
 
-    if(c == '\n'){
+    if(c == '\n' && cons.termios.c_lflag & ICANON){
       // a whole line has arrived, return to
       // the user-level read().
       break;
@@ -137,45 +155,81 @@ consoleintr(int c)
 {
   acquire(&cons.lock);
 
-  switch(c){
-  case C('P'):  // Print process list.
-    procdump();
-    break;
-  case C('U'):  // Kill line.
-    while(cons.e != cons.w &&
-          cons.buf[(cons.e-1) % INPUT_BUF] != '\n'){
-      cons.e--;
-      consputc(BACKSPACE);
-    }
-    break;
-  case C('H'): // Backspace
-  case '\x7f':
-    if(cons.e != cons.w){
-      cons.e--;
-      consputc(BACKSPACE);
-    }
-    break;
-  default:
-    if(c != 0 && cons.e-cons.r < INPUT_BUF){
-      c = (c == '\r') ? '\n' : c;
-
-      // echo back to the user.
-      consputc(c);
-
-      // store for consumption by consoleread().
-      cons.buf[cons.e++ % INPUT_BUF] = c;
-
-      if(c == '\n' || c == C('D') || cons.e == cons.r+INPUT_BUF){
-        // wake up consoleread() if a whole line (or end-of-file)
-        // has arrived.
-        cons.w = cons.e;
-        wakeup(&cons.r);
+  if(cons.termios.c_lflag & ICANON){
+    switch(c){
+    case C('P'):  // Print process list.
+      procdump();
+      break;
+    case C('U'):  // Kill line.
+      while(cons.e != cons.w &&
+            cons.buf[(cons.e-1) % INPUT_BUF] != '\n'){
+        cons.e--;
+        consputc(BACKSPACE);
       }
+      break;
+    case C('H'): // Backspace
+    case '\x7f':
+      if(cons.e != cons.w){
+        cons.e--;
+        consputc(BACKSPACE);
+      }
+      break;
+    default:
+      break;
     }
-    break;
+  }
+  if(c != 0 && cons.e-cons.r < INPUT_BUF){
+    c = (c == '\r') ? '\n' : c;
+
+    // echo back to the user.
+    if(cons.termios.c_lflag & ECHO)
+       consputc(c);
+
+    // store for consumption by consoleread().
+    cons.buf[cons.e++ % INPUT_BUF] = c;
+
+    if(c == '\n' || c == C('D') || cons.e == cons.r+INPUT_BUF
+      || (cons.termios.c_lflag & ICANON) == 0){
+      // wake up consoleread() if a whole line (or end-of-file)
+      // has arrived.
+      cons.w = cons.e;
+      wakeup(&cons.r);
+    } else {
+      cons.w = cons.e;
+      wakeup(&cons.r);
+    }
   }
   
   release(&cons.lock);
+}
+
+int
+consoleioctl(struct inode *ip, int req, void *ttyctl)
+{
+  struct termios *termios_p = (struct termios *)ttyctl;
+  if(req != TCGETA && req != TCSETA)
+    return -1;
+//  if(argint(2, (void*)&termios_p, sizeof(*termios_p)) < 0)
+//    return -1;
+
+  acquire(&cons.lock);
+  if(req == TCGETA) {
+    //*termios_p = cons.termios;
+    if(either_copyout(1, (uint64)termios_p, (void *)&(cons.termios), sizeof(*termios_p)) == -1)
+    {
+      release(&cons.lock);
+      return -1;
+    }
+  } else { /* TCSETA */
+    //cons.termios = *termios_p;
+    if(either_copyin(&termios_p, 1, (uint64)&(cons.termios), sizeof(struct termios)) == -1)
+    {
+      release(&cons.lock);
+      return -1;
+    }
+  }
+  release(&cons.lock);
+  return 0;
 }
 
 void
@@ -189,4 +243,10 @@ consoleinit(void)
   // to consoleread and consolewrite.
   devsw[CONSOLE].read = consoleread;
   devsw[CONSOLE].write = consolewrite;
+  devsw[CONSOLE].ioctl = consoleioctl;
+
+  cons.termios.c_lflag = ECHO | ICANON;
+
+  printf("setting console termios %p\n", cons.termios.c_lflag);
+  //cons.locking = 1;
 }
