@@ -17,6 +17,14 @@
 
 #define NINODES 200
 
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+
+#define bcopy(b1,b2,len) (memmove((b2), (b1), (len)), (void) 0)
+#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
+#define index(a,b) strchr((a),(b))
+
 // Disk layout:
 // [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
 
@@ -84,7 +92,7 @@ main(int argc, char *argv[])
   assert((BSIZE % sizeof(struct dinode)) == 0);
   assert((BSIZE % sizeof(struct dirent)) == 0);
 
-  fsfd = open(argv[1], O_RDWR|O_CREAT|O_TRUNC, 0666);
+  fsfd = open(argv[1], O_RDWR|O_CREAT|O_TRUNC|O_BINARY, 0666);
   if(fsfd < 0){
     perror(argv[1]);
     exit(1);
@@ -138,7 +146,7 @@ main(int argc, char *argv[])
     
     assert(index(shortname, '/') == 0);
 
-    if((fd = open(argv[i], 0)) < 0){
+    if((fd = open(argv[i], O_BINARY)) < 0){
       perror(argv[i]);
       exit(1);
     }
