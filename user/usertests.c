@@ -2121,7 +2121,7 @@ sbrkbasic(char *s)
   for(i = 0; i < 5000; i++){
     b = sbrk(1);
     if(b != a){
-      printf("%s: sbrk test failed %d %x %x\n", i, a, b);
+      printf("%s: sbrk test failed %d %x %x\n", s, i, a, b);
       exit(1);
     }
     *b = 1;
