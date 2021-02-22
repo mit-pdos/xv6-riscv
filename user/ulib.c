@@ -134,3 +134,13 @@ memcpy(void *dst, const void *src, uint n)
 {
   return memmove(dst, src, n);
 }
+
+int checkint(char *src){
+        while(*src != '\0'){
+                if(*src < '0' || *src > '9') return 1;
+                src++;
+        }
+        return 0;
+}
+
+
