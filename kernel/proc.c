@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "syscall.h"
 
 struct cpu cpus[NCPU];
 
@@ -74,6 +75,20 @@ mycpu(void) {
   struct cpu *c = &cpus[id];
   return c;
 }
+
+void
+isProcUnderTrace(int curProc, int callArgument, char* action, int res, int mask, int sysCall){
+  if(mask & ((1<< SYS_kill) | (1<< SYS_sbrk)) & sysCall){
+    printf("%d: syscall %s %d -> %d\n", curProc, action, callArgument, res);
+  }
+  else if(mask & (1<< SYS_fork) & sysCall){
+    printf("%d: syscall %s NULL -> %d\n", curProc, action, res);
+  }
+  else if(mask & sysCall){
+    printf("%d: syscall %s -> %d\n", curProc, action, res);
+  }
+}
+
 
 // Return the current struct proc *, or zero if none.
 struct proc*
@@ -162,6 +177,7 @@ freeproc(struct proc *p)
   p->name[0] = 0;
   p->chan = 0;
   p->killed = 0;
+  p->mask=0;
   p->xstate = 0;
   p->state = UNUSED;
 }
@@ -292,6 +308,9 @@ fork(void)
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
+  // inherit the son with the mask field
+  np->mask = p->mask;
+
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
@@ -302,6 +321,7 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+
 
   pid = np->pid;
 
@@ -593,6 +613,7 @@ kill(int pid)
     }
     release(&p->lock);
   }
+
   return -1;
 }
 
@@ -652,5 +673,21 @@ procdump(void)
       state = "???";
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
+  }
+}
+
+void 
+trace(int mask, int pid){
+
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid == pid){
+      p->mask = mask;
+      release(&p->lock);
+      return;
+    }
+    release(&p->lock);
   }
 }

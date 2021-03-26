@@ -15,6 +15,8 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "syscall.h"
+
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -58,11 +60,18 @@ sys_dup(void)
   struct file *f;
   int fd;
 
-  if(argfd(0, 0, &f) < 0)
+  
+
+  if(argfd(0, 0, &f) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "dup", -1, myproc()->mask, (1<< SYS_dup));
     return -1;
-  if((fd=fdalloc(f)) < 0)
+  }
+  if((fd=fdalloc(f)) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "dup", -1, myproc()->mask, (1<< SYS_dup));
     return -1;
+  }
   filedup(f);
+  isProcUnderTrace(myproc()->pid, -2, "dup", 0, myproc()->mask, (1<< SYS_dup));
   return fd;
 }
 
@@ -73,8 +82,11 @@ sys_read(void)
   int n;
   uint64 p;
 
-  if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0)
+  if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "read", -1, myproc()->mask, (1<< SYS_read));
     return -1;
+  }
+  isProcUnderTrace(myproc()->pid, -2, "read", 0, myproc()->mask, (1<< SYS_read));
   return fileread(f, p, n);
 }
 
@@ -85,9 +97,11 @@ sys_write(void)
   int n;
   uint64 p;
 
-  if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0)
+  if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "write", -1, myproc()->mask, (1<< SYS_write));
     return -1;
-
+  }
+  isProcUnderTrace(myproc()->pid, -2, "write", 0, myproc()->mask, (1<< SYS_write));
   return filewrite(f, p, n);
 }
 
@@ -97,10 +111,13 @@ sys_close(void)
   int fd;
   struct file *f;
 
-  if(argfd(0, &fd, &f) < 0)
+  if(argfd(0, &fd, &f) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "close", -1, myproc()->mask, (1<< SYS_close));
     return -1;
+  }
   myproc()->ofile[fd] = 0;
   fileclose(f);
+  isProcUnderTrace(myproc()->pid, -2, "close", 0, myproc()->mask, (1<< SYS_close));
   return 0;
 }
 
@@ -110,8 +127,11 @@ sys_fstat(void)
   struct file *f;
   uint64 st; // user pointer to struct stat
 
-  if(argfd(0, 0, &f) < 0 || argaddr(1, &st) < 0)
+  if(argfd(0, 0, &f) < 0 || argaddr(1, &st) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "fstat", -1, myproc()->mask, (1<< SYS_fstat));
     return -1;
+  }
+  isProcUnderTrace(myproc()->pid, -2, "fstat", 0, myproc()->mask, (1<< SYS_fstat));
   return filestat(f, st);
 }
 
@@ -122,12 +142,15 @@ sys_link(void)
   char name[DIRSIZ], new[MAXPATH], old[MAXPATH];
   struct inode *dp, *ip;
 
-  if(argstr(0, old, MAXPATH) < 0 || argstr(1, new, MAXPATH) < 0)
+  if(argstr(0, old, MAXPATH) < 0 || argstr(1, new, MAXPATH) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "link", -1, myproc()->mask, (1<< SYS_link));
     return -1;
+  }
 
   begin_op();
   if((ip = namei(old)) == 0){
     end_op();
+    isProcUnderTrace(myproc()->pid, -2, "link", -1, myproc()->mask, (1<< SYS_link));
     return -1;
   }
 
@@ -135,6 +158,7 @@ sys_link(void)
   if(ip->type == T_DIR){
     iunlockput(ip);
     end_op();
+    isProcUnderTrace(myproc()->pid, -2, "link", -1, myproc()->mask, (1<< SYS_link));
     return -1;
   }
 
@@ -154,6 +178,7 @@ sys_link(void)
 
   end_op();
 
+  isProcUnderTrace(myproc()->pid, -2, "link", 0, myproc()->mask, (1<< SYS_link));
   return 0;
 
 bad:
@@ -162,6 +187,7 @@ bad:
   iupdate(ip);
   iunlockput(ip);
   end_op();
+  isProcUnderTrace(myproc()->pid, -2, "link", -1, myproc()->mask, (1<< SYS_link));
   return -1;
 }
 
@@ -189,12 +215,15 @@ sys_unlink(void)
   char name[DIRSIZ], path[MAXPATH];
   uint off;
 
-  if(argstr(0, path, MAXPATH) < 0)
+  if(argstr(0, path, MAXPATH) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "unlink", -1, myproc()->mask, (1<< SYS_unlink));
     return -1;
+  }
 
   begin_op();
   if((dp = nameiparent(path, name)) == 0){
     end_op();
+    isProcUnderTrace(myproc()->pid, -2, "unlink", -1, myproc()->mask, (1<< SYS_unlink));
     return -1;
   }
 
@@ -230,11 +259,13 @@ sys_unlink(void)
 
   end_op();
 
+  isProcUnderTrace(myproc()->pid, -2, "unlink", 0, myproc()->mask, (1<< SYS_unlink));
   return 0;
 
 bad:
   iunlockput(dp);
   end_op();
+  isProcUnderTrace(myproc()->pid, -2, "unlink", -1, myproc()->mask, (1<< SYS_unlink));
   return -1;
 }
 
@@ -292,8 +323,10 @@ sys_open(void)
   struct inode *ip;
   int n;
 
-  if((n = argstr(0, path, MAXPATH)) < 0 || argint(1, &omode) < 0)
+  if((n = argstr(0, path, MAXPATH)) < 0 || argint(1, &omode) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "open", -1, myproc()->mask, (1<< SYS_open));
     return -1;
+  }
 
   begin_op();
 
@@ -301,17 +334,20 @@ sys_open(void)
     ip = create(path, T_FILE, 0, 0);
     if(ip == 0){
       end_op();
+      isProcUnderTrace(myproc()->pid, -2, "open", -1, myproc()->mask, (1<< SYS_open));
       return -1;
     }
   } else {
     if((ip = namei(path)) == 0){
       end_op();
+      isProcUnderTrace(myproc()->pid, -2, "open", -1, myproc()->mask, (1<< SYS_open));
       return -1;
     }
     ilock(ip);
     if(ip->type == T_DIR && omode != O_RDONLY){
       iunlockput(ip);
       end_op();
+      isProcUnderTrace(myproc()->pid, -2, "open", -1, myproc()->mask, (1<< SYS_open));
       return -1;
     }
   }
@@ -319,6 +355,7 @@ sys_open(void)
   if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){
     iunlockput(ip);
     end_op();
+    isProcUnderTrace(myproc()->pid, -2, "open", -1, myproc()->mask, (1<< SYS_open));
     return -1;
   }
 
@@ -327,6 +364,7 @@ sys_open(void)
       fileclose(f);
     iunlockput(ip);
     end_op();
+    isProcUnderTrace(myproc()->pid, -2, "open", -1, myproc()->mask, (1<< SYS_open));
     return -1;
   }
 
@@ -348,6 +386,7 @@ sys_open(void)
   iunlock(ip);
   end_op();
 
+  isProcUnderTrace(myproc()->pid, -2, "open", 0, myproc()->mask, (1<< SYS_open));
   return fd;
 }
 
@@ -360,10 +399,12 @@ sys_mkdir(void)
   begin_op();
   if(argstr(0, path, MAXPATH) < 0 || (ip = create(path, T_DIR, 0, 0)) == 0){
     end_op();
+    isProcUnderTrace(myproc()->pid, -2, "mkdir", -1, myproc()->mask, (1<< SYS_mkdir));
     return -1;
   }
   iunlockput(ip);
   end_op();
+    isProcUnderTrace(myproc()->pid, -2, "mkdir", 0, myproc()->mask, (1<< SYS_mkdir));
   return 0;
 }
 
@@ -380,10 +421,12 @@ sys_mknod(void)
      argint(2, &minor) < 0 ||
      (ip = create(path, T_DEVICE, major, minor)) == 0){
     end_op();
+    isProcUnderTrace(myproc()->pid, -2, "mknod", -1, myproc()->mask, (1<< SYS_mknod));
     return -1;
   }
   iunlockput(ip);
   end_op();
+  isProcUnderTrace(myproc()->pid, -2, "mknod", 0, myproc()->mask, (1<< SYS_mknod));
   return 0;
 }
 
@@ -397,18 +440,21 @@ sys_chdir(void)
   begin_op();
   if(argstr(0, path, MAXPATH) < 0 || (ip = namei(path)) == 0){
     end_op();
+    isProcUnderTrace(myproc()->pid, -2, "chdir", -1, myproc()->mask, (1<< SYS_chdir));
     return -1;
   }
   ilock(ip);
   if(ip->type != T_DIR){
     iunlockput(ip);
     end_op();
+    isProcUnderTrace(myproc()->pid, -2, "chdir", -1, myproc()->mask, (1<< SYS_chdir));
     return -1;
   }
   iunlock(ip);
   iput(p->cwd);
   end_op();
   p->cwd = ip;
+  isProcUnderTrace(myproc()->pid, -2, "chdir", 0, myproc()->mask, (1<< SYS_chdir));
   return 0;
 }
 
@@ -420,6 +466,7 @@ sys_exec(void)
   uint64 uargv, uarg;
 
   if(argstr(0, path, MAXPATH) < 0 || argaddr(1, &uargv) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "exec", -1, myproc()->mask, (1<< SYS_exec));
     return -1;
   }
   memset(argv, 0, sizeof(argv));
@@ -446,12 +493,16 @@ sys_exec(void)
   for(i = 0; i < NELEM(argv) && argv[i] != 0; i++)
     kfree(argv[i]);
 
+  isProcUnderTrace(myproc()->pid, -2, "exec", 0, myproc()->mask, (1<< SYS_exec));
   return ret;
 
  bad:
   for(i = 0; i < NELEM(argv) && argv[i] != 0; i++)
     kfree(argv[i]);
+
+  isProcUnderTrace(myproc()->pid, -2, "exec", -1, myproc()->mask, (1<< SYS_exec));
   return -1;
+  
 }
 
 uint64
@@ -462,16 +513,21 @@ sys_pipe(void)
   int fd0, fd1;
   struct proc *p = myproc();
 
-  if(argaddr(0, &fdarray) < 0)
+  if(argaddr(0, &fdarray) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "pipe", -1, myproc()->mask, (1<< SYS_pipe));
     return -1;
-  if(pipealloc(&rf, &wf) < 0)
+  }
+  if(pipealloc(&rf, &wf) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "pipe", -1, myproc()->mask, (1<< SYS_pipe));
     return -1;
+  }
   fd0 = -1;
   if((fd0 = fdalloc(rf)) < 0 || (fd1 = fdalloc(wf)) < 0){
     if(fd0 >= 0)
       p->ofile[fd0] = 0;
     fileclose(rf);
     fileclose(wf);
+    isProcUnderTrace(myproc()->pid, -2, "pipe", -1, myproc()->mask, (1<< SYS_pipe));
     return -1;
   }
   if(copyout(p->pagetable, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
@@ -480,7 +536,9 @@ sys_pipe(void)
     p->ofile[fd1] = 0;
     fileclose(rf);
     fileclose(wf);
+    isProcUnderTrace(myproc()->pid, -2, "pipe", -1, myproc()->mask, (1<< SYS_pipe));
     return -1;
   }
+  isProcUnderTrace(myproc()->pid, -2, "pipe", 0, myproc()->mask, (1<< SYS_pipe));
   return 0;
 }
