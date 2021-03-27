@@ -109,6 +109,9 @@ $U/_forktest: $U/forktest.o $(ULIB)
 mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 	gcc -Werror -Wall -I. -o mkfs/mkfs mkfs/mkfs.c
 
+# user/testPath/helloworld: user/testPath/helloworld.c $K/fs.h $K/param.h
+# 	gcc -Werror -Wall -I. -o user/testPath/helloworld user/testPath/helloworld.c
+
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
 # that disk image changes after first build are persistent until clean.  More
 # details:
@@ -133,8 +136,8 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 
-fs.img: mkfs/mkfs README $(UPROGS)
-	mkfs/mkfs fs.img README $(UPROGS)
+fs.img: mkfs/mkfs README PATH $(UPROGS)
+	mkfs/mkfs fs.img README PATH $(UPROGS)
 
 -include kernel/*.d user/*.d
 
