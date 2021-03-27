@@ -3,6 +3,7 @@
 #include "kernel/fcntl.h"
 #include "user/user.h"
 
+//copy one string to another
 char*
 strcpy(char *s, const char *t)
 {
@@ -14,6 +15,7 @@ strcpy(char *s, const char *t)
   return os;
 }
 
+//compare two strings str1 and str2. If two strings are same then strcmp() returns 0, otherwise, it returns a non-zero value.
 int
 strcmp(const char *p, const char *q)
 {
@@ -32,6 +34,7 @@ strlen(const char *s)
   return n;
 }
 
+//  copies the character c (an unsigned char) to the first n characters of the string pointed to, by the argument dst.
 void*
 memset(void *dst, int c, uint n)
 {
@@ -43,6 +46,7 @@ memset(void *dst, int c, uint n)
   return dst;
 }
 
+// searches for the first occurrence of the character c, returns a pointer to the first occurrence of the character c in the string str.
 char*
 strchr(const char *s, char c)
 {
@@ -52,6 +56,7 @@ strchr(const char *s, char c)
   return 0;
 }
 
+//reads a 'max' chars from stdin and stores it into the string pointed to by buf. 
 char*
 gets(char *buf, int max)
 {
@@ -84,6 +89,7 @@ stat(const char *n, struct stat *st)
   return r;
 }
 
+// converts a string into an integer
 int
 atoi(const char *s)
 {
@@ -95,6 +101,7 @@ atoi(const char *s)
   return n;
 }
 
+// is used to copy a block of memory from a location to another.
 void*
 memmove(void *vdst, const void *vsrc, int n)
 {
@@ -115,6 +122,7 @@ memmove(void *vdst, const void *vsrc, int n)
   return vdst;
 }
 
+// compares the first n bytes of memory area str1 and memory area str2.
 int
 memcmp(const void *s1, const void *s2, uint n)
 {
@@ -129,6 +137,7 @@ memcmp(const void *s1, const void *s2, uint n)
   return 0;
 }
 
+// is used to copy a block of memory from a location to another.
 void *
 memcpy(void *dst, const void *src, uint n)
 {

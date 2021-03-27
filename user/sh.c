@@ -12,6 +12,7 @@
 #define BACK  5
 
 #define MAXARGS 10
+#define buf_size 1000
 
 struct cmd {
   int type;
@@ -76,7 +77,33 @@ runcmd(struct cmd *cmd)
     if(ecmd->argv[0] == 0)
       exit(1);
     exec(ecmd->argv[0], ecmd->argv);
+    
+    char* paths = malloc(buf_size);
+    int pathfd = open("./PATH",O_RDONLY);  
+    if (read(pathfd, paths, buf_size) != 0){
+      fprintf(2, "PATH unvalid\n");
+    }
+
+    char* rest_paths;
+    while (paths != 0){
+      rest_paths = strchr(paths, ':');
+      int length = strlen(paths) - strlen(rest_paths) -1;
+      char* temp_path = malloc(length + strlen(ecmd->argv[0]));
+      
+      memcpy(temp_path, paths, length);
+      length++;
+      for (int i = 0 ; i < strlen(ecmd->argv[0]); i++)
+      {
+        temp_path[length+i] = ecmd->argv[0][i];
+      }
+      exec(temp_path, ecmd->argv);
+      paths = rest_paths;
+    }
+    exec(paths, ecmd->argv);
+
     fprintf(2, "exec %s failed\n", ecmd->argv[0]);
+   	close(pathfd);
+
     break;
 
   case REDIR:
