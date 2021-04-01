@@ -79,27 +79,31 @@ runcmd(struct cmd *cmd)
     exec(ecmd->argv[0], ecmd->argv);
     
     char* paths = malloc(buf_size);
-    int pathfd = open("./PATH",O_RDONLY);  
-    if (read(pathfd, paths, buf_size) != 0){
-      fprintf(2, "PATH unvalid\n");
+    int pathfd;
+    if ((pathfd = open("/PATH",O_RDONLY)) < 0){
+      fprintf(2, "cannot open PATH\n");
+    }
+    if (read(pathfd, paths, buf_size) < 0){
+      fprintf(2, "cannot read PATH\n");
     }
 
     char* rest_paths;
-    while (paths != 0){
+    while (strcmp(paths,'\0') != 0){
       rest_paths = strchr(paths, ':');
-      int length = strlen(paths) - strlen(rest_paths) -1;
+      int length = strlen(paths) - strlen(rest_paths);
+    
       char* temp_path = malloc(length + strlen(ecmd->argv[0]));
-      
       memcpy(temp_path, paths, length);
-      length++;
-      for (int i = 0 ; i < strlen(ecmd->argv[0]); i++)
+      
+      int i=0;
+      for (; ecmd->argv[0][i] != '\0'; i++)
       {
         temp_path[length+i] = ecmd->argv[0][i];
       }
+      temp_path[length+i] = ecmd->argv[0][i];
       exec(temp_path, ecmd->argv);
-      paths = rest_paths;
+      paths = strchr(rest_paths, '/');      
     }
-    exec(paths, ecmd->argv);
 
     fprintf(2, "exec %s failed\n", ecmd->argv[0]);
    	close(pathfd);
