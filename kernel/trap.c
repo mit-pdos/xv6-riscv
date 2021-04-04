@@ -55,7 +55,7 @@ usertrap(void)
 
     if(p->killed)
       exit(-1);
-
+      
     // sepc points to the ecall instruction,
     // but we want to return to the next instruction.
     p->trapframe->epc += 4;
@@ -163,6 +163,7 @@ void
 clockintr()
 {
   acquire(&tickslock);
+  updateTicks();
   ticks++;
   wakeup(&ticks);
   release(&tickslock);
