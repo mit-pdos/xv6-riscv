@@ -86,7 +86,6 @@ void            printfinit(void);
 int             cpuid(void);
 void            exit(int);
 int             fork(void);
-void            isProcUnderTrace(int , int , char* , int , int , int );
 void            updateTicks();
 int             growproc(int);
 void            proc_mapstacks(pagetable_t);
