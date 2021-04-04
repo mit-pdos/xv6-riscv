@@ -58,3 +58,11 @@ struct dirent {
   char name[DIRSIZ];
 };
 
+struct perf {
+  int ctime;                // creation time 
+  int ttime;                // termination time
+  int stime;                // total time sleeping
+  int retime;               // total time runable                   
+  int rutime;               // total time running
+  int average_bursttime;
+};

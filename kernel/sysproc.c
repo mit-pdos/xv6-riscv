@@ -7,6 +7,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "syscall.h"
+#include "fs.h"
 
 
 uint64
@@ -36,6 +37,23 @@ sys_fork(void)
 {
   int res = fork();
   isProcUnderTrace(myproc()->pid, -2, "fork", res, myproc()->mask, (1<< 1));
+  return res;
+}
+
+uint64
+sys_wait_stat(void)
+{
+  uint64 p;
+  uint64 performance;
+
+  if(argaddr(0, &p) < 0 ||
+     argaddr(1, &performance) < 0){
+    isProcUnderTrace(myproc()->pid, -2, "wait_stat", -1, myproc()->mask, (1<< 23));
+    return -1;
+  }
+
+  int res = wait_stat(p, (struct perf*)performance);
+  isProcUnderTrace(myproc()->pid, -2, "wait_stat", res, myproc()->mask, (1<< 23));
   return res;
 }
 

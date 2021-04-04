@@ -93,6 +93,12 @@ struct proc {
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
   int mask;                    // trace mask of the proccess. if zero no trace in this proccess
+  int ctime;                   // creation time 
+  int ttime;                   // termination time
+  int stime;                   // total time sleeping
+  int retime;                  // total time runable                   
+  int rutime;                  // total time running
+  int average_bursttime;
 
   // proc_tree_lock must be held when using this:
   struct proc *parent;         // Parent process

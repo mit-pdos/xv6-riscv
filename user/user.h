@@ -1,10 +1,12 @@
 struct stat;
 struct rtcdate;
+struct perf;
 
 // system calls
 int fork(void);
 int exit(int) __attribute__((noreturn));
 int wait(int*);
+int wait_stat(int*, struct perf*);
 int pipe(int*);
 int write(int, const void*, int);
 int read(int, void*, int);
