@@ -99,6 +99,7 @@ struct proc {
   int retime;                  // total time runable                   
   int rutime;                  // total time running
   int average_bursttime;
+  uint64 queueTime;               // last time that the proccess been served
 
   // proc_tree_lock must be held when using this:
   struct proc *parent;         // Parent process

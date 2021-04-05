@@ -153,6 +153,7 @@ found:
   p->retime =0;
   p->rutime=0;
   p->average_bursttime=0;
+  p->queueTime = ticks;
 
   return p;
 }
@@ -534,6 +535,53 @@ void defultSched(){
   }
 }
 
+void fcfsSched(){
+
+  
+  int procReady = 0;
+  // init with my proc but will never use it because of procReady
+  struct proc* minProc = myproc();
+  struct proc *p = myproc();
+  struct cpu *c = mycpu();
+
+  c->proc = 0;
+  for(;;){
+    uint64 minQueueTime = 100000000;
+    // printf("here");
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        if(p->queueTime < minQueueTime){
+          minProc = p;
+          minQueueTime = p->ctime;
+          procReady = 1;
+        }
+      }
+      release(&p->lock);
+    }
+
+    if(procReady){
+      p = minProc;
+      acquire(&p->lock);
+      // Switch to chosen process.  It is the process's job
+      // to release its lock and then reacquire it
+      // before jumping back to us.
+      while (p->state == RUNNABLE){
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+      }
+      c->proc = 0;
+      procReady = 0;
+      release(&p->lock);
+    }
+  }
+}
+
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -544,8 +592,9 @@ void defultSched(){
 void
 scheduler(void)
 {
-  switch (7){
+  switch (1){
   case 1:
+    fcfsSched();
     break;
   
   default:
