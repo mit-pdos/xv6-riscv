@@ -140,3 +140,15 @@ sys_trace(void)
   return 0;
 }
 
+uint64
+sys_priority(void)
+{
+  int n;
+
+  if(argint(0, &n) < 0){
+    return -1;
+  }
+
+  return priority(n);
+}
+

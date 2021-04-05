@@ -154,6 +154,7 @@ found:
   p->rutime=0;
   p->average_bursttime=0;
   p->queueTime = ticks;
+  p->priority = 3;
 
   return p;
 }
@@ -309,6 +310,9 @@ fork(void)
 
   // inherit the son with the mask field
   np->mask = p->mask;
+
+  // inherit prioity
+  np->priority = p->priority;
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
@@ -581,6 +585,75 @@ void fcfsSched(){
   }
 }
 
+int getPriorityValue(int priority){
+  switch (priority)
+  {
+  case 2:
+    return 3;
+
+  case 3:
+    return 5;
+    
+  case 4:
+    return 7;
+    
+  case 5:
+    return 25;  
+  
+  default:
+    return 1;
+  }
+}
+
+void cfsdSched(){
+  struct proc *p = myproc();
+  struct proc* minProc = myproc();
+  int procReady =0;
+  struct cpu *c = mycpu();
+  uint64 ticks0;
+  
+  c->proc = 0;
+  for(;;){
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+    int minDecayTime = 100000000;
+
+    for(p = proc; p < &proc[NPROC]; p++) {
+      // printf("procname: %s  ,  procstate: %d\n", p->name,p->state);
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
+        int dec_calc = ((p->rutime * getPriorityValue(p->priority)) /(p->rutime+p->stime));
+        // printf("p->rutime: %d, getPriorityValue(p->priority): %d, p->stime: %d \n", p->rutime, getPriorityValue(p->priority),p->stime);
+        // printf("dec %d\n procname: %s\n", dec_calc, p->name);
+        if(minDecayTime > dec_calc){
+          // printf("inside!!\n");
+          minProc = p;
+          minDecayTime = dec_calc;
+          procReady = 1;
+        } 
+      }
+      release(&p->lock);
+    }
+
+    // printf("before procReady if");
+    if(procReady){
+      p = minProc;
+      acquire(&p->lock);
+      // printf("in procReady %s if\n", p->name);
+      ticks0 = ticks;
+      while(ticks -ticks0 < QUANTUM && p->state == RUNNABLE){
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+        // printf("in running %s if\n", p->name);
+      }
+      procReady = 0;
+      c->proc = 0;
+      release(&p->lock);
+    }
+  }
+}
+
 
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -592,9 +665,13 @@ void fcfsSched(){
 void
 scheduler(void)
 {
-  switch (1){
+  switch (2){
   case 1:
     fcfsSched();
+    break;
+
+  case 2:
+    cfsdSched();
     break;
   
   default:
@@ -814,6 +891,16 @@ trace(int mask, int pid){
   }
   
   return -1;
+}
+
+int 
+priority(int priority){
+  if(priority < 0 || priority > 5){
+    return -1;
+  }
+  myproc()->priority = priority;
+
+  return 0;
 }
 
 void 

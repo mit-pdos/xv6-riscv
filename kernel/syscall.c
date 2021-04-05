@@ -6,7 +6,7 @@
 #include "proc.h"
 #include "syscall.h"
 #include "defs.h"
-#define NUMBER_OF_STRING 23
+#define NUMBER_OF_STRING 24
 #define MAX_STRING_SIZE 40
 
 
@@ -110,6 +110,7 @@ extern uint64 sys_wait_stat(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
 extern uint64 sys_trace(void);
+extern uint64 sys_priority(void);
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -135,6 +136,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_trace]   sys_trace,
 [SYS_wait_stat]    sys_wait_stat,
+[SYS_priority]    sys_priority,
 };
 
 char sysNames[NUMBER_OF_STRING][MAX_STRING_SIZE] =
@@ -161,7 +163,8 @@ char sysNames[NUMBER_OF_STRING][MAX_STRING_SIZE] =
 "mkdir",
 "close",
 "trace",
-"wait_stat"
+"wait_stat",
+"priority"
 };
 
 void

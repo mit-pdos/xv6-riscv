@@ -26,6 +26,7 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int trace(int mask, int pid);
+int priority(int priority);
 
 // ulib.c
 int stat(const char*, struct stat*);
