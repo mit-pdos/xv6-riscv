@@ -6,6 +6,10 @@
 #include "proc.h"
 #include "syscall.h"
 #include "defs.h"
+#define NUMBER_OF_STRING 23
+#define MAX_STRING_SIZE 40
+
+
 
 // Fetch the uint64 at addr from the current process.
 int
@@ -133,6 +137,47 @@ static uint64 (*syscalls[])(void) = {
 [SYS_wait_stat]    sys_wait_stat,
 };
 
+char sysNames[NUMBER_OF_STRING][MAX_STRING_SIZE] =
+{ 
+"fork",
+"exit",
+"wait",
+"pipe",
+"read",
+"kill",
+"exec",
+"fstat",
+"chdir",
+"dup",
+"getpid",
+"sbrk",
+"sleep",
+"uptime",
+"open",
+"write",
+"mknod",
+"unlink",
+"link",
+"mkdir",
+"close",
+"trace",
+"wait_stat"
+};
+
+void
+isProcUnderTrace(int curProc, int callArgument, char* action, uint64 res, int mask, int sysCall){
+  //TODO delete printf(" %d %d %s %d %d %d\n", curProc, callArgument, action, res, mask, sysCall);
+  if(mask & ((1<< SYS_kill) | (1<< SYS_sbrk)) & sysCall){
+    printf("%d: syscall %s %d -> %d\n", curProc, action, callArgument, res);
+  }
+  else if(mask & (1<< SYS_fork) & sysCall){
+    printf("%d: syscall %s NULL -> %d\n", curProc, action, res);
+  }
+  else if(mask & sysCall){
+    printf("%d: syscall %s -> %d\n", curProc, action, res);
+  }
+}
+
 void
 syscall(void)
 {
@@ -141,7 +186,13 @@ syscall(void)
 
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    int argument;
+    argint(0, &argument);
+
     p->trapframe->a0 = syscalls[num]();
+
+    isProcUnderTrace(p->pid,argument,sysNames[num-1],p->trapframe->a0, p->mask, (1<<num));
+
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);

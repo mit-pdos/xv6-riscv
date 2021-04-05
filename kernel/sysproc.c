@@ -15,11 +15,9 @@ sys_exit(void)
 {
   int n;
   if(argint(0, &n) < 0){
-    isProcUnderTrace(myproc()->pid, -2, "exit", -1, myproc()->mask, (1<< SYS_exit));
     return -1;
   }
 
-  isProcUnderTrace(myproc()->pid, -2, "exit", 0, myproc()->mask, (1<< SYS_exit));  
   exit(n);
   return 0;  // not reached
 }
@@ -28,7 +26,6 @@ uint64
 sys_getpid(void)
 {
   int res = myproc()->pid;
-  isProcUnderTrace(myproc()->pid, -2, "getpid", res, myproc()->mask, (1<< 11) );  
   return res;
 }
 
@@ -36,7 +33,6 @@ uint64
 sys_fork(void)
 {
   int res = fork();
-  isProcUnderTrace(myproc()->pid, -2, "fork", res, myproc()->mask, (1<< 1));
   return res;
 }
 
@@ -48,12 +44,10 @@ sys_wait_stat(void)
 
   if(argaddr(0, &p) < 0 ||
      argaddr(1, &performance) < 0){
-    isProcUnderTrace(myproc()->pid, -2, "wait_stat", -1, myproc()->mask, (1<< 23));
     return -1;
   }
 
   int res = wait_stat(p, (struct perf*)performance);
-  isProcUnderTrace(myproc()->pid, -2, "wait_stat", res, myproc()->mask, (1<< 23));
   return res;
 }
 
@@ -62,11 +56,9 @@ sys_wait(void)
 {
   uint64 p;
   if(argaddr(0, &p) < 0){
-    isProcUnderTrace(myproc()->pid, -2, "wait", -1, myproc()->mask, (1<< 3));
     return -1;
   }
   int res = wait(p);
-  isProcUnderTrace(myproc()->pid, -2, "wait", res, myproc()->mask, (1<< 3));
   return res;
 }
 
@@ -75,20 +67,16 @@ sys_sbrk(void)
 {
   int addr;
   int n;
-  struct proc *p = myproc();
 
   if(argint(0, &n) < 0){
-    isProcUnderTrace(p->pid, n, "sbrk", -1, p->mask, (1<< 12));
     return -1;
   }
     
   addr = myproc()->sz;
   if(growproc(n) < 0){
-    isProcUnderTrace(p->pid, n, "sbrk", -1, p->mask, (1<< 12));
     return -1;
   }
   
-  isProcUnderTrace(p->pid, n, "sbrk", addr, p->mask, (1<< 12));
   return addr;
 }
 
@@ -99,7 +87,6 @@ sys_sleep(void)
   uint ticks0;
 
   if(argint(0, &n) < 0){
-    isProcUnderTrace(myproc()->pid, -2, "sleep", -1, myproc()->mask, (1<< 13));
     return -1;
   }
   acquire(&tickslock);
@@ -107,13 +94,11 @@ sys_sleep(void)
   while(ticks - ticks0 < n){
     if(myproc()->killed){
       release(&tickslock);
-      isProcUnderTrace(myproc()->pid, -2, "sleep", -1, myproc()->mask, (1<< 13));
       return -1;
     }
     sleep(&ticks, &tickslock);
   }
   release(&tickslock);
-  isProcUnderTrace(myproc()->pid, -2, "sleep", 0, myproc()->mask, (1<< 13));
   return 0;
 }
 
@@ -121,14 +106,10 @@ uint64
 sys_kill(void)
 {
   int pid;
-  struct proc *p = myproc();
-
   if(argint(0, &pid) < 0){
-    isProcUnderTrace(p->pid, pid, "kill" , -1, p->mask, (1<< 6));
     return -1;
   }
   int res =  kill(pid);
-  isProcUnderTrace(p->pid, pid, "kill" , res, p->mask, (1<< 6));
   return res;
 }
 
@@ -141,7 +122,6 @@ sys_uptime(void)
   acquire(&tickslock);
   xticks = ticks;
   release(&tickslock);
-  isProcUnderTrace(myproc()->pid, -2, "uptime" , xticks, myproc()->mask, (1<< 14));
   return xticks;
 }
 
@@ -153,12 +133,10 @@ sys_trace(void)
   int pid;
 
   if(argint(0, &mask) < 0 || argint(1, &pid)){
-    isProcUnderTrace(myproc()->pid, -2, "trace" , -1, myproc()->mask, (1<< 22));
     return -1;
   }
   
   trace(mask,pid);
-  isProcUnderTrace(myproc()->pid, -2, "trace" , 0, myproc()->mask, (1<<22));
   return 0;
 }
 

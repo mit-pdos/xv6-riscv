@@ -79,19 +79,6 @@ mycpu(void) {
   return c;
 }
 
-void
-isProcUnderTrace(int curProc, int callArgument, char* action, int res, int mask, int sysCall){
-  if(mask & ((1<< SYS_kill) | (1<< SYS_sbrk)) & sysCall){
-    printf("%d: syscall %s %d -> %d\n", curProc, action, callArgument, res);
-  }
-  else if(mask & (1<< SYS_fork) & sysCall){
-    printf("%d: syscall %s NULL -> %d\n", curProc, action, res);
-  }
-  else if(mask & sysCall){
-    printf("%d: syscall %s -> %d\n", curProc, action, res);
-  }
-}
-
 
 // Return the current struct proc *, or zero if none.
 struct proc*
