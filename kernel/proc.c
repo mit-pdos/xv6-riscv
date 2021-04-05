@@ -149,7 +149,10 @@ found:
   // updating the creation time
   p->ctime = ticks;
   p->ttime = -1;
-  p->stime =0; p->retime =0; p->rutime=0; p->average_bursttime=0;
+  p->stime =0;
+  p->retime =0;
+  p->rutime=0;
+  p->average_bursttime=0;
 
   return p;
 }
@@ -497,18 +500,11 @@ wait(uint64 addr)
   }
 }
 
-// Per-CPU process scheduler.
-// Each CPU calls scheduler() after setting itself up.
-// Scheduler never returns.  It loops, doing:
-//  - choose a process to run.
-//  - swtch to start running that process.
-//  - eventually that process transfers control
-//    via swtch back to the scheduler.
-void
-scheduler(void)
-{
+
+void defultSched(){
   struct proc *p;
   struct cpu *c = mycpu();
+  uint64 ticks0;
   
   c->proc = 0;
   for(;;){
@@ -521,9 +517,13 @@ scheduler(void)
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+        ticks0 = ticks;
+        while(ticks -ticks0 < QUANTUM && p->state == RUNNABLE){
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+        }
+
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
@@ -532,6 +532,29 @@ scheduler(void)
       release(&p->lock);
     }
   }
+}
+
+// Per-CPU process scheduler.
+// Each CPU calls scheduler() after setting itself up.
+// Scheduler never returns.  It loops, doing:
+//  - choose a process to run.
+//  - swtch to start running that process.
+//  - eventually that process transfers control
+//    via swtch back to the scheduler.
+void
+scheduler(void)
+{
+  switch (7){
+  case 1:
+    break;
+  
+  default:
+    defultSched();
+    break;
+  }
+
+  // never reach 
+  for(;;){};
 }
 
 // Switch to scheduler.  Must hold only p->lock

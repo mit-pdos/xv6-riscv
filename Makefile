@@ -159,6 +159,22 @@ ifndef CPUS
 CPUS := 3
 endif
 
+SCHEDFLAG = 1
+
+ifdef SCHEDFLAG=FCFS
+	SCHEDFLAG := 2
+endif
+
+ifdef SCHEDFLAG=SRT
+	SCHEDFLAG := 3
+endif
+
+ifdef SCHEDFLAG=CFSD
+	SCHEDFLAG := 4
+endif
+
+export SCHEDFLAG
+
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
