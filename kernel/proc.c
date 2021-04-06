@@ -607,8 +607,11 @@ int getPriorityValue(int priority){
 }
 
 void cfsdSched(){
-  struct proc *p = myproc();
+  struct proc *p;
+  // init but never user as my proc
   struct proc* minProc = myproc();
+  int initMinProc = 1;
+  int firstTaken = 0;
   int procReady =0;
   struct cpu *c = mycpu();
   uint64 ticks0;
@@ -617,21 +620,30 @@ void cfsdSched(){
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-    int minDecayTime = 100000000;
 
     for(p = proc; p < &proc[NPROC]; p++) {
       // printf("procname: %s  ,  procstate: %d\n", p->name,p->state);
       acquire(&p->lock);
       if(p->state == RUNNABLE){
-        int dec_calc = ((p->rutime * getPriorityValue(p->priority)) /(p->rutime+p->stime));
-        // printf("p->rutime: %d, getPriorityValue(p->priority): %d, p->stime: %d \n", p->rutime, getPriorityValue(p->priority),p->stime);
-        // printf("dec %d\n procname: %s\n", dec_calc, p->name);
-        if(minDecayTime > dec_calc){
-          // printf("inside!!\n");
+        if(initMinProc){
           minProc = p;
-          minDecayTime = dec_calc;
           procReady = 1;
-        } 
+          initMinProc = 0;
+        }
+        else{
+          
+          if((p->rutime+p->stime) == 0 && firstTaken == 0){
+            minProc = p;
+            procReady = 1;
+            firstTaken = 1;
+          }
+
+          else if((p->rutime * getPriorityValue(p->priority)) /(p->rutime+p->stime) <
+          (minProc->rutime * getPriorityValue(minProc->priority)) /(minProc->rutime+p->stime)){
+            minProc = p;
+            procReady = 1;
+          }
+        }
       }
       release(&p->lock);
     }
@@ -649,6 +661,8 @@ void cfsdSched(){
         // printf("in running %s if\n", p->name);
       }
       procReady = 0;
+      initMinProc = 1;
+      firstTaken = 0;
       c->proc = 0;
       release(&p->lock);
     }
