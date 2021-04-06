@@ -12,3 +12,4 @@
 #define FSSIZE       1000  // size of file system in blocks
 #define MAXPATH      128   // maximum file path name
 #define QUANTUM      5     // the time quantum by clock ticks 
+#define ALPHA        50    // the alpha parameter for bursttime 
