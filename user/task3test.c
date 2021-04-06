@@ -83,6 +83,43 @@ priorityTest(){
     return 0;
 }
 
+int fcfsTest(){
+    
+    sleep(10);
+
+    // create son
+    int pid = fork();
+    // int father = getpid();
+    // int mask1 = (1 << SYS_sbrk);
+    // int mask2 = (1 << SYS_priority);
+    // trace(mask1, father);
+    // trace(mask2, pid);
+
+    // son
+    if(pid == 0){
+        for (int i = 0; i < 1000;i++)
+            printf("pid: %d ,my turn now\n", pid);
+        exit(0);
+    }
+    // father
+    else{
+        for (int i = 0; i < 1000; i++)
+            printf("father before son!\n");
+    }
+
+    struct perf p;
+
+    int x = wait_stat(0,&p);
+    printf("ret val: %d ", x);
+    printf("ctime: %d ", p.ctime);
+    printf("ttime: %d ", p.ttime);
+    printf("stime: %d ", p.stime);
+    printf("retime: %d ", p.retime);
+    printf("rutime: %d\n", p.rutime);
+
+    return 0;
+}
+
 // ############################### TASK 4 Test #############################
 
 
@@ -99,7 +136,11 @@ main(void)
 
   printf("\n############################### TASK 4 Test #############################\n\n");
   int res1 = priorityTest();
-  printf("test2 res: %d\n", res1);
+  printf("test2 res: %d\n\n\n", res1);
+
+  int res2 = fcfsTest();
+  printf("fcfs test res: %d\n\n\n", res2);
+
   exit(0);
   return 0;
 }
