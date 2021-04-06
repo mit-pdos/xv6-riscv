@@ -665,19 +665,18 @@ void cfsdSched(){
 void
 scheduler(void)
 {
-  switch (2){
-  case 1:
-    fcfsSched();
-    break;
 
-  case 2:
+  #ifdef FCFS
+    printf("started with FCFS policy\n");
+    fcfsSched();
+  #endif
+  #ifdef CFSD
+    printf("started with CFSD policy\n");
     cfsdSched();
-    break;
-  
-  default:
+  #else
+    printf("started with DEFAULT policy\n");
     defultSched();
-    break;
-  }
+  #endif
 
   // never reach 
   for(;;){};
@@ -895,7 +894,7 @@ trace(int mask, int pid){
 
 int 
 priority(int priority){
-  if(priority < 0 || priority > 5){
+  if(priority < 1 || priority > 5){
     return -1;
   }
   myproc()->priority = priority;

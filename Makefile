@@ -56,12 +56,17 @@ LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
+ifndef SCHEDFLAG
+SCHEDFLAG := DEFAULT
+endif
+
 CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
 CFLAGS += -I.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
+CFLAGS += -D $(SCHEDFLAG)
 
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
@@ -159,21 +164,6 @@ ifndef CPUS
 CPUS := 2
 endif
 
-SCHEDFLAG = 1
-
-ifdef SCHEDFLAG=FCFS
-	SCHEDFLAG := 2
-endif
-
-ifdef SCHEDFLAG=SRT
-	SCHEDFLAG := 3
-endif
-
-ifdef SCHEDFLAG=CFSD
-	SCHEDFLAG := 4
-endif
-
-export SCHEDFLAG
 
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
