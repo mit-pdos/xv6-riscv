@@ -580,6 +580,7 @@ void fcfsSched(){
       }
       c->proc = 0;
       procReady = 0;
+      minQueueTime = ticks;
       release(&p->lock);
     }
   }
