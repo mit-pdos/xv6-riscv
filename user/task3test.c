@@ -99,11 +99,91 @@ int fcfsTest(){
     if(pid == 0){
         for (int i = 0; i < 1000;i++)
             printf("pid: %d ,my turn now\n", pid);
+        sleep(1);
+        printf("I'am alsoooo back!!!\n");
         exit(0);
     }
     // father
     else{
         for (int i = 0; i < 1000; i++)
+            printf("father before son!\n");
+        sleep(3); // go to the back of the line
+        printf("I'am back!!!\n");
+    }
+
+    struct perf p;
+
+    int x = wait_stat(0,&p);
+    printf("ret val: %d ", x);
+    printf("ctime: %d ", p.ctime);
+    printf("ttime: %d ", p.ttime);
+    printf("stime: %d ", p.stime);
+    printf("retime: %d ", p.retime);
+    printf("rutime: %d\n", p.rutime);
+
+    return 0;
+}
+
+int cfsdTest1(){
+    
+    sleep(10);
+
+    // create son
+    int pid = fork();
+    // int father = getpid();
+    // int mask1 = (1 << SYS_sbrk);
+    // int mask2 = (1 << SYS_priority);
+    // trace(mask1, father);
+    // trace(mask2, pid);
+
+    // son
+    if(pid == 0){
+        priority(5);
+        for (int i = 0; i < 100;i++)
+            printf("pid: %d ,not here! my turn now\n", pid);
+        exit(0);
+    }
+    // father
+    else{
+        for (int i = 0; i < 100; i++)
+            printf("father before son!\n");
+    }
+
+    struct perf p;
+
+    int x = wait_stat(0,&p);
+    printf("ret val: %d ", x);
+    printf("ctime: %d ", p.ctime);
+    printf("ttime: %d ", p.ttime);
+    printf("stime: %d ", p.stime);
+    printf("retime: %d ", p.retime);
+    printf("rutime: %d\n", p.rutime);
+
+    return 0;
+}
+
+int cfsdTest2(){
+    
+    sleep(10);
+
+    // create son
+    int pid = fork();
+    // int father = getpid();
+    // int mask1 = (1 << SYS_sbrk);
+    // int mask2 = (1 << SYS_priority);
+    // trace(mask1, father);
+    // trace(mask2, pid);
+
+    // son
+    if(pid == 0){
+        priority(1);
+        for (int i = 0; i < 100;i++)
+            printf("pid: %d ,not here! my turn now\n", pid);
+        exit(0);
+    }
+    // father
+    else{
+        for (int i = 0; i < 100; i++)
             printf("father before son!\n");
     }
 
@@ -138,8 +218,14 @@ main(void)
   int res1 = priorityTest();
   printf("test2 res: %d\n\n\n", res1);
 
-  int res2 = fcfsTest();
-  printf("fcfs test res: %d\n\n\n", res2);
+//   int res2 = fcfsTest();
+//   printf("fcfs test res: %d\n\n\n", res2);
+
+  int res4 = cfsdTest1();
+  printf("fcfs test res: %d\n\n\n", res4);
+
+  int res5 = cfsdTest2();
+  printf("fcfs test res: %d\n\n\n", res5);
 
   exit(0);
   return 0;

@@ -155,6 +155,7 @@ found:
   p->average_bursttime=0;
   p->queueTime = ticks;
   p->priority = 3;
+  p->runQuanta = 0;
 
   return p;
 }
@@ -526,11 +527,10 @@ void defultSched(){
         // to release its lock and then reacquire it
         // before jumping back to us.
         ticks0 = ticks;
-        while(ticks -ticks0 < QUANTUM && p->state == RUNNABLE){
-          p->state = RUNNING;
-          c->proc = p;
-          swtch(&c->context, &p->context);
-        }
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+
         p->average_bursttime = ALPHA * (ticks -ticks0) + ((100 - ALPHA) * p->average_bursttime)/100;
 
         // Process is done running for now.
@@ -581,6 +581,7 @@ void fcfsSched(){
         c->proc = p;
         swtch(&c->context, &p->context);
       }
+
       p->average_bursttime = ALPHA * (ticks -ticks0) + ((100 - ALPHA) * p->average_bursttime)/100;
       c->proc = 0;
       procReady = 0;
@@ -624,11 +625,10 @@ void srtSched(){
       // to release its lock and then reacquire it
       // before jumping back to us.
       ticks0 = ticks;
-      while(ticks -ticks0 < QUANTUM && p->state == RUNNABLE){
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-      }
+      p->state = RUNNING;
+      c->proc = p;
+      swtch(&c->context, &p->context);
+
       p->average_bursttime = ALPHA * (ticks -ticks0) + ((100 - ALPHA) * p->average_bursttime)/100;
       c->proc = 0;
       procReady = 0;
@@ -705,12 +705,12 @@ void cfsdSched(){
       acquire(&p->lock);
       // printf("in procReady %s if\n", p->name);
       ticks0 = ticks;
-      while(ticks -ticks0 < QUANTUM && p->state == RUNNABLE){
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+      p->state = RUNNING;
+      c->proc = p;
+      swtch(&c->context, &p->context);
+
+      p->average_bursttime = ALPHA * (ticks -ticks0) + ((100 - ALPHA) * p->average_bursttime)/100;
         // printf("in running %s if\n", p->name);
-      }
       procReady = 0;
       initMinProc = 1;
       firstTaken = 0;
@@ -786,6 +786,7 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
+  p->runQuanta = 0;
   sched();
   release(&p->lock);
 }
@@ -989,6 +990,7 @@ updateTicks(){
 
     case RUNNING:
       p->rutime++;
+      p->runQuanta++;
       break;
 
     default:

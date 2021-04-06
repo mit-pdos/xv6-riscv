@@ -77,7 +77,7 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2 && p->runQuanta < QUANTUM)
     yield();
 
   usertrapret();
@@ -150,7 +150,7 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING  && myproc()->runQuanta < QUANTUM)
     yield();
 
   // the yield() may have caused some traps to occur,
