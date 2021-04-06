@@ -314,6 +314,9 @@ fork(void)
   // inherit prioity
   np->priority = p->priority;
 
+  // inherit prioity
+  np->average_bursttime = 100 * QUANTUM;
+
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
@@ -528,7 +531,7 @@ void defultSched(){
           c->proc = p;
           swtch(&c->context, &p->context);
         }
-
+        p->average_bursttime = ALPHA * (ticks -ticks0) + ((100 - ALPHA) * p->average_bursttime)/100;
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
@@ -540,13 +543,12 @@ void defultSched(){
 }
 
 void fcfsSched(){
-
-  
   int procReady = 0;
   // init with my proc but will never use it because of procReady
   struct proc* minProc = myproc();
   struct proc *p = myproc();
   struct cpu *c = mycpu();
+  uint64 ticks0;
 
   c->proc = 0;
   for(;;){
@@ -573,14 +575,63 @@ void fcfsSched(){
       // Switch to chosen process.  It is the process's job
       // to release its lock and then reacquire it
       // before jumping back to us.
+      ticks0 = ticks;
       while (p->state == RUNNABLE){
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
       }
+      p->average_bursttime = ALPHA * (ticks -ticks0) + ((100 - ALPHA) * p->average_bursttime)/100;
       c->proc = 0;
       procReady = 0;
       minQueueTime = ticks;
+      release(&p->lock);
+    }
+  }
+}
+
+void srtSched(){
+  int procReady = 0;
+  // init with my proc but will never use it because of procReady
+  struct proc* minProc = myproc();
+  struct proc *p = myproc();
+  struct cpu *c = mycpu();
+  uint64 ticks0;
+
+  c->proc = 0;
+  for(;;){
+    uint64 minBursttime = 100000000;
+    // printf("here");
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        if(p->average_bursttime < minBursttime){
+          minProc = p;
+          minBursttime = p->average_bursttime;
+          procReady = 1;
+        }
+      }
+      release(&p->lock);
+    }
+
+    if(procReady){
+      p = minProc;
+      acquire(&p->lock);
+      // Switch to chosen process.  It is the process's job
+      // to release its lock and then reacquire it
+      // before jumping back to us.
+      ticks0 = ticks;
+      while(ticks -ticks0 < QUANTUM && p->state == RUNNABLE){
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+      }
+      p->average_bursttime = ALPHA * (ticks -ticks0) + ((100 - ALPHA) * p->average_bursttime)/100;
+      c->proc = 0;
+      procReady = 0;
       release(&p->lock);
     }
   }
@@ -684,6 +735,10 @@ scheduler(void)
   #ifdef FCFS
     printf("started with FCFS policy\n");
     fcfsSched();
+  #endif
+  #ifdef SRT
+    printf("started with SRT policy\n");
+    srtSched();
   #endif
   #ifdef CFSD
     printf("started with CFSD policy\n");
