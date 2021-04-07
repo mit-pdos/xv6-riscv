@@ -562,7 +562,7 @@ void fcfsSched(){
       if(p->state == RUNNABLE) {
         if(p->queueTime < minQueueTime){
           minProc = p;
-          minQueueTime = p->ctime;
+          minQueueTime = p->queueTime;
           procReady = 1;
         }
       }
@@ -585,7 +585,7 @@ void fcfsSched(){
       p->average_bursttime = ALPHA * (ticks -ticks0) + ((100 - ALPHA) * p->average_bursttime)/100;
       c->proc = 0;
       procReady = 0;
-      minQueueTime = ticks;
+      p->queueTime = ticks;
       release(&p->lock);
     }
   }
