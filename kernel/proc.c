@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "signal.h"
 
 struct cpu cpus[NCPU];
 
@@ -148,6 +149,14 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+    //Task 2.2
+    // p->signal_mask = SIG_DFL;
+  int i;
+  for (i = 0; i < NUM_OF_SIGS; i++)
+  {
+      p->signal_handlers[i] = (void *)SIG_DFL;
+  }
 
   return p;
 }

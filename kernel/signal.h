@@ -6,3 +6,7 @@
 #define SIGKILL 9
 #define SIGSTOP 17
 #define SIGCONT 19
+
+//Task 2.1.2
+//TODO: Check about this define
+#define NUM_OF_SIGS 32

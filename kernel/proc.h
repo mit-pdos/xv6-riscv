@@ -1,3 +1,4 @@
+#include "signal.h"
 // Saved registers for kernel context switches.
 struct context {
     uint64 ra;
@@ -111,7 +112,7 @@ struct proc {
     //Task 2.1
     uint pending_signals;
     uint signal_mask;
-    void *signal_handlers[32];
+    void *signal_handlers[NUM_OF_SIGS];
     struct trapframe *tf_backup;
 
 };
