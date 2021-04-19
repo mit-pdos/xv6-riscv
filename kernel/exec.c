@@ -117,7 +117,7 @@ exec(char *path, char **argv) {
     proc_freepagetable(oldpagetable, oldsz);
 
     //Task 2.1.2
-
+    //TODO: should the SIG_DFL be checked in the if?
     for (i = 0; i < NUM_OF_SIGS; i++) {
         if (p->signal_handlers[i] != (void *) SIG_DFL && p->signal_handlers[i] != (void *) SIG_IGN)
             p->signal_handlers[i] = (void *) SIG_DFL;
