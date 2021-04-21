@@ -105,4 +105,15 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  //task 2.1.2
+  uint pending_signals;
+  uint sigmask;
+  void* sighandlers;
+  struct trapframe* trapframe_backup;
 };
+//[t] - should thous marocs be here?
+#define SIG_DFL 0 /* default signal handling */
+#define SIG_IGN 1 /* ignore signal */
+#define SIGKILL 9
+#define SIGSTOP 17
+#define SIGCONT 19

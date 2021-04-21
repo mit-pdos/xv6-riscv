@@ -654,3 +654,12 @@ procdump(void)
     printf("\n");
   }
 }
+
+uint sigprocmask(uint sigmask){
+    struct proc *p = myproc();
+    acquire(&p->lock);
+    uint old_sigmask = p->sigmask;
+    p->sigmask = sigmask;
+    release(&p->lock);
+    return old_sigmask; 
+}
