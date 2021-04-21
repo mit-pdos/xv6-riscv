@@ -119,7 +119,8 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
-
+  p->sigmask = 0;
+  memset(&p->sighandlers, 0x00, sizeof(p->sighandlers));
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -656,10 +657,13 @@ procdump(void)
 }
 
 uint sigprocmask(uint sigmask){
+    printf("sigmask: %d\n",sigmask);
     struct proc *p = myproc();
     acquire(&p->lock);
     uint old_sigmask = p->sigmask;
     p->sigmask = sigmask;
+    printf("pid: %d, mask: %d\n",p->pid,p->sigmask);
     release(&p->lock);
     return old_sigmask; 
 }
+  

@@ -2744,13 +2744,22 @@ run(void f(char *), char *s) {
     return xstatus == 0;
   }
 }
-
+void mytest(){
+    fprintf(2,"old sigproc: %d\n",sigprocmask((uint)1<<2|1<<3));
+    fprintf(2,"old sigproc: %d\n",sigprocmask((uint)1<<4));
+    fprintf(2,"sainaty check\n");
+}
 int
 main(int argc, char *argv[])
 {
   int continuous = 0;
   char *justone = 0;
-
+  
+  if(argc ==2 && (strcmp(argv[1], "--mytest") == 0)){
+      mytest();
+      exit(0);
+  }
+  
   if(argc == 2 && strcmp(argv[1], "-c") == 0){
     continuous = 1;
   } else if(argc == 2 && strcmp(argv[1], "-C") == 0){

@@ -99,9 +99,10 @@ sys_uptime(void)
 uint64
 sys_sigprocmask(void)
 {
-  uint sigmask;
+  int sigmask;
   if(argint(0, &sigmask) < 0)
     return -1;
-  return sigprocmask(sigmask);
+  printf("sigmask from kernel: %d\n", sigmask);
+  return sigprocmask((uint)sigmask);
 }
 

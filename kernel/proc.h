@@ -108,7 +108,7 @@ struct proc {
   //task 2.1.2
   uint pending_signals;
   uint sigmask;
-  void* sighandlers;
+  void* sighandlers[32];
   struct trapframe* trapframe_backup;
 };
 //[t] - should thous marocs be here?
