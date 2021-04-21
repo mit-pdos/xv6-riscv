@@ -115,7 +115,9 @@ exec(char *path, char **argv)
   p->trapframe->epc = elf.entry;  // initial program counter = main
   p->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
-
+  //tast 2.1.2
+  memset(&p->sighandlers, 0, sizeof(p->sighandlers));
+  //[t] do I have to reset the other fields? sigmask and pending_signals?
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
  bad:

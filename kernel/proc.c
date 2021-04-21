@@ -120,6 +120,7 @@ found:
   p->pid = allocpid();
   p->state = USED;
   p->sigmask = 0;
+  p->pending_signals = 0;
   memset(&p->sighandlers, 0x00, sizeof(p->sighandlers));
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -295,6 +296,9 @@ fork(void)
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
+  //task 2.1.2
+  np->sigmask = p->sigmask;
+  np->pending_signals = p->pending_signals;
 
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
