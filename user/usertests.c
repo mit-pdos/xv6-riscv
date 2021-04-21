@@ -2747,7 +2747,7 @@ run(void f(char *), char *s) {
 void mytest(){
     fprintf(2,"old sigproc: %d\n",sigprocmask((uint)1<<2|1<<3));
     fprintf(2,"old sigproc: %d\n",sigprocmask((uint)1<<4));
-    fprintf(2,"sainaty check\n");
+    fprintf(2,"mytest finished\n");
 }
 int
 main(int argc, char *argv[])

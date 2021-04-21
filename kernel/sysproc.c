@@ -102,7 +102,6 @@ sys_sigprocmask(void)
   int sigmask;
   if(argint(0, &sigmask) < 0)
     return -1;
-  printf("sigmask from kernel: %d\n", sigmask);
   return sigprocmask((uint)sigmask);
 }
 
