@@ -446,6 +446,29 @@ scheduler(void)
   struct cpu *c = mycpu();
   
   c->proc = 0;
+//     for(;;){
+//     // Avoid deadlock by ensuring that devices can interrupt.
+//     intr_on();
+
+
+//     int found = 0;
+//     for(p = proc; p < &proc[NPROC]; p++) {
+//       acquire(&p->lock);
+//       if(p->state == RUNNABLE) {
+//         // Process is done running for now.
+//         // It should have changed its p->state before coming back.
+//         c->proc = 0;
+
+//         found = 1;
+//       }
+//       release(&p->lock);
+//     }
+//     if(found == 0) {
+//       intr_on();
+//       asm volatile("wfi");
+//     }
+//   }
+// }
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
@@ -669,5 +692,28 @@ uint sigprocmask(uint sigmask){
     printf("pid: %d, mask: %d\n",p->pid,p->sigmask);
     release(&p->lock);
     return old_sigmask; 
+}
+
+int sigaction(int signum, const struct sigaction* act, struct sigaction* oldact){
+    if (signum <0 || signum > 31){
+      printf("signum out of [0,31] range. signum: %d\n",signum);
+      return -1;
+    }
+    if (signum == SIGKILL){
+        printf("SIGKILL can't be modified\n");
+    }
+    if (signum == SIGSTOP){
+        printf("SIGSTOP can't be modified\n");
+    }
+
+    struct proc* p = myproc();
+    if (oldact != 0){
+      oldact = p->sighandlers[signum];
+
+    }
+    if (act != 0){
+      p->sighandlers[signum] = act;
+    }
+    return 0;
 }
   
