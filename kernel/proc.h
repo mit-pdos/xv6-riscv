@@ -80,10 +80,10 @@ struct trapframe {
   /* 280 */ uint64 t6;
 };
 
-struct sigaction{
-  void (*sa_hndler)(int);
-  uint sigmask;
-};
+// struct sigaction_{
+//   void (*sa_handler)(int);
+//   uint sigmask;
+// };
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 

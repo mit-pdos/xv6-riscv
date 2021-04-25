@@ -24,7 +24,7 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 uint sigprocmask(uint sigmask);
-int sigaction (int signum, const struct sigaction*act, struct sigaction *oldact);
+int sigaction (int signum, const struct sigaction_ *act, struct sigaction_ *oldact);
 void sigret(void);
 
 // ulib.c

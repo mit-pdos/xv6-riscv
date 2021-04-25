@@ -9,8 +9,8 @@ typedef unsigned int uint32;
 typedef unsigned long uint64;
 
 typedef uint64 pde_t;
-struct sigaction
+struct sigaction_
 {
-    void (*sa_handler)(int);
+    void (*sa_handler_)(int);
     uint sigmask;
 };

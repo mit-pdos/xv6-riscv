@@ -699,7 +699,7 @@ uint sigprocmask(uint sigmask)
 int sigaction(int signum, uint64 act, uint64 oldact)
 {
   struct proc *p = myproc();
-  struct sigaction new, old;
+  struct sigaction_ new, old;
   acquire(&p->lock);
   if (signum < 0 || signum == SIGKILL || signum == SIGSTOP || signum > 32)
   {
@@ -708,10 +708,10 @@ int sigaction(int signum, uint64 act, uint64 oldact)
   }
   if (oldact != 0)
   {
-    old.sa_handler = p->sighandlers[signum];
+    old.sa_handler_ = p->sighandlers[signum];
     old.sigmask = p->sighandlers_mask[signum];
     if (copyout(p->pagetable, oldact, (char *)&old,
-                sizeof(struct sigaction)) < 0)
+                sizeof(struct sigaction_)) < 0)
     {
       release(&p->lock);
       return -1;
@@ -720,12 +720,12 @@ int sigaction(int signum, uint64 act, uint64 oldact)
   if (act != 0)
   {
     if (copyin(p->pagetable, (char *)&new, act,
-               sizeof(struct sigaction)) < 0)
+               sizeof(struct sigaction_)) < 0)
     {
       release(&p->lock);
       return -1;
     }
-    p->sighandlers[signum] = new.sa_handler;
+    p->sighandlers[signum] = new.sa_handler_;
     p->sighandlers_mask[signum] = new.sigmask;
   }
   release(&p->lock);
@@ -737,5 +737,5 @@ void sigret(void)
   struct proc *p = myproc();
   memmove(p->trapframe, p->trapframe_backup, sizeof(struct trapframe));
   p->signal_mask = p->signal_mask_backup;
-  p->signal_handler;
+  // p->signal_handler;
 }

@@ -125,4 +125,5 @@ sys_sigaction(void)
 uint64
 sys_sigret(void)
 {
+  return 0;
 }
