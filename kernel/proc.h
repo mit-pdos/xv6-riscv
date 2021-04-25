@@ -114,6 +114,10 @@ struct proc {
   uint pending_signals;
   uint sigmask;
   void* sighandlers[32];
+  uint sighandlers_mask[32];
+  int signal_mask;
+  int signal_mask_backup;
+  int signal_handler;
   struct trapframe* trapframe_backup;
 };
 //[t] - should thous marocs be here?

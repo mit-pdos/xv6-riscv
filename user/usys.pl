@@ -38,3 +38,4 @@ entry("sleep");
 entry("uptime");
 entry("sigprocmask");
 entry("sigaction");
+entry("sigret");
