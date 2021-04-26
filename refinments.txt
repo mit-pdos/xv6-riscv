@@ -1,0 +1,248 @@
+Here is a list of refinements for the assignment, and suggestions for implementation.
+
+
+Sections refinements:
+
+2.1.2
+
+Every process has:
+
+1. Pendings signals: 32bit array, uint.
+
+Represents which signals this process should be handled.
+
+
+2. Signal mask: 32bit array, uint.
+
+Represents which signals this process should block generally.
+
+
+3. Signal handlers: 32bit, void*.
+
+Represents signal handler's data.
+
+Think about: which data is the process needed for the signal handling.
+
+
+4. User trap frame backup: struct trapframe*.
+
+Represents user trap frame backup.
+
+For user space signal handlers, before the process handles the signal, it should backup its current trapframe.
+
+When the process finishes the signal handling, it should restore its original trapframe.
+
+
+2.1.4
+
+The struct sigaction has:
+
+1. sa_handler: type: void*, return value: int.
+
+Represents a pointer to signal handler function.
+
+
+2. sigmask: type uint.
+
+Represents a signal mask.
+
+When the process handles the signal corresponding to this sa_handler, it should block the signals that specify in sigmask.
+
+
+The sigaction function should assign a user space function as sa_handler.
+
+The sigaction function can also assign kernel space functions as sa_handler, such as SIG_IGN, SIGSTOP, SIGKILL, SIGCONT, SIG_DFL.
+
+
+2.1.5
+
+The sigret system call should restore the process to its original workflow.
+
+The sigret system call is responsible for:
+
+1. Restore the process original trapframe
+
+2. Restore the process original signal mask
+
+3. Turn off the flag indicates a user space signal handling for blocking incoming signals at this time.
+
+
+2.2
+
+The kill system call should send a signal (by its signal number) to a given process by its pid.
+
+
+Your questions from the reception hours:
+
+1
+
+At process creation: do we need to do malloc for the default handler?
+
+
+At exec:
+
+You need to assign all the signal handlers to be a pointer to SIG_DFL variable, except the handlers that are assigned as SIG_IGN pointer variable.
+
+
+At allocproc:
+
+You need to assign all signal handlers to be SIG_DFL.
+
+
+When you handle signals:
+
+If the signal is not blocked at the process original mask, you should check:
+
+if its dedicated handler is defined as SIG_DFL, you should perform the kernel defined actions for this signal, depending on this signal (SIGSTOP, SIGCONT).
+
+The default behaviour for signals that is not one of those is the SIGKILL defined behaviour.
+
+
+2
+
+For exec:
+
+You need to assign all signal handlers, except signals that have SIG_IGN behaviour, to be of SIG_DFL behaviour.
+
+You should not refer to the case of failing exec in this case.
+
+
+3
+
+For user space kill function (kill.c)
+
+You should check if the number of arguments is correct.
+
+You should support multiple signal sending (by calling kill several times, each time with a different pair of variables).
+
+
+4
+
+For the sigret injection at the user space signal handling:
+
+
+Here is a suggestion for implementation:
+
+you need to define a new function X that will be responsible for calling the sigret system call.
+
+
+At the signal handling function:
+
+1. You should use "copyin" function to copy (from user to kernel) the sigaction signal handler (defined at user space), at the process page table, using local variable (to a user space address).
+
+
+2. You should back up the process "general" signal mask, and set the current process signal mask to be the signal handler mask.
+
+
+3. You should indicate that the process is at "signal handling" by turn on a flag.
+
+
+4. You should reduce the process trapframe stack pointer by the size of the trapframe, and save this trapframe "new" stack pointer as trapframe backup stack pointer.
+
+
+5. Now you should use the "copyout" function (from kernel to user), to copy the current process trapframe, to the trapframe backup stack pointer (to reduce its stack pointer at the user space).
+
+
+6. Now you should update the current process trapframe "saved user pc" to point to the signal handler function address (a user space address).
+
+
+7. Now you need to reduce the trapframe stack pointer by this function (X) length (you can use a function name as a reference to its address).
+
+
+8. Now you should "copyout" (from kernel to user) this function, to the process trapframe stack pointer (thus it will be located after the user signal handler).
+
+
+9. You also need to put at the process a0 register the signal number (for the signal handling call), and at the process return address register the "new" trapframe stack pointer (thus the process will be returned to this address after the user signal handling).
+
+
+5
+
+Debugging guide:
+
+You can use this guide for gdb debugging under XV6.
+
+You can use this guide for gdb debugging.
+
+
+To start gdb under XV6:
+
+Open one terminal, cd to the XV6 directory, and type:
+
+$ make qemu-gdb
+
+
+Open another terminal, cd to the XV6 directory, and type:
+
+$ gdb <filename>
+
+For example: filename can be "kernel".
+
+
+To define breakpoint:
+
+$ b <address>
+
+can be referenced as a function name.
+
+
+While debugging, to run to the next line:
+
+$ n
+
+
+While debugging, to run to the next line (step into functions):
+
+$ s
+
+
+While debugging, print variables:
+
+$ p <variable>
+
+Use * to print the value of the variable if it is a reference.
+
+
+To print the stack trace:
+
+$ bt
+
+
+To quit gdb:
+
+$ quit
+
+
+6
+
+Difference between SIG_IGN to signal mask:
+
+The signal mask represents signals that should be blocked.
+
+SIG_IGN indicates a kernel space behaviour that indicates to ignore a specific signal.
+
+
+The signal mask purpose:
+
+1. Allows process to block a specific signals handling, for a specific signal, when the process is handling this signal at the user space (at the assignment, represented as signal sigmask).
+
+2. Allows process to block a specific signals handling, for this process (at the assignment, represented as process sigmask).
+
+
+The SIG_IGN purpose:
+
+1. indicate a kernel space behaviour of ignoring the signal it is the handler of.
+
+
+For example:
+
+for a signal with SIG_IGN handler, this signal will be discarded and will not be handled ever.
+
+
+But, if some signal is blocked by a signal mask of a specific signal, it will be blocked temporarily, till the mask will be restored to the general process signal mask.
+
+
+if this signal is blocked also by the process "general" mask, it will be blocked till the process "general" mask will be replaced to one that will not block this signal.
+
+
+This is a specific implementation to the P.S. definition, where each signal has flags that indicate to block, or to ignore, and a signal handler.
+

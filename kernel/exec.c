@@ -115,8 +115,17 @@ exec(char *path, char **argv)
   p->trapframe->epc = elf.entry;  // initial program counter = main
   p->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
-  //tast 2.1.2
+  //task 2.1.2
   memset(&p->sighandlers, 0, sizeof(p->sighandlers));
+  
+  for (int i =0; i<32; i++){
+    if (p->sighandlers[i] != SIG_DFL)
+      printf("sig_num: %d, val: %d\n",i,p->sighandlers[i]);
+    if (p->sighandlers[i] !=SIG_DFL && p->sighandlers[i] != (void*)SIG_IGN){
+        p->sighandlers[i] = SIG_DFL;
+        printf("change: %d (if val is not 0 there is a probleme\n", p->sighandlers[i]);
+    }
+  }
   //[t] do I have to reset the other fields? sigmask and pending_signals?
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
