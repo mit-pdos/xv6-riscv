@@ -15,7 +15,7 @@ extern char trampoline[], uservec[], userret[];
 void kernelvec();
 
 extern int devintr();
-
+extern int handle_pending_signals();
 void
 trapinit(void)
 {
@@ -89,6 +89,7 @@ usertrap(void)
 void
 usertrapret(void)
 {
+  handle_pending_signals();
   struct proc *p = myproc();
 
   // we're about to switch the destination of traps from

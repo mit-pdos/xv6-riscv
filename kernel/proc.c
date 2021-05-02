@@ -595,26 +595,22 @@ void wakeup(void *chan)
     }
   }
 }
-
-// Kill the process with the given pid.
-// The victim won't exit until it tries to return
-// to user space (see usertrap() in trap.c).
+//arg1: pid, arg2: signum
+//sends signal signum to proccess pid
 int kill(int pid, int signum)
 {
-  if (signum <0 || signum >31)
-      return -1;
+  if (signum < 0 || signum > 31)
+    return -1;
   struct proc *p;
 
   for (p = proc; p < &proc[NPROC]; p++)
   {
-    acquire(&p->lock);
     if (p->pid == pid)
     {
-      p->pending_signals = p->pending_signals | 1<<signum;
-      release(&p->lock);
+      printf("pid: %d got signal: %d\n", pid, signum);
+      p->pending_signals |= 1 << signum;
       return 0;
     }
-    release(&p->lock);
   }
   return -1;
 }
@@ -736,3 +732,88 @@ void sigret(void)
   p->signal_mask = p->signal_mask_backup;
   // p->signal_handler;
 }
+
+void sigcont(struct proc *p)
+{
+  acquire(&p->lock);
+  p->stopped = 0;
+  release(&p->lock);
+}
+void sigkill(){
+    struct proc *p = myproc();
+  p->killed =1;
+}
+void sigstop()
+{
+  
+   struct proc *p = myproc();
+  p->stopped = 1;
+  while((p->pending_signals & 1<<SIGCONT) == 0){
+    yield();
+  }
+  p->stopped = 0;
+  p->pending_signals ^= 1 << SIGCONT;
+}
+void init_userhandler(void* handler){
+
+}
+void handle_pending_signals()
+{
+
+  struct proc *p = myproc();
+  //kernel handlers
+  if (p->pending_signals & 1 << SIGKILL)
+  {
+    p->killed = 1;
+    p->pending_signals ^= 1 << SIGKILL;
+    return;
+  }
+  if (p->pending_signals & 1 << SIGSTOP)
+  {
+    sigstop();
+    p->pending_signals ^= 1 << SIGSTOP;
+  }
+  // if (p->pending_signals & 1<<SIGCONT){
+  //   p->stopped =0;
+  //   p->pending_signals ^= 1<<SIGCONT;
+  // }
+  for (int signum = 0; signum < 32; signum++)
+  {
+    int signal_is_pending = p->pending_signals & 1 << signum;
+    int signal_is_blocked = p->signal_mask & 1 << signum;
+
+    if ((signal_is_pending & !signal_is_blocked) != 0)
+    {
+      switch (signum)
+      {
+      case SIGKILL:
+        break;
+      case SIGSTOP:
+        break;
+      case SIGCONT:
+        break;
+      default:
+        //do user handler
+        p->pending_signals ^= 1 << signum;
+        void* handler = p->sighandlers[signum];
+        switch((uint64)handler){
+          case SIGKILL:
+            sigkill();
+            break;
+          case SIGSTOP:
+            sigstop();
+            break;
+          case SIGCONT:
+            sigcont(p);
+          case SIG_DFL:
+            sigkill();
+          case SIG_IGN:
+            break;
+          default:
+            init_userhandler(handler);
+        }
+      }
+    }
+  }
+}
+

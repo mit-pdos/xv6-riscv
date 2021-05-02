@@ -95,6 +95,7 @@ struct proc {
   enum procstate state;        // Process state
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
+  int stopped;                 // if non-zero, have been stopped
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
 
@@ -118,6 +119,7 @@ struct proc {
   int signal_mask;
   int signal_mask_backup;
   struct trapframe* trapframe_backup;
+
 };
 //[t] - should thous marocs be here?
 #define SIG_DFL 0 /* default signal handling */
