@@ -712,9 +712,15 @@ int sigaction(int signum, uint64 act, uint64 oldact)
   }
   if (act != 0)
   {
+    //check validity of mask
+    
     if (copyin(p->pagetable, (char *)&new, act,
                sizeof(struct sigaction_)) < 0)
     {
+      release(&p->lock);
+      return -1;
+    }
+    if((new.sigmask & 1<<SIGKILL & 1<<SIGSTOP) !=0){
       release(&p->lock);
       return -1;
     }
@@ -730,7 +736,7 @@ void sigret(void)
   struct proc *p = myproc();
   memmove(p->trapframe, p->trapframe_backup, sizeof(struct trapframe));
   p->signal_mask = p->signal_mask_backup;
-  // p->signal_handler;
+  p->handling_signal = 0;
 }
 
 void sigcont(struct proc *p)
@@ -754,8 +760,12 @@ void sigstop()
   p->stopped = 0;
   p->pending_signals ^= 1 << SIGCONT;
 }
-void init_userhandler(void* handler){
-
+void init_userhandler(int signum){
+  struct proc *p = myproc(); 
+  p->signal_mask_backup = p->signal_mask;
+  p->handling_signal = 1;
+  
+  
 }
 void handle_pending_signals()
 {
@@ -810,7 +820,7 @@ void handle_pending_signals()
           case SIG_IGN:
             break;
           default:
-            init_userhandler(handler);
+            init_userhandler(signum);
         }
       }
     }

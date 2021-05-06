@@ -89,8 +89,14 @@ usertrap(void)
 void
 usertrapret(void)
 {
-  handle_pending_signals();
   struct proc *p = myproc();
+  if (p->handling_signal != 0){
+    printf("pid:%d, currently handeling signal\n",p->pid);
+  }
+  else{
+    handle_pending_signals();
+  }
+  
 
   // we're about to switch the destination of traps from
   // kerneltrap() to usertrap(), so turn off interrupts until
