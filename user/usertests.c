@@ -17,10 +17,9 @@
 // prints "OK".
 //
 
-#define BUFSZ  (MAXOPBLOCKS+2)*BSIZE
+#define BUFSZ  ((MAXOPBLOCKS+2)*BSIZE)
 
 char buf[BUFSZ];
-char name[3];
 
 // what if you pass ridiculous pointers to system calls
 // that read user memory with copyin?
@@ -231,6 +230,53 @@ copyinstr3(char *s)
     printf("exec(%s) returned %d, not -1\n", b, fd);
     exit(1);
   }
+}
+
+// See if the kernel refuses to read/write user memory that the
+// application doesn't have anymore, because it returned it.
+void
+rwsbrk()
+{
+  int fd, n;
+  
+  uint64 a = (uint64) sbrk(8192);
+
+  if(a == 0xffffffffffffffffLL) {
+    printf("sbrk(rwsbrk) failed\n");
+    exit(1);
+  }
+  
+  if ((uint64) sbrk(-8192) ==  0xffffffffffffffffLL) {
+    printf("sbrk(rwsbrk) shrink failed\n");
+    exit(1);
+  }
+
+  fd = open("rwsbrk", O_CREATE|O_WRONLY);
+  if(fd < 0){
+    printf("open(rwsbrk) failed\n");
+    exit(1);
+  }
+  n = write(fd, (void*)(a+4096), 1024);
+  if(n >= 0){
+    printf("write(fd, %p, 1024) returned %d, not -1\n", a+4096, n);
+    exit(1);
+  }
+  close(fd);
+  unlink("rwsbrk");
+
+  fd = open("README", O_RDONLY);
+  if(fd < 0){
+    printf("open(rwsbrk) failed\n");
+    exit(1);
+  }
+  n = read(fd, (void*)(a+4096), 10);
+  if(n >= 0){
+    printf("read(fd, %p, 10) returned %d, not -1\n", a+4096, n);
+    exit(1);
+  }
+  close(fd);
+  
+  exit(0);
 }
 
 // test O_TRUNC.
@@ -496,11 +542,11 @@ writetest(char *s)
   }
   for(i = 0; i < N; i++){
     if(write(fd, "aaaaaaaaaa", SZ) != SZ){
-      printf("%s: error: write aa %d new file failed\n", i);
+      printf("%s: error: write aa %d new file failed\n", s, i);
       exit(1);
     }
     if(write(fd, "bbbbbbbbbb", SZ) != SZ){
-      printf("%s: error: write bb %d new file failed\n", i);
+      printf("%s: error: write bb %d new file failed\n", s, i);
       exit(1);
     }
   }
@@ -537,7 +583,7 @@ writebig(char *s)
   for(i = 0; i < MAXFILE; i++){
     ((int*)buf)[0] = i;
     if(write(fd, buf, BSIZE) != BSIZE){
-      printf("%s: error: write big file failed\n", i);
+      printf("%s: error: write big file failed\n", s, i);
       exit(1);
     }
   }
@@ -555,16 +601,16 @@ writebig(char *s)
     i = read(fd, buf, BSIZE);
     if(i == 0){
       if(n == MAXFILE - 1){
-        printf("%s: read only %d blocks from big", n);
+        printf("%s: read only %d blocks from big", s, n);
         exit(1);
       }
       break;
     } else if(i != BSIZE){
-      printf("%s: read failed %d\n", i);
+      printf("%s: read failed %d\n", s, i);
       exit(1);
     }
     if(((int*)buf)[0] != n){
-      printf("%s: read content of block %d is %d\n",
+      printf("%s: read content of block %d is %d\n", s,
              n, ((int*)buf)[0]);
       exit(1);
     }
@@ -584,6 +630,7 @@ createtest(char *s)
   int i, fd;
   enum { N=52 };
 
+  char name[3];
   name[0] = 'a';
   name[2] = '\0';
   for(i = 0; i < N; i++){
@@ -601,8 +648,6 @@ createtest(char *s)
 
 void dirtest(char *s)
 {
-  printf("mkdir test\n");
-
   if(mkdir("dir0") < 0){
     printf("%s: mkdir failed\n", s);
     exit(1);
@@ -622,7 +667,6 @@ void dirtest(char *s)
     printf("%s: unlink dir0 failed\n", s);
     exit(1);
   }
-  printf("%s: mkdir test ok\n");
 }
 
 void
@@ -735,6 +779,36 @@ pipe1(char *s)
   }
 }
 
+
+// test if child is killed (status = -1)
+void
+killstatus(char *s)
+{
+  int xst;
+  
+  for(int i = 0; i < 100; i++){
+    int pid1 = fork();
+    if(pid1 < 0){
+      printf("%s: fork failed\n", s);
+      exit(1);
+    }
+    if(pid1 == 0){
+      while(1) {
+        getpid();
+      }
+      exit(0);
+    }
+    sleep(1);
+    kill(pid1);
+    wait(&xst);
+    if(xst != -1) {
+       printf("%s: status should be -1\n", s);
+       exit(1);
+    }
+  }
+  exit(0);
+}
+
 // meant to be run w/ at most two CPUs
 void
 preempt(char *s)
@@ -744,7 +818,7 @@ preempt(char *s)
 
   pid1 = fork();
   if(pid1 < 0) {
-    printf("%s: fork failed");
+    printf("%s: fork failed", s);
     exit(1);
   }
   if(pid1 == 0)
@@ -769,7 +843,7 @@ preempt(char *s)
   if(pid3 == 0){
     close(pfds[0]);
     if(write(pfds[1], "x", 1) != 1)
-      printf("%s: preempt write error");
+      printf("%s: preempt write error", s);
     close(pfds[1]);
     for(;;)
       ;
@@ -777,7 +851,7 @@ preempt(char *s)
 
   close(pfds[1]);
   if(read(pfds[0], buf, sizeof(buf)) != 1){
-    printf("%s: preempt read error");
+    printf("%s: preempt read error", s);
     return;
   }
   close(pfds[0]);
@@ -1684,6 +1758,60 @@ bigwrite(char *s)
   }
 }
 
+// concurrent writes to try to provoke deadlock in the virtio disk
+// driver.
+void
+manywrites(char *s)
+{
+  int nchildren = 4;
+  int howmany = 30; // increase to look for deadlock
+  
+  for(int ci = 0; ci < nchildren; ci++){
+    int pid = fork();
+    if(pid < 0){
+      printf("fork failed\n");
+      exit(1);
+    }
+
+    if(pid == 0){
+      char name[3];
+      name[0] = 'b';
+      name[1] = 'a' + ci;
+      name[2] = '\0';
+      unlink(name);
+      
+      for(int iters = 0; iters < howmany; iters++){
+        for(int i = 0; i < ci+1; i++){
+          int fd = open(name, O_CREATE | O_RDWR);
+          if(fd < 0){
+            printf("%s: cannot create %s\n", s, name);
+            exit(1);
+          }
+          int sz = sizeof(buf);
+          int cc = write(fd, buf, sz);
+          if(cc != sz){
+            printf("%s: write(%d) ret %d\n", s, sz, cc);
+            exit(1);
+          }
+          close(fd);
+        }
+        unlink(name);
+      }
+
+      unlink(name);
+      exit(0);
+    }
+  }
+
+  for(int ci = 0; ci < nchildren; ci++){
+    int st = 0;
+    wait(&st);
+    if(st != 0)
+      exit(st);
+  }
+  exit(0);
+}
+
 void
 bigfile(char *s)
 {
@@ -2051,7 +2179,7 @@ sbrkmuch(char *s)
   }
   c = sbrk(0);
   if(c != a - PGSIZE){
-    printf("%s: sbrk deallocation produced wrong address, a %x c %x\n", a, c);
+    printf("%s: sbrk deallocation produced wrong address, a %x c %x\n", s, a, c);
     exit(1);
   }
 
@@ -2059,7 +2187,7 @@ sbrkmuch(char *s)
   a = sbrk(0);
   c = sbrk(PGSIZE);
   if(c != a || sbrk(0) != a + PGSIZE){
-    printf("%s: sbrk re-allocation failed, a %x c %x\n", a, c);
+    printf("%s: sbrk re-allocation failed, a %x c %x\n", s, a, c);
     exit(1);
   }
   if(*lastaddr == 99){
@@ -2071,7 +2199,7 @@ sbrkmuch(char *s)
   a = sbrk(0);
   c = sbrk(-(sbrk(0) - oldbrk));
   if(c != a){
-    printf("%s: sbrk downsize failed, a %x c %x\n", a, c);
+    printf("%s: sbrk downsize failed, a %x c %x\n", s, a, c);
     exit(1);
   }
 }
@@ -2090,7 +2218,7 @@ kernmem(char *s)
       exit(1);
     }
     if(pid == 0){
-      printf("%s: oops could read %x = %x\n", a, *a);
+      printf("%s: oops could read %x = %x\n", s, a, *a);
       exit(1);
     }
     int xstatus;
@@ -2161,7 +2289,7 @@ sbrkfail(char *s)
     }
     // print n so the compiler doesn't optimize away
     // the for loop.
-    printf("%s: allocate a lot of memory succeeded %d\n", n);
+    printf("%s: allocate a lot of memory succeeded %d\n", s, n);
     exit(1);
   }
   wait(&xstatus);
@@ -2283,10 +2411,10 @@ fsfull()
     name[3] = '0' + (nfiles % 100) / 10;
     name[4] = '0' + (nfiles % 10);
     name[5] = '\0';
-    printf("%s: writing %s\n", name);
+    printf("writing %s\n", name);
     int fd = open(name, O_CREATE|O_RDWR);
     if(fd < 0){
-      printf("%s: open %s failed\n", name);
+      printf("open %s failed\n", name);
       break;
     }
     int total = 0;
@@ -2297,7 +2425,7 @@ fsfull()
       total += cc;
       fsblocks++;
     }
-    printf("%s: wrote %d bytes\n", total);
+    printf("wrote %d bytes\n", total);
     close(fd);
     if(total == 0)
       break;
@@ -2351,7 +2479,7 @@ stacktest(char *s)
     char *sp = (char *) r_sp();
     sp -= PGSIZE;
     // the *sp should cause a trap.
-    printf("%s: stacktest: read below stack %p\n", *sp);
+    printf("%s: stacktest: read below stack %p\n", s, *sp);
     exit(1);
   } else if(pid < 0){
     printf("%s: fork failed\n", s);
@@ -2638,12 +2766,14 @@ main(int argc, char *argv[])
     void (*f)(char *);
     char *s;
   } tests[] = {
+    {manywrites, "manywrites"},
     {execout, "execout"},
     {copyin, "copyin"},
     {copyout, "copyout"},
     {copyinstr1, "copyinstr1"},
     {copyinstr2, "copyinstr2"},
     {copyinstr3, "copyinstr3"},
+    {rwsbrk, "rwsbrk" },
     {truncate1, "truncate1"},
     {truncate2, "truncate2"},
     {truncate3, "truncate3"},
@@ -2665,6 +2795,7 @@ main(int argc, char *argv[])
     {subdir, "subdir"},
     {fourfiles, "fourfiles"},
     {sharedfd, "sharedfd"},
+    {dirtest, "dirtest"},
     {exectest, "exectest"},
     {bigargtest, "bigargtest"},
     {bigwrite, "bigwrite"},
@@ -2685,6 +2816,7 @@ main(int argc, char *argv[])
     {iputtest, "iput"},
     {mem, "mem"},
     {pipe1, "pipe1"},
+    {killstatus, "killstatus"},
     {preempt, "preempt"},
     {exitwait, "exitwait"},
     {rmdot, "rmdot"},
