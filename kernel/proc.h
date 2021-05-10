@@ -120,6 +120,7 @@ struct proc {
   int signal_mask_backup;
   struct trapframe* trapframe_backup;
   int handling_signal;
+
 };
 //[t] - should thous marocs be here?
 #define SIG_DFL 0 /* default signal handling */

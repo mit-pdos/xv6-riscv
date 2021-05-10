@@ -1,3 +1,11 @@
+#include "syscall.h"
+.globl sigretStart
+.globl sigretEnd
+sigretStart:
+        li a7, SYS_sigret
+        ecall
+        jal exit
+sigretEnd:
 	#
         # code to switch between user and kernel space.
         #
@@ -139,3 +147,4 @@ userret:
         # return to user mode and user pc.
         # usertrapret() set up sstatus and sepc.
         sret
+

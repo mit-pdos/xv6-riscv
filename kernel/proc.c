@@ -5,7 +5,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-
+extern void* sigretStart;
+extern void* sigretEnd;
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -467,7 +468,7 @@ void scheduler(void)
   {
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-
+  int found = 0;
     for (p = proc; p < &proc[NPROC]; p++)
     {
       acquire(&p->lock);
@@ -483,8 +484,13 @@ void scheduler(void)
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
+        found =1;
       }
       release(&p->lock);
+    }
+    if(found == 0) {
+      intr_on();
+      asm volatile("wfi");
     }
   }
 }
@@ -679,18 +685,26 @@ void procdump(void)
 
 uint sigprocmask(uint sigmask)
 {
-  printf("sigmask: %d\n", sigmask);
+  if (sigmask & 1<<SIGKILL){
+    printf("you are not allowed to block SIGKILL!\n");
+    return -1;
+  };
+  if (sigmask & 1<<SIGSTOP){
+    printf("you are not allowed to block SIGSTOP!\n");
+    return -1;
+  };
+
   struct proc *p = myproc();
   acquire(&p->lock);
   uint old_sigmask = p->sigmask;
   p->sigmask = sigmask;
-  printf("pid: %d, mask: %d\n", p->pid, p->sigmask);
   release(&p->lock);
   return old_sigmask;
 }
 
 int sigaction(int signum, uint64 act, uint64 oldact)
 {
+  printf("sigaction\n");
   struct proc *p = myproc();
   struct sigaction_ new, old;
   acquire(&p->lock);
@@ -720,10 +734,17 @@ int sigaction(int signum, uint64 act, uint64 oldact)
       release(&p->lock);
       return -1;
     }
-    if((new.sigmask & 1<<SIGKILL & 1<<SIGSTOP) !=0){
+    if(new.sigmask & 1<<SIGKILL){
+      printf("sigmask of handler can't block SIGKILL\n");
       release(&p->lock);
       return -1;
     }
+    if(new.sigmask & 1<<SIGSTOP){
+      printf("sigmask of handler can't block SIGSTOP\n");
+      release(&p->lock);
+      return -1;
+    }
+    
     p->sighandlers[signum] = new.sa_handler_;
     p->sighandlers_mask[signum] = new.sigmask;
   }
@@ -751,8 +772,8 @@ void sigkill(){
 }
 void sigstop()
 {
-  
-   struct proc *p = myproc();
+  struct proc *p = myproc();
+  printf("pid:%d got SIGSTOP\n",p->pid);
   p->stopped = 1;
   while((p->pending_signals & 1<<SIGCONT) == 0){
     yield();
@@ -761,11 +782,24 @@ void sigstop()
   p->pending_signals ^= 1 << SIGCONT;
 }
 void init_userhandler(int signum){
-  struct proc *p = myproc(); 
+  struct proc* p = myproc();
+  printf("initiatig userhandler\n");
+  void* user_handler;
+  copyin(p->pagetable, (char*)&user_handler, (uint64)p->sighandlers[signum],sizeof (uint64));
+
   p->signal_mask_backup = p->signal_mask;
   p->handling_signal = 1;
-  
-  
+  memmove(p->trapframe_backup, p->trapframe, sizeof(struct trapframe));  
+  p->trapframe->sp -= sizeof(struct trapframe);
+  uint64 backup_stack_pointer = p->trapframe->sp;
+  copyout(p->pagetable, backup_stack_pointer, (char *)&p->trapframe, sizeof(struct trapframe));
+  p->trapframe->epc = (uint64) user_handler;
+  uint sizeof_sigret = sigretEnd - sigretStart;
+  p->trapframe->sp -= sizeof_sigret;
+  copyout(p->pagetable, p->trapframe->sp,(char*)&sigretStart, sizeof_sigret);
+  p->trapframe->a0 = signum;
+  p->trapframe->ra = p->trapframe->sp;
+  p->pending_signals = p->pending_signals ^ (1<<signum);
 }
 void handle_pending_signals()
 {
@@ -789,39 +823,42 @@ void handle_pending_signals()
   // }
   for (int signum = 0; signum < 32; signum++)
   {
+
     int signal_is_pending = p->pending_signals & 1 << signum;
     int signal_is_blocked = p->signal_mask & 1 << signum;
-
-    if ((signal_is_pending & !signal_is_blocked) != 0)
-    {
-      switch (signum)
-      {
-      case SIGKILL:
-        break;
-      case SIGSTOP:
-        break;
-      case SIGCONT:
-        break;
-      default:
-        //do user handler
-        p->pending_signals ^= 1 << signum;
-        void* handler = p->sighandlers[signum];
-        switch((uint64)handler){
-          case SIGKILL:
-            sigkill();
-            break;
-          case SIGSTOP:
-            sigstop();
-            break;
-          case SIGCONT:
-            sigcont(p);
-          case SIG_DFL:
-            sigkill();
-          case SIG_IGN:
-            break;
-          default:
-            init_userhandler(signum);
-        }
+    // printf("signum:%d, pending:%d, blocked:%d\n",signum,signal_is_pending,signal_is_blocked);
+    if (signal_is_pending)
+      if(!signal_is_blocked){
+        printf("signal is pending and is not blocked\n");
+        switch (signum)
+        {
+        case SIGKILL:
+          break;
+        case SIGSTOP:
+          break;
+        case SIGCONT:
+          break;
+        default:
+          //do user handler
+          printf("do userhandler\n");
+          p->pending_signals ^= 1 << signum;
+          void* handler = p->sighandlers[signum];
+          switch((uint64)handler){
+            case SIGKILL:
+              sigkill();
+              break;
+            case SIGSTOP:
+              sigstop();
+              break;
+            case SIGCONT:
+              sigcont(p);
+            case SIG_DFL:
+              sigkill();
+            case SIG_IGN:
+              break;
+            default:
+              init_userhandler(signum);
+          }
       }
     }
   }
