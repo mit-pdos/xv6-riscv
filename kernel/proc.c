@@ -784,22 +784,16 @@ void sigstop()
 void init_userhandler(int signum){
   struct proc* p = myproc();
   printf("initiatig userhandler\n");
-  void* user_handler;
-  copyin(p->pagetable, (char*)&user_handler, (uint64)p->sighandlers[signum],sizeof (uint64));
-
   p->signal_mask_backup = p->signal_mask;
   p->handling_signal = 1;
   memmove(p->trapframe_backup, p->trapframe, sizeof(struct trapframe));  
-  p->trapframe->sp -= sizeof(struct trapframe);
-  uint64 backup_stack_pointer = p->trapframe->sp;
-  copyout(p->pagetable, backup_stack_pointer, (char *)&p->trapframe, sizeof(struct trapframe));
-  p->trapframe->epc = (uint64) user_handler;
-  uint sizeof_sigret = sigretEnd - sigretStart;
-  p->trapframe->sp -= sizeof_sigret;
-  copyout(p->pagetable, p->trapframe->sp,(char*)&sigretStart, sizeof_sigret);
+  p->trapframe->epc = (uint64) p->sighandlers[signum]; // after trampoline user space will start from what is in epc
+  p->trapframe->sp -= sigretEnd - sigretStart; //freeeing space to put sigret on users stack
+  copyout(p->pagetable, p->trapframe->sp,(char*)&sigretStart, sigretEnd - sigretStart);//put sigret in userspace so we can run it
   p->trapframe->a0 = signum;
-  p->trapframe->ra = p->trapframe->sp;
+  p->trapframe->ra = p->trapframe->sp; // after doing user_handler return address is the sigret call
   p->pending_signals = p->pending_signals ^ (1<<signum);
+  //after this we go back to trap.c, loading the modifieded trapframe and we happy.
 }
 void handle_pending_signals()
 {

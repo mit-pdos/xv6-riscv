@@ -121,9 +121,9 @@ void sigstop_sigcontinue_test(){
 }
 int main(int argc, char *argv[])
 {
-    // signal_test("");
-    // sigprocmask_block_error_test();
-    // sigaction_block_error_test();
+    signal_test("");
+    sigprocmask_block_error_test();
+    sigaction_block_error_test();
     sigstop_sigcontinue_test();
     // mysignaltest();
     exit(0);
