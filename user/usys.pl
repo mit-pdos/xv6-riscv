@@ -39,3 +39,7 @@ entry("uptime");
 entry("sigprocmask");
 entry("sigaction");
 entry("sigret");
+entry("bsem_alloc");
+entry("bsem_free");
+entry("bsem_down");
+entry("bsem_up");

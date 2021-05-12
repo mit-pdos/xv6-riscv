@@ -94,6 +94,7 @@ struct cpu *mycpu(void);
 struct cpu *getmycpu(void);
 struct proc *myproc();
 void procinit(void);
+void bseminit(void);
 void scheduler(void) __attribute__((noreturn));
 void sched(void);
 void setproc(struct proc *);
@@ -108,6 +109,10 @@ void procdump(void);
 uint sigprocmask(uint sigmask);
 int sigaction(int signum, uint64 act, uint64 oldact);
 void sigret(void);
+int bsem_alloc();
+void bsem_free(int);
+void bsem_down(int);
+void bsem_up(int);
 
 // swtch.S
 void swtch(struct context *, struct context *);

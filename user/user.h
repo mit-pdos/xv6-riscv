@@ -26,7 +26,10 @@ int uptime(void);
 uint sigprocmask(uint sigmask);
 int sigaction (int signum, const struct sigaction_ *act, struct sigaction_ *oldact);
 void sigret(void);
-
+int bsem_alloc();
+void bsem_free(int);
+void bsem_down(int);
+void bsem_up(int);
 // ulib.c
 int stat(const char*, struct stat*);
 char* strcpy(char*, const char*);

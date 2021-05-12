@@ -3,6 +3,7 @@
         "syscall.h": "c",
         "user.h": "c",
         "types.h": "c",
-        "riscv.h": "c"
+        "riscv.h": "c",
+        "defs.h": "c"
     }
 }

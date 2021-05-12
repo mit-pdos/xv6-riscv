@@ -5,11 +5,15 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "bsem.h"
 extern void* sigretStart;
 extern void* sigretEnd;
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
+
+struct bsem bsem[MAX_BSEM];
+struct spinlock bsem_lock;
 
 struct proc *initproc;
 
@@ -857,4 +861,74 @@ void handle_pending_signals()
     }
   }
 }
+void bseminit(){
+  initlock(&bsem_lock, "bsem_lock");
+  acquire(&bsem_lock);
+  for (struct bsem* bs = bsem; bs < bsem+MAX_BSEM; bs++){
+    initlock(&bs->bslock, "bsem");
+  }
+  release(&bsem_lock);
+}
+int bsem_alloc(){
+    // here we need a lock for the whole bsem array
+    // this to a vooid a situation where 2 proccess find the same
+    // index as unused bsem. then both of them will try to acuire 
+    acquire(&bsem_lock); 
+    for (struct bsem* bs = bsem; bs < bsem+MAX_BSEM; bs++){
+        if(bs->state == BSUNUSED){
+          bs->state = BSFREE;
+          release(&bsem_lock);
+          int descriptor = (bs-bsem) / sizeof(struct bsem);
+          return descriptor;
+        }
+     }
+     release(&bsem_lock);
+     return -1;
+};
+void bsem_free(int descriptor){
+  if (descriptor<0 || descriptor>MAX_BSEM)
+      return;
+  // lock for the whole array is needed like in bsem_alloc
+  acquire(&bsem_lock);
+  struct bsem bs = bsem[descriptor];
+  if (bs.state == BSACQUIRED){
+    release(&bsem_lock);
+    panic("freeing ACQUIRED bsem is unsupported\n");
+    return;
+  }
+  bs.state = BSFREE;
+  release(&bsem_lock);
+};
+void bsem_down(int descriptor){
+    if (descriptor<0 || descriptor>MAX_BSEM)
+        return;
+    struct bsem bs = bsem[descriptor];
+    acquire(&bs.bslock);
+    if (bs.state == BSUNUSED){
+      release(&bs.bslock);
+      printf("can't down on pre-allocated bsem\n");
+      return;
+    }
+    while(bs.state == BSACQUIRED){
+      sleep(&bs, &bs.bslock);
+      if (myproc()->killed){
+        return;
+      }
+    }
+    bs.state = BSACQUIRED;
+    release(&bs.bslock);
+};
+void bsem_up(int descriptor){
+  if (descriptor<0 || descriptor>MAX_BSEM)
+        return;
+  struct bsem bs = bsem[descriptor];
+  acquire(&bs.bslock);
+  if (bs.state != BSACQUIRED){
+    release(&bs.bslock);
+    return;
+  }
+  bs.state = BSFREE;
+  wakeup(&bs);
+  release(&bs.bslock);
+};
 

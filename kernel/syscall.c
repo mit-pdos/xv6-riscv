@@ -103,6 +103,10 @@ extern uint64 sys_uptime(void);
 extern uint64 sys_sigprocmask(void);
 extern uint64 sys_sigaction(void);
 extern uint64 sys_sigret(void);
+extern uint64 sys_bsem_alloc(void);
+extern uint64 sys_bsem_free(void);
+extern uint64 sys_bsem_down(void);
+extern uint64 sys_bsem_up(void);
 
 static uint64 (*syscalls[])(void) = {
     [SYS_fork] sys_fork,
@@ -129,6 +133,10 @@ static uint64 (*syscalls[])(void) = {
     [SYS_sigprocmask] sys_sigprocmask,
     [SYS_sigaction] sys_sigaction,
     [SYS_sigret] sys_sigret,
+    [SYS_bsem_alloc] sys_bsem_alloc,
+    [SYS_bsem_free] sys_bsem_free,
+    [SYS_bsem_up] sys_bsem_up,
+    [SYS_bsem_down] sys_bsem_down,
 };
 
 void syscall(void)

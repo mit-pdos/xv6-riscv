@@ -130,3 +130,27 @@ sys_sigret(void)
 {
   return 0;
 }
+
+int  sys_bsem_alloc(void){
+  return bsem_alloc();
+};
+void sys_bsem_free(void){
+  int descriptor;
+  if (argint(0, &descriptor) < 0)
+    panic("can't read arg from user space");
+  return bsem_free(descriptor);
+};
+void sys_bsem_down(void){
+  int descriptor;
+  if (argint(0, &descriptor) < 0)
+        panic("can't read arg from user space");
+
+  return bsem_down(descriptor);
+};
+void sys_bsem_up(void){
+  int descriptor;
+  if (argint(0, &descriptor) < 0)
+        panic("can't read arg from user space");
+
+  return bsem_up(descriptor);
+}
