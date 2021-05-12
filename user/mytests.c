@@ -119,12 +119,21 @@ void sigstop_sigcontinue_test(){
     kill(pid, SIGCONT);
     wait(&pid);
 }
+void bsemtests(){
+    int bsem_descriptor = bsem_alloc();
+    bsem_down(bsem_descriptor);
+
+    bsem_up(bsem_descriptor);
+
+    bsem_up(bsem_descriptor);
+}
 int main(int argc, char *argv[])
 {
-    signal_test("");
-    sigprocmask_block_error_test();
-    sigaction_block_error_test();
-    sigstop_sigcontinue_test();
+    // signal_test("");
+    // sigprocmask_block_error_test();
+    // sigaction_block_error_test();
+    // sigstop_sigcontinue_test();
+    bsemtests();
     // mysignaltest();
     exit(0);
 }
