@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
+// hello Gal how are you??
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
