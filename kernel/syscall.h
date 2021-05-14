@@ -20,3 +20,10 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+#define SYS_sigprocmask 22
+#define SYS_sigaction 23
+#define SYS_sigret 24
+#define SYS_bsem_alloc 25
+#define SYS_bsem_free 26
+#define SYS_bsem_down 27
+#define SYS_bsem_up 28

@@ -21,7 +21,11 @@ initlock(struct spinlock *lk, char *name)
 void
 acquire(struct spinlock *lk)
 {
+  //[practice 6] we talked about the STACK that disable interupts
+  // dolav talked about an example with the spinlock whuch i didnt get
   push_off(); // disable interrupts to avoid deadlock.
+
+  //[practice 6] - if I'm holding the lock ther will be a DEADLOCK!!!
   if(holding(lk))
     panic("acquire");
 
@@ -29,6 +33,7 @@ acquire(struct spinlock *lk)
   //   a5 = 1
   //   s1 = &lk->locked
   //   amoswap.w.aq a5, a5, (s1)
+  // [practice 6] - this is test and set that we saw, the procees try to put true here
   while(__sync_lock_test_and_set(&lk->locked, 1) != 0)
     ;
 
@@ -36,7 +41,9 @@ acquire(struct spinlock *lk)
   // past this point, to ensure that the critical section's memory
   // references happen strictly after the lock is acquired.
   // On RISC-V, this emits a fence instruction.
-  __sync_synchronize();
+  // [practice 6] -  asure that the compiler wont swap the order of raws
+  // there is a brother __sync_synchronize in release()
+  __sync_synchronize(); 
 
   // Record info about lock acquisition for holding() and debugging.
   lk->cpu = mycpu();
@@ -66,6 +73,7 @@ release(struct spinlock *lk)
   // On RISC-V, sync_lock_release turns into an atomic swap:
   //   s1 = &lk->locked
   //   amoswap.w zero, zero, (s1)
+  // [practice 6] - put false in spin lk
   __sync_lock_release(&lk->locked);
 
   pop_off();

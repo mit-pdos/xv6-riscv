@@ -80,6 +80,11 @@ struct trapframe {
   /* 280 */ uint64 t6;
 };
 
+// struct sigaction_{
+//   void (*sa_handler)(int);
+//   uint sigmask;
+// };
+
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
@@ -90,6 +95,7 @@ struct proc {
   enum procstate state;        // Process state
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
+  int stopped;                 // if non-zero, have been stopped
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
 
@@ -105,4 +111,20 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  //task 2.1.2
+  uint pending_signals;
+  uint sigmask;
+  void* sighandlers[32];
+  uint sighandlers_mask[32];
+  int signal_mask;
+  int signal_mask_backup;
+  struct trapframe* trapframe_backup;
+  int handling_signal;
+
 };
+//[t] - should thous marocs be here?
+#define SIG_DFL 0 /* default signal handling */
+#define SIG_IGN 1 /* ignore signal */
+#define SIGKILL 9
+#define SIGSTOP 17
+#define SIGCONT 19

@@ -15,7 +15,7 @@ extern char trampoline[], uservec[], userret[];
 void kernelvec();
 
 extern int devintr();
-
+extern int handle_pending_signals();
 void
 trapinit(void)
 {
@@ -90,6 +90,13 @@ void
 usertrapret(void)
 {
   struct proc *p = myproc();
+  if (p->handling_signal != 0){
+    printf("pid:%d, currently handeling signal\n",p->pid);
+  }
+  else{
+    handle_pending_signals();
+  }
+  
 
   // we're about to switch the destination of traps from
   // kerneltrap() to usertrap(), so turn off interrupts until
