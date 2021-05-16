@@ -111,7 +111,7 @@ w_mie(uint64 x)
   asm volatile("csrw mie, %0" : : "r" (x));
 }
 
-// machine exception program counter, holds the
+// supervisor exception program counter, holds the
 // instruction address to which a return from
 // exception will go.
 static inline void 
