@@ -72,7 +72,7 @@ pmpinit()
   // range encoding in PMP address and configuration registers" in the RISC-V
   // privileged specification
   // we set the bits such that this matches any 56-bit physical address
-  w_pmpaddr0((~0L) >> 10);
+  w_pmpaddr0((~0ULL) >> 10);
   // then we allow the access
   w_pmpcfg0(PMP_R | PMP_W | PMP_X | PMP_MATCH_NAPOT);
 }
