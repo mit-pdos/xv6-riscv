@@ -85,6 +85,11 @@ kernelvec:
         // return to whatever we were doing in the kernel.
         sret
 
+// help: if you hit these, an unexpected exception/interrupt happened in M-mode.
+// use `info registers` in the qemu monitor to get the relevant CSRs.
+unexpected_exc: j unexpected_exc
+unexpected_int: j unexpected_int
+
         #
         # machine-mode timer interrupt.
         #
@@ -95,11 +100,20 @@ timervec:
         # scratch[0,8,16] : register save area.
         # scratch[24] : address of CLINT's MTIMECMP register.
         # scratch[32] : desired interval between interrupts.
-        
+
         csrrw a0, mscratch, a0
         sd a1, 0(a0)
         sd a2, 8(a0)
         sd a3, 16(a0)
+
+        csrr a1, mcause
+        // we should not get exceptions in M-mode. if we do, something went
+        // very wrong and we should explicitly jump to an infinite loop for the
+        // purpose.
+        bgez a1, unexpected_exc
+        li a2, (1<<63 | 7)
+        // likewise for any interrupts that are not machine timer interrupts.
+        bne a1, a2, unexpected_int
 
         # schedule the next timer interrupt
         # by adding interval to mtimecmp.
@@ -110,7 +124,7 @@ timervec:
         sd a3, 0(a1)
 
         # raise a supervisor software interrupt.
-	li a1, 2
+        li a1, 2
         csrw sip, a1
 
         ld a3, 16(a0)
