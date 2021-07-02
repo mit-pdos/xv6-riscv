@@ -42,7 +42,7 @@ start()
   timerinit();
 
   // keep each CPU's hartid in its tp register, for cpuid().
-  int id = r_mhartid();
+  uint64 id = r_mhartid();
   w_tp(id);
 
   // switch to supervisor mode and jump to main().
@@ -57,7 +57,7 @@ void
 timerinit()
 {
   // each CPU has a separate source of timer interrupts.
-  int id = r_mhartid();
+  uint64 id = r_mhartid();
 
   // ask the CLINT for a timer interrupt.
   int interval = 1000000; // cycles; about 1/10th second in qemu.
