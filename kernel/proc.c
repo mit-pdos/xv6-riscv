@@ -417,10 +417,13 @@ wait(uint64 addr)
     }
 
     // No point waiting if we don't have any children.
+    acquire(&p->lock);
     if(!havekids || p->killed){
+      release(&p->lock);
       release(&wait_lock);
       return -1;
     }
+    release(&p->lock);
     
     // Wait for a child to exit.
     sleep(p, &wait_lock);  //DOC: wait-sleep
