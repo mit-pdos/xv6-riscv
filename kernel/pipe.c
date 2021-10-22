@@ -77,24 +77,23 @@ int
 pipewrite(struct pipe *pi, uint64 addr, int n)
 {
   int i = 0;
+  char ch;
   struct proc *pr = myproc();
 
   acquire(&pi->lock);
-  while(i < n){
-    if(pi->readopen == 0 || pr->killed){
-      release(&pi->lock);
-      return -1;
-    }
-    if(pi->nwrite == pi->nread + PIPESIZE){ //DOC: pipewrite-full
+
+  for (i = 0; i < n; i++) {
+    while (pi->nwrite == pi->nread + PGSIZE) { //DOC: pipewrite-full
+      if (pi->readopen == 0 || pr->killed) {
+        release(&pi->lock);
+        return -1;
+      }
       wakeup(&pi->nread);
       sleep(&pi->nwrite, &pi->lock);
-    } else {
-      char ch;
-      if(copyin(pr->pagetable, &ch, addr + i, 1) == -1)
-        break;
-      pi->data[pi->nwrite++ % PIPESIZE] = ch;
-      i++;
     }
+    if (copyin(pr->pagetable, &ch, addr + i, 1) == -1) 
+      break;
+    pi->data[pi->nwrite++ % PIPESIZE] = ch;
   }
   wakeup(&pi->nread);
   release(&pi->lock);
