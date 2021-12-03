@@ -1,32 +1,58 @@
-	#
+#include "memlayout.h"
+
+        # 0x40000000000 +------------+          +------------+          +------------+
+        #               | trampoline |          |            |          | trampoline |
+        # 0x3fffffff000 +------------+----+     |            |     +----+------------+
+        #               | trapframe  |    |     |            |     |    |            |
+        # 0x3ffffffe000 +------------+--+ |     |            |     |    |            |
+        #               |            |  | |     |            |     |    |            |
+        #               |            |  | |     |            |     |    |            |
+        #               |            |  | |     +------------+     |    +------------+
+        #               |            |  | |     |            |<----|----|            |
+        #               |            |  | +---->|            |<----+----|            |
+        #               |            |  |       |            |<---------| one to one |
+        #               |            |  |       |    DRAM    |<---------| identical  |
+        #               |            |  +------>|            |<---------| mapping    |
+        #               |            |          |            |<---------|            |
+        #               |            |          |            |<---------|            |
+        #               |            |          +------------+          +------------+
+        #               |            |          |            |          |            |
+        #               |            |          |            |          |            |
+        #               |            |          |            |          |            |
+        #               |            |          |            |          |            |
+        #               |            |          |            |          |            |
+        #               |            |          |            |          |            |
+        #               +------------+          +------------+          +------------+
+        #
+        #               user page table         physical memory         kernel page table
+        #
+        #
         # code to switch between user and kernel space.
         #
         # this code is mapped at the same virtual address
         # (TRAMPOLINE) in user and kernel space so that
         # it continues to work when it switches page tables.
-	#
-	# kernel.ld causes this to be aligned
+        #
+        # kernel.ld causes this to be aligned
         # to a page boundary.
         #
-	.section trampsec
+.section trampsec
 .globl trampoline
 trampoline:
 .align 4
 .globl uservec
 uservec:    
-	#
+        #
         # trap.c sets stvec to point here, so
         # traps from user space start here,
         # in supervisor mode, but with a
         # user page table.
         #
-        # sscratch points to where the process's p->trapframe is
-        # mapped into user space, at TRAPFRAME.
-        #
-        
-	# swap a0 and sscratch
-        # so that a0 is TRAPFRAME
-        csrrw a0, sscratch, a0
+
+        # save user a0 in sscratch and
+        # load TRAPFRAME into a0
+        csrw sscratch, a0
+        li a0, TRAPFRAME
 
         # save the user registers in TRAPFRAME
         sd ra, 40(a0)
@@ -60,7 +86,7 @@ uservec:
         sd t5, 272(a0)
         sd t6, 280(a0)
 
-	# save the user a0 in p->trapframe->a0
+        # save the user a0 in p->trapframe->a0
         csrr t0, sscratch
         sd t0, 112(a0)
 
@@ -86,20 +112,16 @@ uservec:
 
 .globl userret
 userret:
-        # userret(TRAPFRAME, pagetable)
+        # userret(pagetable)
         # switch from kernel to user.
         # usertrapret() calls here.
-        # a0: TRAPFRAME, in user page table.
-        # a1: user page table, for satp.
+        # a0: user page table, for satp.
 
         # switch to the user page table.
-        csrw satp, a1
+        csrw satp, a0
         sfence.vma zero, zero
 
-        # put the saved user a0 in sscratch, so we
-        # can swap it with our a0 (TRAPFRAME) in the last step.
-        ld t0, 112(a0)
-        csrw sscratch, t0
+        li a0, TRAPFRAME
 
         # restore all but a0 from TRAPFRAME
         ld ra, 40(a0)
@@ -133,9 +155,9 @@ userret:
         ld t5, 272(a0)
         ld t6, 280(a0)
 
-	# restore user a0, and save TRAPFRAME in sscratch
-        csrrw a0, sscratch, a0
-        
+        # restore user a0
+        ld a0, 112(a0)
+
         # return to user mode and user pc.
         # usertrapret() set up sstatus and sepc.
         sret
