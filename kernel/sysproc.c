@@ -95,3 +95,22 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_settickets(void)
+{
+  int tickets;
+  if (argint(0, &tickets) < 0)
+    return -1;
+  return settickets(tickets);
+}
+
+uint64
+sys_getpinfo(void) 
+{
+  uint64 p;
+  if (argaddr(0, &p) < 0)
+    return -1;
+  return getpinfo(p);
+}
+

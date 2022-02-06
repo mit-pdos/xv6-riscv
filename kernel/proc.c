@@ -1,3 +1,4 @@
+#include <limits.h>
 #include "types.h"
 #include "param.h"
 #include "memlayout.h"
@@ -5,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "pstat.h"
 
 struct cpu cpus[NCPU];
 
@@ -25,6 +27,10 @@ extern char trampoline[]; // trampoline.S
 // memory model when using p->parent.
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
+
+// ensures that lotteries do not interfere with each other (i.e. by modifying
+// the total number of runnable tickets)
+struct spinlock lottery_lock;
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -50,6 +56,7 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  initlock(&lottery_lock, "lottery_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->kstack = KSTACK((int) (p - proc));
@@ -141,6 +148,9 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // set tickets to default
+  p->tickets = 1;
+
   return p;
 }
 
@@ -164,6 +174,7 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->tickets = 0;
 }
 
 // Create a user page table for a given process,
@@ -304,6 +315,9 @@ fork(void)
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
+
+  // inherit ticket count from parent
+  np->tickets = p->tickets;
 
   release(&np->lock);
 
@@ -594,6 +608,51 @@ kill(int pid)
     release(&p->lock);
   }
   return -1;
+}
+
+// Set the number of tickets for currently-running process
+//
+int
+settickets(int tickets) 
+{
+  // limit maximum tickets to ensure no overflow when summing total tickets
+  // (see scheduler())
+  static const int MAX_TICKETS = (int) (INT_MAX / (uint64) NPROC);
+  if (tickets < 1 || tickets > MAX_TICKETS) {
+    return -1;
+  }
+
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  p->tickets = tickets;
+  release(&p->lock);
+  return 0;
+}
+
+// Get process information for all current processes
+int 
+getpinfo(uint64 dst) 
+{
+  struct pstat *tmp_stat;
+  if ((tmp_stat = (struct pstat *) kalloc()) == 0) {
+    return -1;
+  }
+
+  for (int i = 0; i < NPROC; ++i) {
+    struct proc *p = &proc[i];
+    acquire(&p->lock);
+    tmp_stat->inuse[i] = p->state ? 1 : 0;
+    tmp_stat->tickets[i] = p->tickets;
+    tmp_stat->pid[i] = p->pid;
+    // TODO add process ticks
+    release(&p->lock);
+  }
+  if (copyout(myproc()->pagetable, dst, (char *) tmp_stat, sizeof(struct pstat)) == -1) {
+    kfree(tmp_stat);
+    return -1;
+  }
+  kfree(tmp_stat);
+  return 0;
 }
 
 // Copy to either a user address, or kernel address,

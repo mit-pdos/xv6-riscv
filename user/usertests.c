@@ -7,6 +7,8 @@
 #include "kernel/syscall.h"
 #include "kernel/memlayout.h"
 #include "kernel/riscv.h"
+#include "kernel/pstat.h"
+#include <limits.h>
 
 //
 // Tests xv6 system calls.  usertests without arguments runs them all
@@ -2706,6 +2708,105 @@ execout(char *s)
   exit(0);
 }
 
+// test getpinfo syscall for basic sanity
+void
+pinfo(char *s) 
+{
+  struct pstat p;
+  int retcode = getpinfo(&p);
+  if (retcode != 0) {
+    printf("getpinfo failed\n");
+    exit(1);
+  }
+  printf("\nPROC, inuse, tickets, PID\n");
+  for (int i = 0; i < NPROC; ++i) {
+    printf("%d, %d, %d, %d\n", i, p.inuse[i], p.tickets[i], p.pid[i]);
+    if (p.inuse[i] < 0 || p.inuse[i] > 1) {
+      printf("fail: inuse not in [0,1] - (%d)\n", p.inuse[i]);
+      exit(1);
+    }
+    if (p.inuse[i]) {
+        if (p.tickets[i] < 1) {
+          printf("fail: invalid ticket count for active process - (%d)\n", p.tickets[i]);
+          exit(1);
+        }
+        if (p.pid[i] <= 0) {
+          printf("fail: invalid pid for active process - (%d)\n", p.pid[i]);
+          exit(1);
+        }
+    }
+    else {
+      if (p.tickets[i] != 0) {
+        printf("fail: invalid ticket count for inactive process - (%d)\n", p.tickets[i]);
+        exit(1);
+      }
+      if (p.pid[i] != 0) {
+        printf("fail: invalid PID for inactive process - (%d)\n", p.pid[i]);
+      }
+    }
+  }
+  exit(0);
+}
+
+int
+gettickets(void) 
+{
+  struct pstat p;
+  if (getpinfo(&p) != 0) {
+    printf("getpinfo failed\n");
+    exit(1);
+  }
+  int pid = getpid();
+  for (int i = 0; i < NPROC; ++i) {
+    if (p.pid[i] == pid) {
+      return p.tickets[i];
+    }
+  }
+  printf("No process in pstat w/ PID %d\n", pid);
+  exit(1);
+}
+
+void
+setptickets(char *s)
+{
+  int tickets;
+  tickets = gettickets();
+  printf("Initial tickets: %d\n", tickets);
+  if (tickets != 1) {
+    printf("fail: expected 1 initial tickets\n");
+    exit(1);
+  }
+
+  int test_tickets[] = {5, 10 , 25, 500, (INT_MAX / NPROC), 0};
+  for (int *tickets_to_set = test_tickets; *tickets_to_set != 0; tickets_to_set++) {
+    printf("Setting ticket count to %d\n", *tickets_to_set);
+    if (settickets(*tickets_to_set) != 0) {
+      printf("fail: settickets failed\n");
+      exit(1);
+    }
+    tickets = gettickets();
+    printf("Ticket count: %d\n", tickets);
+    if (tickets != *tickets_to_set) {
+      printf("fail: tickets not set properly\n");
+      exit(1);
+    }
+  }
+  
+  int invalid_tickets = INT_MAX / NPROC + 1;
+  printf("Setting ticket count to %d\n", invalid_tickets);
+  if (settickets(invalid_tickets) != -1) {
+    printf("fail: settickets succeeded for invalid ticket count\n");
+    exit(1);
+  }
+  invalid_tickets = 0;
+  printf("Setting ticket count to %d\n", invalid_tickets);
+  if (settickets(invalid_tickets) != -1) {
+    printf("fail: settickets succeeded for invalid ticket count\n");
+    exit(1);
+  }
+  exit(0);
+}
+
 //
 // use sbrk() to count how many free physical memory pages there are.
 // touches the pages to force allocation.
@@ -2881,6 +2982,8 @@ main(int argc, char *argv[])
     {iref, "iref"},
     {forktest, "forktest"},
     {bigdir, "bigdir"}, // slow
+    {pinfo, "pinfo"},
+    {setptickets, "setptickets"},
     { 0, 0},
   };
 
