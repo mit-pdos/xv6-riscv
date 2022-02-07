@@ -15,10 +15,10 @@ int main(int argc, char **argv) {
     printf("Error: getpinfo failed\n"); // stderr
     exit(1);
   }
-  printf("PID,INUSE,TICKETS\n");
+  printf("PID,INUSE,TICKETS,TICKS\n");
   for (int i = 0; i < NPROC; ++i) {
     if (show_all || p.inuse[i]) {
-      printf("%d,%d,%d\n", p.pid[i], p.inuse[i], p.tickets[i]);
+      printf("%d,%d,%d,%d\n", p.pid[i], p.inuse[i], p.tickets[i], p.ticks[i]);
     }
   }
   exit(0);
