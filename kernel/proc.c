@@ -151,6 +151,8 @@ found:
 
   // set tickets to default
   p->tickets = 1;
+  p->ticks = 0;
+  p->prev_tick = ticks;
 
   return p;
 }
@@ -176,6 +178,8 @@ freeproc(struct proc *p)
   p->xstate = 0;
   p->state = UNUSED;
   p->tickets = 0;
+  p->ticks = 0;
+  p->prev_tick = 0;
 }
 
 // Create a user page table for a given process,
@@ -472,7 +476,7 @@ scheduler(void)
   struct cpu *c = mycpu();
 
   // seed the random number generator for this CPU thread
-  srand(cpuid());
+  srand(cpuid() * ticks);
   
   c->proc = 0;
   for(;;){
@@ -497,7 +501,7 @@ scheduler(void)
       acquire(&p->lock);
       if (p->state == RUNNABLE) {
         running_total += p->tickets;
-        if (running_total >= rand_ticket) {
+        if (running_total > rand_ticket) {
           break;
         }
       }
@@ -545,9 +549,14 @@ sched(void)
   if(intr_get())
     panic("sched interruptible");
 
+  // update running ticks before descheduling
+  p->ticks += (ticks - p->prev_tick);
+
   intena = mycpu()->intena;
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
+
+  p->prev_tick = ticks;
 }
 
 // Give up the CPU for one scheduling round.
@@ -684,25 +693,19 @@ settickets(int tickets)
 int 
 getpinfo(uint64 dst) 
 {
-  struct pstat *tmp_stat;
-  if ((tmp_stat = (struct pstat *) kalloc()) == 0) {
-    return -1;
-  }
+  struct pstat tmp_stat;
 
   for (int i = 0; i < NPROC; ++i) {
     struct proc *p = &proc[i];
     acquire(&p->lock);
-    tmp_stat->inuse[i] = p->state ? 1 : 0;
-    tmp_stat->tickets[i] = p->tickets;
-    tmp_stat->pid[i] = p->pid;
-    // TODO add process ticks
+    tmp_stat.inuse[i] = p->state ? 1 : 0;
+    tmp_stat.tickets[i] = p->tickets;
+    tmp_stat.pid[i] = p->pid;
+    tmp_stat.ticks[i] = p->ticks;
     release(&p->lock);
   }
-  if (copyout(myproc()->pagetable, dst, (char *) tmp_stat, sizeof(struct pstat)) == -1) {
-    kfree(tmp_stat);
+  if (copyout(myproc()->pagetable, dst, (char *) &tmp_stat, sizeof(struct pstat)) == -1)
     return -1;
-  }
-  kfree(tmp_stat);
   return 0;
 }
 
