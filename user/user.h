@@ -1,4 +1,5 @@
 #include "kernel/pstat.h"
+#include "kernel/types.h"
 
 struct stat;
 struct rtcdate;

@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "defs.h"
 #include "pstat.h"
+#include "rand.h"
 
 struct cpu cpus[NCPU];
 
@@ -30,7 +31,7 @@ struct spinlock wait_lock;
 
 // ensures that lotteries do not interfere with each other (i.e. by modifying
 // the total number of runnable tickets)
-struct spinlock lottery_lock;
+struct spinlock scheduler_lock;
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -56,7 +57,7 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
-  initlock(&lottery_lock, "lottery_lock");
+  initlock(&scheduler_lock, "scheduler_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->kstack = KSTACK((int) (p - proc));
@@ -441,10 +442,26 @@ wait(uint64 addr)
   }
 }
 
+// Sum all runnable ticket counts
+// Call while holding scheduler_lock
+int
+runnable_ticket_count(void) 
+{
+  int sum = 0;
+  for (struct proc *p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->state == RUNNABLE) {
+      sum += p->tickets;
+    }
+    release(&p->lock);
+  }
+  return sum;
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
-//  - choose a process to run.
+//  - choose a process to run (via a lottery)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
@@ -453,28 +470,56 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+
+  // seed the random number generator for this CPU thread
+  srand(cpuid());
   
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
+    
+    // ensure that only one scheduler can run at a time in order to avoid concurrent
+    // schedulers modifying the list of RUNNABLE processes
+    acquire(&scheduler_lock);
 
+    int sum = runnable_ticket_count();
+    if (sum == 0) {
+      release(&scheduler_lock);
+      continue;
+    }
+
+    // get a random ticket count 
+    uint rand_ticket = rand() % sum;
+
+    int running_total = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+      if (p->state == RUNNABLE) {
+        running_total += p->tickets;
+        if (running_total >= rand_ticket) {
+          break;
+        }
       }
       release(&p->lock);
     }
+    if (running_total < rand_ticket) {
+      panic("scheduler: never reached rand_ticket");
+    }
+    
+    // Switch to chosen process.  It is the process's job
+    // to release its lock and then reacquire it
+    // before jumping back to us.
+    p->state = RUNNING;
+    c->proc = p;
+    release(&scheduler_lock);
+    swtch(&c->context, &p->context);
+    
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    c->proc = 0;
+    release(&p->lock);
+
   }
 }
 
@@ -623,9 +668,15 @@ settickets(int tickets)
   }
 
   struct proc *p = myproc();
-  acquire(&p->lock);
+  // ensure we don't interrupt any ongoing lotteries
+  acquire(&scheduler_lock); 
+  
+  acquire(&p->lock); 
   p->tickets = tickets;
   release(&p->lock);
+  
+  release(&scheduler_lock);
+  
   return 0;
 }
 
