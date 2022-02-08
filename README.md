@@ -6,7 +6,7 @@ Contained are a series of modifications from the XV6 kernel for educational purp
 
 **xv6** ships with a rudimentary Round-Robin scheduler, which simply cycles through the proccess list and runs the next runnable process it finds. 
 
-In order to increase fairness, this Round-Robin scheduler was replaced with a lottery-based proportional share scheduler. This new scheduler aims to share CPU time proportionally, according to the number of tickets assigned to a process.
+In order to increase fairness, the Round-Robin scheduler was replaced with a lottery-based proportional share scheduler. This new scheduler aims to share CPU time proportionally, according to the number of tickets assigned to a process.
 
 [Inspiration](https://github.com/remzi-arpacidusseau/ostep-projects/blob/master/scheduling-xv6-lottery/README.md)
 
@@ -14,7 +14,7 @@ In order to increase fairness, this Round-Robin scheduler was replaced with a lo
 
 An outline of the scheduling algorithm (in pseudocode) can be found below. 
 
-Note that this is approximately `o(2N)`. Computing the sum of runnable tickets on every schedule is notably expensive, nearly doubling scheduling latency.  However, the alternative is overly complex. There are many pathways through which a process's state can change to/from runnable. Updating a global total through each of these pathways could prove error-prone. For this reason, we prefer the simpler approach here.
+Note that this is approximately `o(2N)`. Computing the sum of runnable tickets on every schedule is notably expensive, nearly doubling scheduling latency.  However, the alternative is overly complex. There are many pathways through which a process's state can change to/from runnable. Updating a global total through each of these pathways could prove error-prone. For this reason, the simpler approach is preferred here.
 
 ```python
 def schedule():
@@ -47,7 +47,7 @@ def sum_runnable_tickets():
 
 ### New System Calls
 
-In order to enable proportional share, it was necessary to expose the per-process ticket count to the user. This was enable through two new system calls.
+In order to enable proportional share, it was necessary to expose the per-process ticket count to the user. This was enabled through two new system calls.
 
 ```c
 // Sets the ticket count for the currently running process
