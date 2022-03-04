@@ -6,6 +6,11 @@
 #include "proc.h"
 #include "defs.h"
 
+#define SLOW_START_INTERVAL 100000
+#define SLOW_START_THRESHOLD 2000000
+#define MAX_TICK_INTERVAL 20000000
+#define DEFAULT_TICK_INTERVAL 1000000
+
 struct spinlock tickslock;
 uint ticks;
 
@@ -133,6 +138,7 @@ usertrapret(void)
 void 
 kerneltrap()
 {
+  // printf("DEBUG: timer_scratch[0][4]: %d\n", timer_scratch[0][4]);
   int which_dev = 0;
   uint64 sepc = r_sepc();
   uint64 sstatus = r_sstatus();
@@ -147,6 +153,19 @@ kerneltrap()
     printf("scause %p\n", scause);
     printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
     panic("kerneltrap");
+  }
+
+  // Linear Increase -> Exponential Increase
+  if(which_dev == 2) {
+    int count = procdump();
+    if (count == 0) {
+      if (timer_scratch[0][4] < SLOW_START_THRESHOLD) 
+        timer_scratch[0][4] += SLOW_START_INTERVAL;
+      else
+        timer_scratch[0][4] = min(MAX_TICK_INTERVAL, 2 * timer_scratch[0][4]);
+    } else {
+      timer_scratch[0][4] = max(DEFAULT_TICK_INTERVAL, (int)timer_scratch[0][4]/count);
+    }
   }
 
   // give up the CPU if this is a timer interrupt.

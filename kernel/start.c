@@ -11,7 +11,7 @@ void timerinit();
 __attribute__ ((aligned (16))) char stack0[4096 * NCPU];
 
 // a scratch area per CPU for machine-mode timer interrupts.
-uint64 timer_scratch[NCPU][5];
+uint64 timer_scratch[1][5];
 
 // assembly code in kernelvec.S for machine-mode timer interrupt.
 extern void timervec();

@@ -448,11 +448,14 @@ scheduler(void)
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
+        printf("tharak: proc.c p->pid: %d, p->state: %d, p->name: %s\n", p->pid, p->state, p->name);
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        // printf("DEBUG: timer_scratch[]")
+        // REG = clock_value;
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
@@ -629,7 +632,7 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
-void
+int
 procdump(void)
 {
   static char *states[] = {
@@ -643,6 +646,7 @@ procdump(void)
   char *state;
 
   printf("\n");
+  int run_count = 0;
   for(p = proc; p < &proc[NPROC]; p++){
     if(p->state == UNUSED)
       continue;
@@ -652,5 +656,7 @@ procdump(void)
       state = "???";
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
+    if ((p->state == 3) || (p->state == 4)) ++run_count;
   }
+  return run_count;
 }
