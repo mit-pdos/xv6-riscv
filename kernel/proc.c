@@ -374,6 +374,7 @@ exit(int status)
   release(&wait_lock);
 
   // Jump into the scheduler, never to return.
+  printf("DEBUG: Process completed pid: %d, ticks: %d\n", p->pid, ticks);
   sched();
   panic("zombie exit");
 }
@@ -658,5 +659,16 @@ procdump(void)
     printf("\n");
     if ((p->state == 3) || (p->state == 4)) ++run_count;
   }
+  return run_count;
+}
+
+
+int
+countRunnableProcs(void)
+{
+  struct proc *p;
+  int run_count = 0;
+  for(p = proc; p < &proc[NPROC]; ++p)
+    if ((p->state == 3) || (p->state == 4)) ++run_count;
   return run_count;
 }
