@@ -8,7 +8,7 @@
 
 #define SLOW_START_INTERVAL 100000
 #define SLOW_START_THRESHOLD 2000000
-#define MAX_TICK_INTERVAL 20000000
+#define MAX_TICK_INTERVAL 10000000
 #define DEFAULT_TICK_INTERVAL 1000000
 
 struct spinlock tickslock;
@@ -133,6 +133,19 @@ usertrapret(void)
   ((void (*)(uint64,uint64))fn)(TRAPFRAME, satp);
 }
 
+void updateTimerInterval() {
+  int count = countRunnableProcs();
+  printf("DEBUG: updateTimerInterval::count: %d\n", count);
+  if (count == 0) {
+    if (timer_scratch[0][4] < SLOW_START_THRESHOLD) 
+      timer_scratch[0][4] += SLOW_START_INTERVAL;
+    else
+      timer_scratch[0][4] = (MAX_TICK_INTERVAL < 2 * timer_scratch[0][4]) ? MAX_TICK_INTERVAL : 2 * timer_scratch[0][4];
+  } else {
+    timer_scratch[0][4] = (DEFAULT_TICK_INTERVAL > (int)MAX_TICK_INTERVAL/count) ? DEFAULT_TICK_INTERVAL : (int)MAX_TICK_INTERVAL/count;
+  }
+}
+
 // interrupts and exceptions from kernel code go here via kernelvec,
 // on whatever the current kernel stack is.
 void 
@@ -155,22 +168,6 @@ kerneltrap()
     panic("kerneltrap");
   }
 
-  
-  // Linear Increase -> Exponential Increase
-  if(which_dev == 2) {
-    int count = countRunnableProcs();
-    // printf("DEBUG: which_dev: %d, count: %d\n", which_dev, count);
-    if (count == 0) {
-      if (timer_scratch[0][4] < SLOW_START_THRESHOLD) 
-        timer_scratch[0][4] += SLOW_START_INTERVAL;
-      else
-        timer_scratch[0][4] = (MAX_TICK_INTERVAL < 2 * timer_scratch[0][4]) ? MAX_TICK_INTERVAL : 2 * timer_scratch[0][4];
-    } else {
-      timer_scratch[0][4] = (DEFAULT_TICK_INTERVAL > (int)timer_scratch[0][4]/count) ? DEFAULT_TICK_INTERVAL : (int)timer_scratch[0][4]/count;
-    }
-    // printf("DEBUG: timer_scratch[0][4]: %d\n", timer_scratch[0][4]);
-  }
-
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
     yield();
@@ -185,6 +182,7 @@ void
 clockintr()
 {
   acquire(&tickslock);
+  updateTimerInterval();
   ticks++;
   printf("DEBUG: tick value = %d \n", ticks);
   wakeup(&ticks);

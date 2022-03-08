@@ -135,6 +135,8 @@ UPROGS=\
 	$U/_test_process\
 	$U/_test_process_1\
 	$U/_test_process_2\
+	$U/_slp\
+	$U/_recForker\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
