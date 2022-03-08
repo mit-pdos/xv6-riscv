@@ -779,6 +779,36 @@ pipe1(char *s)
   }
 }
 
+
+// test if child is killed (status = -1)
+void
+killstatus(char *s)
+{
+  int xst;
+  
+  for(int i = 0; i < 100; i++){
+    int pid1 = fork();
+    if(pid1 < 0){
+      printf("%s: fork failed\n", s);
+      exit(1);
+    }
+    if(pid1 == 0){
+      while(1) {
+        getpid();
+      }
+      exit(0);
+    }
+    sleep(1);
+    kill(pid1);
+    wait(&xst);
+    if(xst != -1) {
+       printf("%s: status should be -1\n", s);
+       exit(1);
+    }
+  }
+  exit(0);
+}
+
 // meant to be run w/ at most two CPUs
 void
 preempt(char *s)
@@ -1342,7 +1372,7 @@ linktest(char *s)
 
   unlink("lf2");
   if(link("lf2", "lf1") >= 0){
-    printf("%s: link non-existant succeeded! oops\n", s);
+    printf("%s: link non-existent succeeded! oops\n", s);
     exit(1);
   }
 
@@ -2091,7 +2121,7 @@ sbrkbasic(char *s)
   for(i = 0; i < 5000; i++){
     b = sbrk(1);
     if(b != a){
-      printf("%s: sbrk test failed %d %x %x\n", i, a, b);
+      printf("%s: sbrk test failed %d %x %x\n", s, i, a, b);
       exit(1);
     }
     *b = 1;
@@ -2189,6 +2219,30 @@ kernmem(char *s)
     }
     if(pid == 0){
       printf("%s: oops could read %x = %x\n", s, a, *a);
+      exit(1);
+    }
+    int xstatus;
+    wait(&xstatus);
+    if(xstatus != -1)  // did kernel kill child?
+      exit(1);
+  }
+}
+
+// user code should not be able to write to addresses above MAXVA.
+void
+MAXVAplus(char *s)
+{
+  volatile uint64 a = MAXVA;
+  for( ; a != 0; a <<= 1){
+    int pid;
+    pid = fork();
+    if(pid < 0){
+      printf("%s: fork failed\n", s);
+      exit(1);
+    }
+    if(pid == 0){
+      *(char*)a = 99;
+      printf("%s: oops wrote %x\n", s, a);
       exit(1);
     }
     int xstatus;
@@ -2312,7 +2366,7 @@ validatetest(char *s)
   }
 }
 
-// does unintialized data start out zero?
+// does uninitialized data start out zero?
 char uninit[10000];
 void
 bsstest(char *s)
@@ -2428,14 +2482,6 @@ void argptest(char *s)
   close(fd);
 }
 
-unsigned long randstate = 1;
-unsigned int
-rand()
-{
-  randstate = randstate * 1664525 + 1013904223;
-  return randstate;
-}
-
 // check that there's an invalid page beneath
 // the user stack, to catch stack overflow.
 void
@@ -2533,6 +2579,42 @@ sbrkbugs(char *s)
   wait(0);
 
   exit(0);
+}
+
+// if process size was somewhat more than a page boundary, and then
+// shrunk to be somewhat less than that page boundary, can the kernel
+// still copyin() from addresses in the last page?
+void
+sbrklast(char *s)
+{
+  uint64 top = (uint64) sbrk(0);
+  if((top % 4096) != 0)
+    sbrk(4096 - (top % 4096));
+  sbrk(4096);
+  sbrk(10);
+  sbrk(-20);
+  top = (uint64) sbrk(0);
+  char *p = (char *) (top - 64);
+  p[0] = 'x';
+  p[1] = '\0';
+  int fd = open(p, O_RDWR|O_CREATE);
+  write(fd, p, 1);
+  close(fd);
+  fd = open(p, O_RDWR);
+  p[0] = '\0';
+  read(fd, p, 1);
+  if(p[0] != 'x')
+    exit(1);
+}
+
+// does sbrk handle signed int32 wrap-around with
+// negative arguments?
+void
+sbrk8000(char *s)
+{
+  sbrk(0x80000004);
+  volatile char *top = sbrk(0);
+  *(top-1) = *(top-1) + 1;
 }
 
 // regression test. does write() with an invalid buffer pointer cause
@@ -2736,6 +2818,7 @@ main(int argc, char *argv[])
     void (*f)(char *);
     char *s;
   } tests[] = {
+    {MAXVAplus, "MAXVAplus"},
     {manywrites, "manywrites"},
     {execout, "execout"},
     {copyin, "copyin"},
@@ -2775,6 +2858,8 @@ main(int argc, char *argv[])
     {kernmem, "kernmem"},
     {sbrkfail, "sbrkfail"},
     {sbrkarg, "sbrkarg"},
+    {sbrklast, "sbrklast"},
+    {sbrk8000, "sbrk8000"},
     {validatetest, "validatetest"},
     {stacktest, "stacktest"},
     {opentest, "opentest"},
@@ -2786,6 +2871,7 @@ main(int argc, char *argv[])
     {iputtest, "iput"},
     {mem, "mem"},
     {pipe1, "pipe1"},
+    {killstatus, "killstatus"},
     {preempt, "preempt"},
     {exitwait, "exitwait"},
     {rmdot, "rmdot"},
