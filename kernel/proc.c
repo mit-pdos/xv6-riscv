@@ -671,3 +671,14 @@ countRunnableProcs(void)
     if ((p->state == 3) || (p->state == 4)) ++run_count;
   return run_count;
 }
+
+
+int 
+countProcess(void) {
+  struct proc *p;
+  int count = 0;
+  for(p = proc; p < &proc[NPROC]; ++p)
+    if (p->state != 0) ++count;
+  return count;
+
+}

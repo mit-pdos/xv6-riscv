@@ -12,10 +12,11 @@ void recursiveForker(int n) {
     if (n < 0) return;
     int pid = fork();
     if(pid > 0) {
-        printf("I'm the parent doing  CPU bound task: my child=%d.  \n", pid);
-        for (uint64 i = 0; i < WAIT_DURATION; ++i)
+        printf("I'm the parent doing  CPU bound task: my child=%d\n", pid);
         recursiveForker(n-1);
+        for (uint64 i = 0; i < WAIT_DURATION; ) ++i;
     } else if (pid == 0) {
+        printf("I'm the child doing IO :: n=%d\n", n);
         int fd1 = open(filenames[n], O_CREATE|O_WRONLY|O_TRUNC);
         for(int i = 0; i < IOCOUNT; i++)
         {
@@ -26,6 +27,6 @@ void recursiveForker(int n) {
 }
 
 int main() {
-    recursiveForker(10);
+    recursiveForker(25);
     exit(0);
 }

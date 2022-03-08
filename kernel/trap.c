@@ -135,7 +135,7 @@ usertrapret(void)
 
 void updateTimerInterval() {
   int count = countRunnableProcs();
-  printf("DEBUG: updateTimerInterval::count: %d\n", count);
+  printf("DEBUG: updateTimerInterval:: runCount: %d, totCount: %d\n", count, countProcess());
   if (count == 0) {
     if (timer_scratch[0][4] < SLOW_START_THRESHOLD) 
       timer_scratch[0][4] += SLOW_START_INTERVAL;
