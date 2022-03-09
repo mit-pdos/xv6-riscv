@@ -122,16 +122,16 @@ int main(int argc, char *argv[])
       ++arg_beg;
       break;
     case S_ARG_END:       // 参数结束，将参数地址存入x_argv数组中
-      *p = '\0';
       x_argv[arg_cnt++] = &lines[arg_beg];
       arg_beg = arg_end;
+      *p = '\0';
       break;
-    case S_ARG_LINE_END:  // 处理的前半部分同上，后半部分同下
-      *p = '\0';
+    case S_ARG_LINE_END:  // 将参数地址存入x_argv数组中同时执行指令
       x_argv[arg_cnt++] = &lines[arg_beg];
-      arg_beg = arg_end;
       // 不加break，因为后续处理同S_LINE_END
     case S_LINE_END:      // 行结束，则为当前行执行指令
+      arg_beg = arg_end;
+      *p = '\0';
       if (fork() == 0) {
         exec(argv[1], x_argv);
       }
