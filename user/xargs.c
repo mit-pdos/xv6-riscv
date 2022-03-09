@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
   int arg_cnt = argc - 1;   // 当前参数索引
   enum state st = S_WAIT;   // 起始状态置为S_WAIT
 
-  while (1) {
+  while (st != S_END) {
     // 读取为空则退出
     if (read(0, p, sizeof(char)) != sizeof(char)) {
       st = S_END;
@@ -139,8 +139,6 @@ int main(int argc, char *argv[])
       clearArgv(x_argv, arg_cnt);
       wait(0);
       break;
-    case S_END:           // 退出
-      exit(0);
     default:
       break;
     }
