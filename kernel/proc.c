@@ -654,3 +654,11 @@ procdump(void)
     printf("\n");
   }
 }
+
+// pause all user processes for the number of seconds specified by thesecond's integer parameter.
+int pause_system(int seconds){
+  PAUSETICKS = ticks + seconds * SECONDS_TO_TICKS;
+  yield();
+
+  return 0;
+}
