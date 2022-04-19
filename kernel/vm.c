@@ -137,17 +137,17 @@ kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
 int
 mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 {
-  uint64 a, last;
+  uint64 a, start, last;
   pte_t *pte;
 
   if(size == 0)
     panic("mappages: size");
   
-  a = PGROUNDDOWN(va);
+  start = a = PGROUNDDOWN(va);
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
     if((pte = walk(pagetable, a, 1)) == 0)
-      return -1;
+      goto bad;
     if(*pte & PTE_V)
       panic("mappages: remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
@@ -157,6 +157,9 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     pa += PGSIZE;
   }
   return 0;
+ bad:
+  uvmunmap(pagetable, start, (a - start)/PGSIZE, 0);
+  return -1;
 }
 
 // Remove npages of mappings starting from va. va must be
