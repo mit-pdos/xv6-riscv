@@ -4,6 +4,5 @@
 #include "user/user.h"
 
 int main() {
-  for (;;){
-  }
+  for (;;){};
 }
