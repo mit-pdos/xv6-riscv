@@ -77,8 +77,13 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
+  if(which_dev == 2){
+
+    // increment the tick counter each time there is a timer interrupt, and
+    // yield if it reaches the quantum.
+    if(++myproc()->ticks == QUANTUM)
+      yield();
+  }
 
   usertrapret();
 }
@@ -150,8 +155,13 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
-    yield();
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING){
+
+    // increment the tick counter each time there is a timer interrupt, and
+    // yield if it reaches the quantum.
+    if(++myproc()->ticks == QUANTUM)
+      yield();
+  }
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
