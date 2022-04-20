@@ -452,6 +452,7 @@ scheduler(void)
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
+        p->state = 0;
         c->proc = p;
         swtch(&c->context, &p->context);
 
@@ -580,7 +581,7 @@ kill(int pid)
 {
   struct proc *p;
 
-  // starts in proc + 1 because the init process has pid == 1,
+  // Starts in proc + 1 because the init process has pid == 1,
   // and we don't want to be able to kill it.
   for(p = proc + 1; p < &proc[NPROC]; p++){
     acquire(&p->lock);
