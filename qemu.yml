@@ -1,4 +1,4 @@
-name: qemu
+name: ci
 
 on:
   push:
