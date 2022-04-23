@@ -18,5 +18,8 @@ jobs:
           image: tonistiigi/binfmt:latest
           platforms: riscv64
       -
+        name: Install tools
+        run: sudo apt-get install gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu
+      -
         name: Compile
         run: make qemu
