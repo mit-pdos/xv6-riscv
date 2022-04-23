@@ -11,15 +11,8 @@ jobs:
         name: Checkout
         uses: actions/checkout@v2
       -
-        name: Set up QEMU
-        id: qemu
-        uses: docker/setup-qemu-action@v1
-        with:
-          image: tonistiigi/binfmt:latest
-          platforms: riscv64
-      -
         name: Install tools
-        run: sudo apt-get install qemu-system-misc gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu
+        run: sudo apt-get install git build-essential gdb-multiarch qemu-system-misc gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu
       -
         name: Compile
-        run: timeout 30 make qemu || code=$?; if [[ $code -ne 124 && $code -ne 0 ]]; then exit $code; fi
+        run: timeout 15 make qemu || code=$?; if [[ $code -ne 124 && $code -ne 0 ]]; then exit $code; fi
