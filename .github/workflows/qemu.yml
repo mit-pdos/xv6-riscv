@@ -18,5 +18,5 @@ jobs:
           image: tonistiigi/binfmt:latest
           platforms: riscv64
       -
-        name: Available platforms
-        run: echo ${{ steps.qemu.outputs.platforms }}
+        name: Compile
+        run: make qemu
