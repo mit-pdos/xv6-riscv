@@ -1,0 +1,18 @@
+name: ci
+
+on:
+  push:
+
+jobs:
+  qemu:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Install tools
+        run: sudo apt-get install git build-essential gdb-multiarch qemu-system-misc gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu
+      -
+        name: Compile
+        run: timeout 15 make qemu || code=$?; if [[ $code -ne 124 && $code -ne 0 ]]; then exit $code; fi
