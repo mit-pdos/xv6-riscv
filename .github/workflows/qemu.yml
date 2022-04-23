@@ -22,5 +22,4 @@ jobs:
         run: sudo apt-get install qemu-system-misc gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu
       -
         name: Compile
-        run: make qemu
-        timeout-minutes: 1
+        run: timeout 30 make qemu || code=$?; if [[ $code -ne 124 && $code -ne 0 ]]; then exit $code; fi
