@@ -337,13 +337,13 @@ makerunnable(int level, struct proc *p){
   if(mlf[level-1].last == 0){
     mlf[level-1].last = p;
     mlf[level-1].top = p;
-    // printf("QUEDO EL ESTADO EN EL TOPE %s \n",mlf[level].top);
   }
   else{
     struct proc *last = mlf[level-1].last;
     last->next = p;
     mlf[level-1].last = p;
   }
+  p->next = 0;
   p->mlflevel = level;
   p->state = RUNNABLE;
   release(&mlf_lock);
@@ -352,8 +352,7 @@ makerunnable(int level, struct proc *p){
 static struct proc*
 dequeue(){
   acquire(&mlf_lock);
-  for(int index = 0; index < MLFLEVELS - 1; index++){
-    // printf("ESTA BUSCANDO EN %d \n",index);
+  for(int index = 0; index < MLFLEVELS; index++){
     if(mlf[index].top != 0){
       struct proc *first = mlf[index].top;
       mlf[index].top = first->next;
@@ -366,6 +365,17 @@ dequeue(){
   }
   release(&mlf_lock);
   return 0;
+}
+
+void
+ageprocs()
+{
+  acquire(&mlf_lock);
+  for(int index = 0; index < MLFLEVELS; index++){
+    // TODO: search all processes and age them (call in trap.c when ticks % 10 == 0)
+  }
+
+
 }
 
 // Pass p's abandoned children to init.
@@ -501,6 +511,7 @@ scheduler(void)
     }
     
     if(p->state != RUNNABLE){
+      printf("State is %d \n", p->state);
       panic("Process is not in a runnable state");
     }
     acquire(&p->lock);
@@ -508,6 +519,7 @@ scheduler(void)
     // to release its lock and then reacquire it
     // before jumping back to us.
     p->state = RUNNING;
+    p->age = 0;
     p->ticks = 0;
     c->proc = p;
     swtch(&c->context, &p->context);
@@ -707,7 +719,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    printf("%d %s %s", p->pid, state, p->name);
+    printf("%d %s %s %d %d", p->pid, state, p->name, p->mlflevel, p->ticks);
     printf("\n");
   }
 }

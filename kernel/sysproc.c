@@ -24,6 +24,21 @@ sys_getpid(void)
 }
 
 uint64
+sys_setp(void)
+{
+  int level;
+  argint(0, &level);  // fetch param from register
+  if(level > MLFLEVELS)
+    level = MLFLEVELS;
+  else if(level < 1)
+    level = 1;
+  struct proc *p = myproc();
+  uint64 prevlvl = p->mlflevel;
+  p->mlflevel = level;
+  return prevlvl;
+}
+
+uint64
 sys_fork(void)
 {
   return fork();

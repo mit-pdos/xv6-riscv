@@ -178,6 +178,9 @@ clockintr()
 {
   acquire(&tickslock);
   ticks++;
+  /* if(ticks % 10 == 0) { */
+  /* ageprocs(); */
+  /* } */
   wakeup(&ticks);
   release(&tickslock);
 }
