@@ -12,11 +12,16 @@ struct proc proc[NPROC];
 
 struct proc *initproc;
 
+struct mlf mlf[MLFLEVELS];
+struct spinlock mlf_lock;
+
 int nextpid = 1;
 struct spinlock pid_lock;
-
+extern uint ticks;
 extern void forkret(void);
 static void freeproc(struct proc *p);
+static void makerunnable(int level, struct proc *node);
+static struct proc* dequeue();
 
 extern char trampoline[]; // trampoline.S
 
@@ -50,6 +55,7 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  initlock(&mlf_lock, "mlf");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->kstack = KSTACK((int) (p - proc));
@@ -242,7 +248,7 @@ userinit(void)
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
-  p->state = RUNNABLE;
+  makerunnable(1,p);
 
   release(&p->lock);
 }
@@ -312,10 +318,86 @@ fork(void)
   release(&wait_lock);
 
   acquire(&np->lock);
-  np->state = RUNNABLE;
+  //Add the new process at parent's level end 
+  makerunnable(p->mlflevel,np);
   release(&np->lock);
 
   return pid;
+}
+
+static void
+makerunnable(int level, struct proc *p){
+  int holding_status = holding(&mlf_lock);
+  if(!holding_status){
+    acquire(&mlf_lock);
+  }
+  if(level > MLFLEVELS){
+    level = MLFLEVELS;
+  }
+  else if(level < 1){
+    level = 1;
+  }
+  if(mlf[level-1].last == 0){
+    mlf[level-1].last = p;
+    mlf[level-1].top = p;
+  }
+  else{
+    struct proc *last = mlf[level-1].last;
+    last->next = p;
+    mlf[level-1].last = p;
+  }
+  p->next = 0;
+  p->age = ticks;
+  p->mlflevel = level;
+  p->state = RUNNABLE;
+  if(!holding_status){
+    release(&mlf_lock);
+  }
+}
+
+static struct proc*
+dequeue(){
+  acquire(&mlf_lock);
+  for(int index = 0; index < MLFLEVELS; index++){
+    if(mlf[index].top != 0){
+      struct proc *first = mlf[index].top;
+      mlf[index].top = first->next;
+      if(!mlf[index].top){
+        mlf[index].last = 0;
+      }
+      release(&mlf_lock);
+      return first;
+    }
+  }
+  release(&mlf_lock);
+  return 0;
+}
+
+// Apply the aging strategy to all runnable processes
+void
+ageprocs()
+{
+  acquire(&mlf_lock);
+  for(int index = 1; index < MLFLEVELS; index++){
+    struct proc *current = mlf[index].top;
+    if(!current || holding(&current->lock)){
+      continue;
+    }
+    acquire(&current->lock);
+    if(ticks - current->age > MAXAGE){
+      //Remove the process from the current level
+      if(current->next != 0){
+        mlf[index].top = current->next;
+      } else{
+        mlf[index].top = 0;
+        mlf[index].last = 0;
+      }
+      //Add the process in a higher priority level
+      makerunnable(index-1,current);
+    }
+    release(&current->lock);
+  }
+  release(&mlf_lock);
 }
 
 // Pass p's abandoned children to init.
@@ -445,22 +527,29 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-      }
-      release(&p->lock);
+    p = dequeue();
+    if(!p){
+      continue;
     }
+    
+    if(p->state != RUNNABLE){
+      printf("State is %d \n", p->state);
+      panic("Process is not in a runnable state");
+    }
+    acquire(&p->lock);
+    // Switch to chosen process.  It is the process's job
+    // to release its lock and then reacquire it
+    // before jumping back to us.
+    p->state = RUNNING;
+    p->age = ticks;
+    p->ticks = 0;
+    c->proc = p;
+    swtch(&c->context, &p->context);
+
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    c->proc = 0;
+    release(&p->lock);
   }
 }
 
@@ -497,7 +586,7 @@ yield(void)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
-  p->state = RUNNABLE;
+  makerunnable(p->mlflevel+1,p);
   sched();
   release(&p->lock);
 }
@@ -565,7 +654,7 @@ wakeup(void *chan)
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
-        p->state = RUNNABLE;
+        makerunnable(p->mlflevel-1,p);
       }
       release(&p->lock);
     }
@@ -580,13 +669,15 @@ kill(int pid)
 {
   struct proc *p;
 
-  for(p = proc; p < &proc[NPROC]; p++){
+  // Starts in proc + 1 because the init process has pid == 1,
+  // and we don't want to be able to kill it.
+  for(p = proc + 1; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     if(p->pid == pid){
       p->killed = 1;
       if(p->state == SLEEPING){
         // Wake process from sleep().
-        p->state = RUNNABLE;
+        makerunnable(p->mlflevel,p);
       }
       release(&p->lock);
       return 0;
@@ -650,7 +741,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    printf("%d %s %s", p->pid, state, p->name);
+    printf("%d %s %s %d %d", p->pid, state, p->name, p->mlflevel, p->ticks);
     printf("\n");
   }
 }

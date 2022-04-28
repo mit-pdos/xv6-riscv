@@ -105,4 +105,13 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  unsigned short ticks;        // Tick counter
+  struct proc *next;           // Pointer to the next process
+  int mlflevel;                // Level in which is running the process
+  int age;                     // Process age
+};
+
+struct mlf {
+  struct proc *top;           // First process of one level
+  struct proc *last;          // Last process of one level
 };

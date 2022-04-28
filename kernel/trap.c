@@ -15,6 +15,7 @@ extern char trampoline[], uservec[], userret[];
 void kernelvec();
 
 extern int devintr();
+extern void ageprocs();
 
 void
 trapinit(void)
@@ -77,8 +78,15 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
+  if(which_dev == 2){
+
+    // increment the tick counter each time there is a timer interrupt, and
+    // yield if it reaches the quantum.
+    if((++myproc()->ticks) == QUANTUM){
+      printf("Process %d abandoned the CPU %d (USER CONTEXT) \n", myproc()->pid, cpuid());
+      yield();
+    }
+  }
 
   usertrapret();
 }
@@ -150,8 +158,15 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
-    yield();
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING){
+
+    // increment the tick counter each time there is a timer interrupt, and
+    // yield if it reaches the quantum.
+    if((++myproc()->ticks) == QUANTUM){
+      printf("Process %d abandoned the CPU %d (KERNEL CONTEXT) \n", myproc()->pid, cpuid());
+      yield();
+    }
+  }
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
@@ -164,6 +179,9 @@ clockintr()
 {
   acquire(&tickslock);
   ticks++;
+  if(ticks % TIMEUNIT == 0) { 
+    ageprocs(); 
+  } 
   wakeup(&ticks);
   release(&tickslock);
 }
