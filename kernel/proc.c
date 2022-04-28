@@ -17,7 +17,7 @@ struct spinlock mlf_lock;
 
 int nextpid = 1;
 struct spinlock pid_lock;
-
+extern uint ticks;
 extern void forkret(void);
 static void freeproc(struct proc *p);
 static void makerunnable(int level, struct proc *node);
@@ -327,7 +327,10 @@ fork(void)
 
 static void
 makerunnable(int level, struct proc *p){
-  acquire(&mlf_lock);
+  int holding_status = holding(&mlf_lock);
+  if(!holding_status){
+    acquire(&mlf_lock);
+  }
   if(level > MLFLEVELS){
     level = MLFLEVELS;
   }
@@ -344,9 +347,12 @@ makerunnable(int level, struct proc *p){
     mlf[level-1].last = p;
   }
   p->next = 0;
+  p->age = ticks;
   p->mlflevel = level;
   p->state = RUNNABLE;
-  release(&mlf_lock);
+  if(!holding_status){
+    release(&mlf_lock);
+  }
 }
 
 static struct proc*
@@ -367,15 +373,32 @@ dequeue(){
   return 0;
 }
 
+// Apply an aging strategy to all runnable processes
 void
 ageprocs()
 {
   acquire(&mlf_lock);
-  for(int index = 0; index < MLFLEVELS; index++){
-    // TODO: search all processes and age them (call in trap.c when ticks % 10 == 0)
+  for(int index = 1; index < MLFLEVELS; index++){
+    struct proc *current = mlf[index].top;
+    if(!current || holding(&current->lock)){
+      continue;
+    }
+    acquire(&current->lock);
+    if(ticks - current->age > MAXAGE){
+      //Remove the process from the actual level
+      if(current->next != 0){
+        mlf[index].top = current->next;
+      }
+      else{
+        mlf[index].top = 0;
+        mlf[index].last = 0;
+      }
+      //Add the process in higher priority level
+      makerunnable(index-1,current);
+    }
+    release(&current->lock);
   }
-
-
+  release(&mlf_lock);
 }
 
 // Pass p's abandoned children to init.

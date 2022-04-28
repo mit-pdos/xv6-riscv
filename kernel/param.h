@@ -12,4 +12,6 @@
 #define FSSIZE       1000  // size of file system in blocks
 #define MAXPATH      128   // maximum file path name
 #define QUANTUM      2    // maximum number of ticks per process
-#define MLFLEVELS   4     // number of levels in multilevel feedback array
+#define MLFLEVELS    4     // number of levels in multilevel feedback array
+#define MAXAGE       5     // process max age
+#define TIMEUNIT     10    // process time unit

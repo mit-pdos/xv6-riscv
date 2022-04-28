@@ -15,6 +15,7 @@ extern char trampoline[], uservec[], userret[];
 void kernelvec();
 
 extern int devintr();
+extern void ageprocs();
 
 void
 trapinit(void)
@@ -178,9 +179,9 @@ clockintr()
 {
   acquire(&tickslock);
   ticks++;
-  /* if(ticks % 10 == 0) { */
-  /* ageprocs(); */
-  /* } */
+  if(ticks % TIMEUNIT == 0) { 
+    ageprocs(); 
+  } 
   wakeup(&ticks);
   release(&tickslock);
 }
