@@ -83,7 +83,7 @@ usertrap(void)
     // increment the tick counter each time there is a timer interrupt, and
     // yield if it reaches the quantum.
     if((++myproc()->ticks) == QUANTUM){
-      printf("Process %d abandoned the CPU %d (USER CONTEXT) \n", myproc()->pid, cpuid());
+      /* printf("Process %d abandoned the CPU %d (USER CONTEXT) \n", myproc()->pid, cpuid()); */
       yield();
     }
   }
@@ -163,7 +163,7 @@ kerneltrap()
     // increment the tick counter each time there is a timer interrupt, and
     // yield if it reaches the quantum.
     if((++myproc()->ticks) == QUANTUM){
-      printf("Process %d abandoned the CPU %d (KERNEL CONTEXT) \n", myproc()->pid, cpuid());
+      /* printf("Process %d abandoned the CPU %d (KERNEL CONTEXT) \n", myproc()->pid, cpuid()); */
       yield();
     }
   }
