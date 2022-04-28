@@ -5,7 +5,6 @@
 int main() {
   for(;;){
     setp(1);
-    /* printf("TOPPRIOR: Previous priority was %d \n", priority); */
-  };
+  }
   exit(0);
 }

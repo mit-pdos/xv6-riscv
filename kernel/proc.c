@@ -373,7 +373,7 @@ dequeue(){
   return 0;
 }
 
-// Apply an aging strategy to all runnable processes
+// Apply the aging strategy to all runnable processes
 void
 ageprocs()
 {
@@ -385,15 +385,14 @@ ageprocs()
     }
     acquire(&current->lock);
     if(ticks - current->age > MAXAGE){
-      //Remove the process from the actual level
+      //Remove the process from the current level
       if(current->next != 0){
         mlf[index].top = current->next;
-      }
-      else{
+      } else{
         mlf[index].top = 0;
         mlf[index].last = 0;
       }
-      //Add the process in higher priority level
+      //Add the process in a higher priority level
       makerunnable(index-1,current);
     }
     release(&current->lock);
@@ -542,7 +541,7 @@ scheduler(void)
     // to release its lock and then reacquire it
     // before jumping back to us.
     p->state = RUNNING;
-    p->age = 0;
+    p->age = ticks;
     p->ticks = 0;
     c->proc = p;
     swtch(&c->context, &p->context);
