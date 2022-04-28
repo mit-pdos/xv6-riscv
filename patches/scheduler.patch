@@ -1,0 +1,464 @@
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/Makefile os-workshop/Makefile
+--- xv6-riscv/Makefile	2022-04-28 18:33:10.000000000 -0300
++++ os-workshop/Makefile	2022-04-28 18:25:44.000000000 -0300
+@@ -116,6 +116,11 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.
+ .PRECIOUS: %.o
+ 
+ UPROGS=\
++	$U/_topprior\
++	$U/_midprior\
++	$U/_bottomprior\
++	$U/_helloworld\
++	$U/_infloop\
+ 	$U/_cat\
+ 	$U/_echo\
+ 	$U/_forktest\
+@@ -153,7 +158,7 @@ QEMUGDB = $(shell if $(QEMU) -help | gre
+ 	then echo "-gdb tcp::$(GDBPORT)"; \
+ 	else echo "-s -p $(GDBPORT)"; fi)
+ ifndef CPUS
+-CPUS := 3
++CPUS := 2
+ endif
+ 
+ QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/kernel/param.h os-workshop/kernel/param.h
+--- xv6-riscv/kernel/param.h	2022-04-28 18:33:10.000000000 -0300
++++ os-workshop/kernel/param.h	2022-04-28 18:25:44.000000000 -0300
+@@ -11,3 +11,7 @@
+ #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
+ #define FSSIZE       1000  // size of file system in blocks
+ #define MAXPATH      128   // maximum file path name
++#define QUANTUM      2    // maximum number of ticks per process
++#define MLFLEVELS    4     // number of levels in multilevel feedback array
++#define MAXAGE       5     // process max age
++#define TIMEUNIT     10    // process time unit
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/kernel/proc.c os-workshop/kernel/proc.c
+--- xv6-riscv/kernel/proc.c	2022-04-28 18:33:10.000000000 -0300
++++ os-workshop/kernel/proc.c	2022-04-28 18:29:35.000000000 -0300
+@@ -12,11 +12,16 @@ struct proc proc[NPROC];
+ 
+ struct proc *initproc;
+ 
++struct mlf mlf[MLFLEVELS];
++struct spinlock mlf_lock;
++
+ int nextpid = 1;
+ struct spinlock pid_lock;
+-
++extern uint ticks;
+ extern void forkret(void);
+ static void freeproc(struct proc *p);
++static void makerunnable(int level, struct proc *node);
++static struct proc* dequeue();
+ 
+ extern char trampoline[]; // trampoline.S
+ 
+@@ -50,6 +55,7 @@ procinit(void)
+   
+   initlock(&pid_lock, "nextpid");
+   initlock(&wait_lock, "wait_lock");
++  initlock(&mlf_lock, "mlf");
+   for(p = proc; p < &proc[NPROC]; p++) {
+       initlock(&p->lock, "proc");
+       p->kstack = KSTACK((int) (p - proc));
+@@ -242,7 +248,7 @@ userinit(void)
+   safestrcpy(p->name, "initcode", sizeof(p->name));
+   p->cwd = namei("/");
+ 
+-  p->state = RUNNABLE;
++  makerunnable(1,p);
+ 
+   release(&p->lock);
+ }
+@@ -312,12 +318,88 @@ fork(void)
+   release(&wait_lock);
+ 
+   acquire(&np->lock);
+-  np->state = RUNNABLE;
++  //Add the new process at parent's level end 
++  makerunnable(p->mlflevel,np);
+   release(&np->lock);
+ 
+   return pid;
+ }
+ 
++static void
++makerunnable(int level, struct proc *p){
++  int holding_status = holding(&mlf_lock);
++  if(!holding_status){
++    acquire(&mlf_lock);
++  }
++  if(level > MLFLEVELS){
++    level = MLFLEVELS;
++  }
++  else if(level < 1){
++    level = 1;
++  }
++  if(mlf[level-1].last == 0){
++    mlf[level-1].last = p;
++    mlf[level-1].top = p;
++  }
++  else{
++    struct proc *last = mlf[level-1].last;
++    last->next = p;
++    mlf[level-1].last = p;
++  }
++  p->next = 0;
++  p->age = ticks;
++  p->mlflevel = level;
++  p->state = RUNNABLE;
++  if(!holding_status){
++    release(&mlf_lock);
++  }
++}
++
++static struct proc*
++dequeue(){
++  acquire(&mlf_lock);
++  for(int index = 0; index < MLFLEVELS; index++){
++    if(mlf[index].top != 0){
++      struct proc *first = mlf[index].top;
++      mlf[index].top = first->next;
++      if(!mlf[index].top){
++        mlf[index].last = 0;
++      }
++      release(&mlf_lock);
++      return first;
++    }
++  }
++  release(&mlf_lock);
++  return 0;
++}
++
++// Apply the aging strategy to all runnable processes
++void
++ageprocs()
++{
++  acquire(&mlf_lock);
++  for(int index = 1; index < MLFLEVELS; index++){
++    struct proc *current = mlf[index].top;
++    if(!current || holding(&current->lock)){
++      continue;
++    }
++    acquire(&current->lock);
++    if(ticks - current->age > MAXAGE){
++      //Remove the process from the current level
++      if(current->next != 0){
++        mlf[index].top = current->next;
++      } else{
++        mlf[index].top = 0;
++        mlf[index].last = 0;
++      }
++      //Add the process in a higher priority level
++      makerunnable(index-1,current);
++    }
++    release(&current->lock);
++  }
++  release(&mlf_lock);
++}
++
+ // Pass p's abandoned children to init.
+ // Caller must hold wait_lock.
+ void
+@@ -445,22 +527,29 @@ scheduler(void)
+     // Avoid deadlock by ensuring that devices can interrupt.
+     intr_on();
+ 
+-    for(p = proc; p < &proc[NPROC]; p++) {
+-      acquire(&p->lock);
+-      if(p->state == RUNNABLE) {
+-        // Switch to chosen process.  It is the process's job
+-        // to release its lock and then reacquire it
+-        // before jumping back to us.
+-        p->state = RUNNING;
+-        c->proc = p;
+-        swtch(&c->context, &p->context);
+-
+-        // Process is done running for now.
+-        // It should have changed its p->state before coming back.
+-        c->proc = 0;
+-      }
+-      release(&p->lock);
++    p = dequeue();
++    if(!p){
++      continue;
++    }
++    
++    if(p->state != RUNNABLE){
++      printf("State is %d \n", p->state);
++      panic("Process is not in a runnable state");
+     }
++    acquire(&p->lock);
++    // Switch to chosen process.  It is the process's job
++    // to release its lock and then reacquire it
++    // before jumping back to us.
++    p->state = RUNNING;
++    p->age = ticks;
++    p->ticks = 0;
++    c->proc = p;
++    swtch(&c->context, &p->context);
++
++    // Process is done running for now.
++    // It should have changed its p->state before coming back.
++    c->proc = 0;
++    release(&p->lock);
+   }
+ }
+ 
+@@ -497,7 +586,7 @@ yield(void)
+ {
+   struct proc *p = myproc();
+   acquire(&p->lock);
+-  p->state = RUNNABLE;
++  makerunnable(p->mlflevel+1,p);
+   sched();
+   release(&p->lock);
+ }
+@@ -565,7 +654,7 @@ wakeup(void *chan)
+     if(p != myproc()){
+       acquire(&p->lock);
+       if(p->state == SLEEPING && p->chan == chan) {
+-        p->state = RUNNABLE;
++        makerunnable(p->mlflevel-1,p);
+       }
+       release(&p->lock);
+     }
+@@ -580,13 +669,15 @@ kill(int pid)
+ {
+   struct proc *p;
+ 
+-  for(p = proc; p < &proc[NPROC]; p++){
++  // Starts in proc + 1 because the init process has pid == 1,
++  // and we don't want to be able to kill it.
++  for(p = proc + 1; p < &proc[NPROC]; p++){
+     acquire(&p->lock);
+     if(p->pid == pid){
+       p->killed = 1;
+       if(p->state == SLEEPING){
+         // Wake process from sleep().
+-        p->state = RUNNABLE;
++        makerunnable(p->mlflevel,p);
+       }
+       release(&p->lock);
+       return 0;
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/kernel/proc.h os-workshop/kernel/proc.h
+--- xv6-riscv/kernel/proc.h	2022-04-28 18:33:10.000000000 -0300
++++ os-workshop/kernel/proc.h	2022-04-28 18:25:44.000000000 -0300
+@@ -105,4 +105,13 @@ struct proc {
+   struct file *ofile[NOFILE];  // Open files
+   struct inode *cwd;           // Current directory
+   char name[16];               // Process name (debugging)
++  unsigned short ticks;        // Tick counter
++  struct proc *next;           // Pointer to the next process
++  int mlflevel;                // Level in which is running the process
++  int age;                     // Process age
++};
++
++struct mlf {
++  struct proc *top;           // First process of one level
++  struct proc *last;          // Last process of one level
+ };
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/kernel/syscall.c os-workshop/kernel/syscall.c
+--- xv6-riscv/kernel/syscall.c	2022-04-28 18:33:10.000000000 -0300
++++ os-workshop/kernel/syscall.c	2022-04-28 18:25:44.000000000 -0300
+@@ -104,6 +104,7 @@ extern uint64 sys_unlink(void);
+ extern uint64 sys_wait(void);
+ extern uint64 sys_write(void);
+ extern uint64 sys_uptime(void);
++extern uint64 sys_setp(void);
+ 
+ static uint64 (*syscalls[])(void) = {
+ [SYS_fork]    sys_fork,
+@@ -127,6 +128,7 @@ static uint64 (*syscalls[])(void) = {
+ [SYS_link]    sys_link,
+ [SYS_mkdir]   sys_mkdir,
+ [SYS_close]   sys_close,
++[SYS_setp]    sys_setp,
+ };
+ 
+ void
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/kernel/syscall.h os-workshop/kernel/syscall.h
+--- xv6-riscv/kernel/syscall.h	2022-04-28 18:33:10.000000000 -0300
++++ os-workshop/kernel/syscall.h	2022-04-28 18:25:44.000000000 -0300
+@@ -20,3 +20,4 @@
+ #define SYS_link   19
+ #define SYS_mkdir  20
+ #define SYS_close  21
++#define SYS_setp   22
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/kernel/sysproc.c os-workshop/kernel/sysproc.c
+--- xv6-riscv/kernel/sysproc.c	2022-04-28 18:33:10.000000000 -0300
++++ os-workshop/kernel/sysproc.c	2022-04-28 18:25:44.000000000 -0300
+@@ -24,6 +24,21 @@ sys_getpid(void)
+ }
+ 
+ uint64
++sys_setp(void)
++{
++  int level;
++  argint(0, &level);  // fetch param from register
++  if(level > MLFLEVELS)
++    level = MLFLEVELS;
++  else if(level < 1)
++    level = 1;
++  struct proc *p = myproc();
++  uint64 prevlvl = p->mlflevel;
++  p->mlflevel = level;
++  return prevlvl;
++}
++
++uint64
+ sys_fork(void)
+ {
+   return fork();
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/kernel/trap.c os-workshop/kernel/trap.c
+--- xv6-riscv/kernel/trap.c	2022-04-28 18:33:10.000000000 -0300
++++ os-workshop/kernel/trap.c	2022-04-28 18:28:00.000000000 -0300
+@@ -15,6 +15,7 @@ extern char trampoline[], uservec[], use
+ void kernelvec();
+ 
+ extern int devintr();
++extern void ageprocs();
+ 
+ void
+ trapinit(void)
+@@ -77,8 +78,15 @@ usertrap(void)
+     exit(-1);
+ 
+   // give up the CPU if this is a timer interrupt.
+-  if(which_dev == 2)
+-    yield();
++  if(which_dev == 2){
++
++    // increment the tick counter each time there is a timer interrupt, and
++    // yield if it reaches the quantum.
++    if((++myproc()->ticks) == QUANTUM){
++      /* printf("Process %d abandoned the CPU %d (USER CONTEXT) \n", myproc()->pid, cpuid()); */
++      yield();
++    }
++  }
+ 
+   usertrapret();
+ }
+@@ -150,8 +158,15 @@ kerneltrap()
+   }
+ 
+   // give up the CPU if this is a timer interrupt.
+-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+-    yield();
++  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING){
++
++    // increment the tick counter each time there is a timer interrupt, and
++    // yield if it reaches the quantum.
++    if((++myproc()->ticks) == QUANTUM){
++      /* printf("Process %d abandoned the CPU %d (KERNEL CONTEXT) \n", myproc()->pid, cpuid()); */
++      yield();
++    }
++  }
+ 
+   // the yield() may have caused some traps to occur,
+   // so restore trap registers for use by kernelvec.S's sepc instruction.
+@@ -164,6 +179,9 @@ clockintr()
+ {
+   acquire(&tickslock);
+   ticks++;
++  if(ticks % TIMEUNIT == 0) { 
++    ageprocs(); 
++  } 
+   wakeup(&ticks);
+   release(&tickslock);
+ }
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/user/bottomprior.c os-workshop/user/bottomprior.c
+--- xv6-riscv/user/bottomprior.c	1969-12-31 21:00:00.000000000 -0300
++++ os-workshop/user/bottomprior.c	2022-04-28 18:25:44.000000000 -0300
+@@ -0,0 +1,10 @@
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++int main() {
++  for(;;){
++    setp(4);
++  };
++  exit(0);
++}
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/user/helloworld.c os-workshop/user/helloworld.c
+--- xv6-riscv/user/helloworld.c	1969-12-31 21:00:00.000000000 -0300
++++ os-workshop/user/helloworld.c	2022-04-20 13:29:20.000000000 -0300
+@@ -0,0 +1,8 @@
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++int main() {
++  printf("Hello world! \n");
++  exit(0);
++}
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/user/infloop.c os-workshop/user/infloop.c
+--- xv6-riscv/user/infloop.c	1969-12-31 21:00:00.000000000 -0300
++++ os-workshop/user/infloop.c	2022-04-28 18:25:44.000000000 -0300
+@@ -0,0 +1,8 @@
++
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++int main() {
++  for (;;){};
++}
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/user/midprior.c os-workshop/user/midprior.c
+--- xv6-riscv/user/midprior.c	1969-12-31 21:00:00.000000000 -0300
++++ os-workshop/user/midprior.c	2022-04-28 18:25:44.000000000 -0300
+@@ -0,0 +1,10 @@
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++int main() {
++  for(;;){
++    setp(2);
++  };
++  exit(0);
++}
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/user/topprior.c os-workshop/user/topprior.c
+--- xv6-riscv/user/topprior.c	1969-12-31 21:00:00.000000000 -0300
++++ os-workshop/user/topprior.c	2022-04-28 18:25:44.000000000 -0300
+@@ -0,0 +1,10 @@
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++int main() {
++  for(;;){
++    setp(1);
++  }
++  exit(0);
++}
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/user/user.h os-workshop/user/user.h
+--- xv6-riscv/user/user.h	2022-04-28 18:33:10.000000000 -0300
++++ os-workshop/user/user.h	2022-04-28 18:25:44.000000000 -0300
+@@ -23,6 +23,7 @@ int getpid(void);
+ char* sbrk(int);
+ int sleep(int);
+ int uptime(void);
++int setp(int);
+ 
+ // ulib.c
+ int stat(const char*, struct stat*);
+diff --exclude=.git --exclude=.github -rupN xv6-riscv/user/usys.pl os-workshop/user/usys.pl
+--- xv6-riscv/user/usys.pl	2022-04-28 18:33:10.000000000 -0300
++++ os-workshop/user/usys.pl	2022-04-28 18:25:44.000000000 -0300
+@@ -14,7 +14,7 @@ sub entry {
+     print " ecall\n";
+     print " ret\n";
+ }
+-	
++
+ entry("fork");
+ entry("exit");
+ entry("wait");
+@@ -36,3 +36,4 @@ entry("getpid");
+ entry("sbrk");
+ entry("sleep");
+ entry("uptime");
++entry("setp");
