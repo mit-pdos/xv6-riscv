@@ -12,6 +12,7 @@ OBJS = \
   $K/string.o \
   $K/main.o \
   $K/vm.o \
+  $K/sem.o \
   $K/proc.o \
   $K/swtch.o \
   $K/trampoline.o \
@@ -28,7 +29,7 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o 
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin

@@ -434,6 +434,12 @@ exit(int status)
       p->ofile[fd] = 0;
     }
   }
+  
+
+  //Close all open semaphores
+  for(int position = 0; position <  NOSEM ; position++){
+    semclose(position);
+  }
 
   begin_op();
   iput(p->cwd);
@@ -744,4 +750,15 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int
+get_sid(void)
+{
+  for(int position = 0; position <  NOSEM ; position++){
+    if(!myproc()->osem[position]){
+      return position;
+    }
+  }
+  return -1;
 }

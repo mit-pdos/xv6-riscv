@@ -15,3 +15,6 @@
 #define MLFLEVELS    4     // number of levels in multilevel feedback array
 #define MAXAGE       5     // process max age
 #define TIMEUNIT     10    // process time unit
+#define NOSEM        16    // open semaphores per processs
+#define NSEM         100   // open semaphores per system
+
