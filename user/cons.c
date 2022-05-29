@@ -11,7 +11,11 @@ int main(void) {
   for (;;) {
     char buffer[7];
     if (semdown(sid) == 0) {
+      printf("CONS IN \n");
+      timeout(10000);
       read(fd, &buffer, sizeof buffer);
+      printf("CONS OUT \n");
+      timeout(10000);
       semup(sid);
     }
   }

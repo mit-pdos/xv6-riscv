@@ -109,6 +109,7 @@ extern uint64 sys_semget(void);
 extern uint64 sys_semdown(void);
 extern uint64 sys_semup(void);
 extern uint64 sys_semclose(void);
+extern uint64 sys_timeout(void);
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -133,10 +134,11 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_setp]    sys_setp,
-[SYS_semget]    sys_semget,
-[SYS_semdown]    sys_semdown,
-[SYS_semup]    sys_semup,
-[SYS_semclose]    sys_semclose,
+[SYS_semget]  sys_semget,
+[SYS_semdown] sys_semdown,
+[SYS_semup]   sys_semup,
+[SYS_semclose]sys_semclose,
+[SYS_timeout] sys_timeout,
 };
 
 void

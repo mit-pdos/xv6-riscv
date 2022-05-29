@@ -110,3 +110,12 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_timeout(void)
+{
+  int loops;
+  argint(0, &loops);  // fetch param from register
+  for (int i = 0; i < loops * 10000; i++) {};
+  return 0;
+}

@@ -41,3 +41,4 @@ entry("semget");
 entry("semdown");
 entry("semup");
 entry("semclose");
+entry("timeout");
