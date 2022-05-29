@@ -37,3 +37,7 @@ entry("sbrk");
 entry("sleep");
 entry("uptime");
 entry("setp");
+entry("semget");
+entry("semdown");
+entry("semup");
+entry("semclose");

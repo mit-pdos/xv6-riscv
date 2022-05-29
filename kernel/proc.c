@@ -307,6 +307,11 @@ fork(void)
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
+  // increment reference counts on semaphores descriptors.
+  for(i = 0; i < NOSEM; i++)
+    if(p->osem[i])
+      np->osem[i] = semdup(p->osem[i]);
+
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
@@ -762,3 +767,4 @@ get_sid(void)
   }
   return -1;
 }
+

@@ -1,11 +1,14 @@
 #include "types.h"
-#include "param.h"
 #include "riscv.h"
-#include "spinlock.h"
-#include "sem.h"
-#include "proc.h"
 #include "defs.h"
-
+#include "param.h"
+#include "fs.h"
+#include "spinlock.h"
+#include "sleeplock.h"
+#include "file.h"
+#include "stat.h"
+#include "proc.h"
+#include "sem.h"
 
 struct sem sem[NSEM];
 
@@ -17,6 +20,7 @@ seminit()
   struct sem *s;
   for(s = sem; s < sem + NSEM; s++){
     initlock(&s->lock, "semlock");
+    s->key = -1;
   }
 }
 
@@ -76,8 +80,8 @@ semget(int key, int init_value)
 int 
 semclose(int sid)
 {
-  if(is_valid_sid(sid)){
-    return 1;
+  if(!is_valid_sid(sid)){
+    return -1;
   }
   acquire(&(myproc()->osem[sid]->lock));
   myproc()->osem[sid]->ref_count--;
@@ -89,20 +93,28 @@ semclose(int sid)
 int
 semdown(int sid)
 {
-  if(is_valid_sid(sid)){
-    return 1;
+  if(!is_valid_sid(sid)){
+    return -1;
   }
-  myproc()->osem[sid]->value--;
-  return 0;
+  acquire(&(myproc()->osem[sid]->lock));
+  if(myproc()->osem[sid]->value >= 1){
+    myproc()->osem[sid]->value--;
+    release(&(myproc()->osem[sid]->lock));
+    return 0;
+  }
+  release(&(myproc()->osem[sid]->lock));
+  return -1;
 }
 
 int
 semup(int sid)
 {
-  if(is_valid_sid(sid)){
-    return 1;
+  if(!is_valid_sid(sid)){
+    return -1;
   }
+  acquire(&(myproc()->osem[sid]->lock));
   myproc()->osem[sid]->value++;
+  release(&(myproc()->osem[sid]->lock));
   return 0;
 }
 
@@ -111,3 +123,14 @@ is_valid_sid(int sid){
   return sid >= 0 && sid <= NOSEM && myproc()->osem[sid];
 }
 
+// Increment ref count for file f.
+struct sem*
+semdup(struct sem *s)
+{
+  acquire(&s->lock);
+  if(s->ref_count < 1)
+    panic("semdup");
+  s->ref_count++;
+  release(&s->lock);
+  return s;
+}
