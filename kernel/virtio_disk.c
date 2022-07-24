@@ -124,6 +124,7 @@ virtio_disk_init(void)
   *R(VIRTIO_MMIO_QUEUE_NUM) = NUM;
   memset(disk.pages, 0, sizeof(disk.pages));
   *R(VIRTIO_MMIO_QUEUE_PFN) = ((uint64)disk.pages) >> PGSHIFT;
+  *R(VIRTIO_MMIO_QUEUE_ALIGN) = PGSIZE;
 
   // desc = pages -- num * virtq_desc
   // avail = pages + 0x40 -- 2 * uint16, then num * uint16
