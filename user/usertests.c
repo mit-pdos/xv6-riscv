@@ -26,7 +26,7 @@ char buf[BUFSZ];
 void
 copyin(char *s)
 {
-  uint64 addrs[] = { 0x80000000LL, 0xffffffffffffffff };
+  uint64 addrs[] = { 0x80200000LL, 0xffffffffffffffff };
 
   for(int ai = 0; ai < 2; ai++){
     uint64 addr = addrs[ai];
@@ -70,7 +70,7 @@ copyin(char *s)
 void
 copyout(char *s)
 {
-  uint64 addrs[] = { 0x80000000LL, 0xffffffffffffffff };
+  uint64 addrs[] = { 0x80200000LL, 0xffffffffffffffff };
 
   for(int ai = 0; ai < 2; ai++){
     uint64 addr = addrs[ai];
@@ -111,7 +111,7 @@ copyout(char *s)
 void
 copyinstr1(char *s)
 {
-  uint64 addrs[] = { 0x80000000LL, 0xffffffffffffffff };
+  uint64 addrs[] = { 0x80200000LL, 0xffffffffffffffff };
 
   for(int ai = 0; ai < 2; ai++){
     uint64 addr = addrs[ai];
