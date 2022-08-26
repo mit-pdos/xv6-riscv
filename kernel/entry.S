@@ -17,5 +17,8 @@ _entry:
         add sp, sp, a0
         # jump to start() in start.c
         call start
+        # start() in start.c would have set the mepc to main()
+        # switch to supervisor mode and jump to main().
+        mret
 spin:
         j spin
