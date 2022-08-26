@@ -33,9 +33,12 @@ start()
   // disable paging for now.
   w_satp(0);
 
-  // delegate all interrupts and exceptions to supervisor mode.
+  // delegate all exceptions to supervisor mode.
   w_medeleg(0xffff);
-  w_mideleg(0xffff);
+
+  // delegate supervisor interrupts to supervisor mode.
+  w_mideleg(0x222);
+
   w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
 
   // configure Physical Memory Protection to give supervisor mode
