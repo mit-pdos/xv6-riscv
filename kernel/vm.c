@@ -102,6 +102,84 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
   return &pagetable[PX(0, va)];
 }
 
+/* non-recursive walk */
+#define BIT2OFFSET(level, va)  ((va >> 12) >> level*9) & 0x1ff
+#define PTETOPA(pte)  ((pte >> 10) << 12)
+#define PATOPTE(pa) (((uint64)pa >> 12) << 10)
+pte_t *
+walk_non_recursive(pagetable_t pagetable, uint64 va, int alloc)
+{
+    if(va > MAXVA)
+        panic("walk");
+
+    // get pte from first level page
+    uint64 *first_pte = &pagetable[BIT2OFFSET(2, va)];
+    // if valid first page
+    if((*first_pte & 0x1) != 0) //valid
+    {
+        //get next pagetable address
+        pagetable = (uint64 *)PTETOPA(*first_pte);
+        uint64 *second_pte = &pagetable[BIT2OFFSET(1, va)];
+        if((*second_pte & 0x1) != 0)
+        {
+            pagetable = (uint64 *)PTETOPA(*second_pte);
+            return &pagetable[PX(0, va)];
+        }
+        else //second lvl page create
+        {
+            //uint64 *second_pte = (uint64*)pagetable[BIT2OFFSET(1, va)];
+            if(!alloc || ((pagetable = kalloc()) == 0))
+            {
+               return 0;
+            }
+            memset(pagetable, 0, PGSIZE);
+            *second_pte = PA2PTE(pagetable) | PTE_V;
+            // once created, go to next lvl
+            pagetable = (uint64 *)PTETOPA(*second_pte);
+            //uint64 *third_pte = &pagetable[BIT2OFFSET(0, va)];
+            return (pte_t*)PTETOPA(*second_pte);
+            //return &pagetable[PX(0, va)];
+        }
+    }
+    else //if first is not valid
+    {
+        if(!alloc || ((pagetable = kalloc()) == 0))
+        {
+           return 0;
+        }
+        else
+        {
+            memset(pagetable, 0, PGSIZE);
+            *first_pte = PA2PTE(pagetable) | PTE_V;
+        }
+        pagetable = (uint64 *)PTETOPA(*first_pte);
+        uint64 *second_pte = &pagetable[BIT2OFFSET(1, va)];
+        if((*second_pte & 0x1) != 0)
+        {
+            pagetable = (uint64 *)PTETOPA(*second_pte);
+            //uint64 *third_pte = &pagetable[BIT2OFFSET(0, va)];
+            return &pagetable[PX(0, va)];
+        }
+        else //second lvl page create
+        {
+            uint64 *second_pte = &pagetable[BIT2OFFSET(1, va)];
+            if(!alloc || ((pagetable = kalloc()) == 0))
+            {
+               return 0;
+            }
+            else
+            {
+                memset(pagetable, 0, PGSIZE);
+                *second_pte = PA2PTE(pagetable) | PTE_V;
+            }
+            // once created, go to next lvl
+            pagetable = (uint64 *)PTETOPA(*second_pte);
+            //uint64 *third_pte = &pagetable[BIT2OFFSET(0, va)];
+            return &pagetable[PX(0, va)];
+        }
+    }
+}
+
 // Look up a virtual address, return the physical address,
 // or 0 if not mapped.
 // Can only be used to look up user pages.
