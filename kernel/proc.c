@@ -512,29 +512,33 @@ scheduler(void)
   
   c->proc = 0;
 
+  // #define NONE
+  #ifndef NONE
   // Round Robin Scheduler
   // preemptive scheduler with round robin format
-  // for(;;){
-  //   // Avoid deadlock by ensuring that devices can interrupt.
-  //   intr_on();
-  //   for(p = proc; p < &proc[NPROC]; p++) {
-  //     acquire(&p->lock);
-  //     if(p->state == RUNNABLE) {
-  //       // Switch to chosen process.  It is the process's job
-  //       // to release its lock and then reacquire it
-  //       // before jumping back to us.
-  //       p->state = RUNNING;
-  //       c->proc = p;
-  //       swtch(&c->context, &p->context);
+  for(;;){
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        // Switch to chosen process.  It is the process's job
+        // to release its lock and then reacquire it
+        // before jumping back to us.
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
 
-  //       // Process is done running for now.
-  //       // It should have changed its p->state before coming back.
-  //       c->proc = 0;
-  //     }
-  //     release(&p->lock);
-  //   }
-  // }
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+      }
+      release(&p->lock);
+    }
+  }
+  #endif
 
+  // #define FCFS
   #ifdef FCFS
 
   // FCFS Scheduler
@@ -579,6 +583,7 @@ scheduler(void)
   // proportion to the number of tickets it owns. That is the probability that the process runs
   // in a given time slice is proportional to the number of tickets owned by it.
 
+  // #define LOTTERY
   #ifdef LOTTERY
 
   for(;;) {
@@ -626,7 +631,8 @@ scheduler(void)
   // remains, use the start-time of the process to break the tie(processes with lower start
   // times should be scheduled further).
 
-  // #ifdef PBS
+  // #define PBS
+  #ifdef PBS
 
   for(;;) {
     // Avoid deadlock by ensuring that devices can interrupt.
@@ -672,7 +678,7 @@ scheduler(void)
     }
   }
 
-  // #endif  // PBS
+  #endif  // PBS
 
 }
 
