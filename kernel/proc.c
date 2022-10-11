@@ -147,6 +147,13 @@ found:
   p->context.sp = p->kstack + PGSIZE;
 
   p->creation_time = ticks;
+  p->tickets = 1;
+  p->sleep_tick = 0;
+  p->run_tick = 0;
+  p->num_sched = 0;
+  p->sleeping_time = 0;
+  p->running_time = 0;
+  p->static_priority = 60;
 
   return p;
 }
@@ -312,6 +319,8 @@ fork(void)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
+  np->tickets = p->tickets;
+
   pid = np->pid;
 
   release(&np->lock);
@@ -473,6 +482,28 @@ wait(uint64 addr)
 //   }
 // }
 
+int random_at_most(int total) {
+  int seed = 0;
+  for (int i = 0; i < 100; i++) {
+    seed += ticks;
+  }
+  return (seed % total) + 1;
+}
+
+int min(int a, int b) {
+  if (a < b) {
+    return a;
+  }
+  return b;
+}
+
+int max(int a, int b) {
+  if (a > b) {
+    return a;
+  }
+  return b;
+}
+
 void
 scheduler(void)
 {
@@ -481,8 +512,37 @@ scheduler(void)
   
   c->proc = 0;
 
-  // #ifdef FCFS
+  // #define NONE
+  #ifndef NONE
+  // Round Robin Scheduler
+  // preemptive scheduler with round robin format
+  for(;;){
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        // Switch to chosen process.  It is the process's job
+        // to release its lock and then reacquire it
+        // before jumping back to us.
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
 
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+      }
+      release(&p->lock);
+    }
+  }
+  #endif
+
+  // #define FCFS
+  #ifdef FCFS
+
+  // FCFS Scheduler
+  // selects the process with the lowest creation time
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
@@ -515,26 +575,110 @@ scheduler(void)
       release(&fc->lock);
     }
 
-  // #endif  // FCFS
-
-
-    // for(p = proc; p < &proc[NPROC]; p++) {
-    //   acquire(&p->lock);
-    //   if(p->state == RUNNABLE && p->pid == fc_pid) {
-    //     // Switch to chosen process.  It is the process's job
-    //     // to release its lock and then reacquire it
-    //     // before jumping back to us.
-    //     p->state = RUNNING;
-    //     c->proc = p;
-    //     swtch(&c->context, &p->context);
-
-    //     // Process is done running for now.
-    //     // It should have changed its p->state before coming back.
-    //     c->proc = 0;
-    //   }
-    //   release(&p->lock);
-    // }
   }
+  #endif  // FCFS
+
+  // Lottery Based Scheduler
+  // a preemptive scheduler that assigns a time slice to the process randomly in
+  // proportion to the number of tickets it owns. That is the probability that the process runs
+  // in a given time slice is proportional to the number of tickets owned by it.
+
+  // #define LOTTERY
+  #ifdef LOTTERY
+
+  for(;;) {
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+
+    int total_tickets = 0;
+    int random_ticket = 0;
+    int ticket_count = 0;
+
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        total_tickets += p->tickets;
+      }
+      release(&p->lock);
+    }
+
+    if(total_tickets > 0) {
+      random_ticket = random_at_most(total_tickets);
+      for(p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if(p->state == RUNNABLE) {
+          ticket_count += p->tickets;
+          if(ticket_count >= random_ticket) {
+            p->state = RUNNING;
+            c->proc = p;
+            swtch(&c->context, &p->context);
+            c->proc = 0;
+            release(&p->lock);
+            break;
+          }
+        }
+        release(&p->lock);
+      }
+    }
+  }
+
+  #endif  // LOTTERY
+
+  // Priority Based Scheduler
+  // a non-preemptive priority-based scheduler that selects the process with the
+  // highest priority for execution. In case two or more processes have the same priority, we
+  // use the number of times the process has been scheduled to break the tie. If the tie
+  // remains, use the start-time of the process to break the tie(processes with lower start
+  // times should be scheduled further).
+
+  // #define PBS
+  #ifdef PBS
+
+  for(;;) {
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+
+    int min_priority = 100;
+    int min_priority_count = 2147483647;
+    int min_priority_start_time = 2147483647;
+    int min_priority_pid = 0;
+
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        int niceness;
+        if(p->sleeping_time + p->running_time == 0) niceness = 5;
+        else niceness = (p->sleeping_time * 10) / (p->sleeping_time + p->running_time);
+        int priority = max(0, min(p->static_priority - niceness + 5, 100));
+        if(priority < min_priority || (priority == min_priority && p->num_sched < min_priority_count) || (priority == min_priority && p->num_sched == min_priority_count && p->creation_time < min_priority_start_time)) {
+          if(min_priority_pid != 0) {
+            release(&fc->lock);
+          }
+          min_priority = priority;
+          min_priority_count = p->num_sched;
+          min_priority_start_time = p->creation_time;
+          min_priority_pid = p->pid;
+          fc = p;
+        } else {
+          release(&p->lock);
+        }
+      } else {
+        release(&p->lock);
+      }
+    }
+
+    if(min_priority_pid != 0) {
+      fc->state = RUNNING;
+      fc->run_tick = ticks;
+      fc->num_sched++;
+      c->proc = fc;
+      swtch(&c->context, &fc->context);
+      c->proc = 0;
+      release(&fc->lock);
+    }
+  }
+
+  #endif  // PBS
 
 }
 
@@ -617,6 +761,8 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
+  p->running_time += ticks - p->run_tick;
+  p->sleep_tick = ticks;
 
   sched();
 
@@ -640,6 +786,7 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+        p->sleeping_time += ticks - p->sleep_tick;
       }
       release(&p->lock);
     }
@@ -747,4 +894,35 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int settickets(int number) {
+  struct proc *p = myproc();
+  if (number < 1) {
+    return -1;
+  }
+  acquire(&p->lock);
+  p->tickets = number;
+  release(&p->lock);
+  return 0;
+}
+
+int set_priority(int priority, int pid) {
+  struct proc *p;
+  if (priority < 0 || priority > 100) {
+    return -1;
+  }
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->pid == pid) {
+      int to_return = p->static_priority;
+      p->static_priority = priority;
+      p->running_time = 0;
+      p->sleeping_time = 0;
+      release(&p->lock);
+      return to_return;
+    }
+    release(&p->lock);
+  }
+  return -1;
 }
