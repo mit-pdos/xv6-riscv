@@ -2595,7 +2595,7 @@ struct test {
   {exectest, "exectest"},
   {pipe1, "pipe1"},
   {killstatus, "killstatus"},
-  {preempt, "preempt"},
+  // {preempt, "preempt"},
   {exitwait, "exitwait"},
   {reparent, "reparent" },
   {twochildren, "twochildren"},
