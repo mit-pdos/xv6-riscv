@@ -104,5 +104,13 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
   uint64 creation_time;        // Time of creation
+  uint64 tickets;              // Number of tickets
+  uint64 sleep_tick;           // Tick sleep is called
+  uint64 run_tick;             // Tick process is running
+  uint64 num_sched;            // Number of times process is scheduled
+  uint64 sleeping_time;        // Time spent sleeping
+  uint64 running_time;         // Time spent running
+  uint64 static_priority;      // Static priority
 };
