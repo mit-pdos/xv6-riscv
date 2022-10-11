@@ -92,7 +92,19 @@ sys_uptime(void)
 
 // settickets system call
 uint64
-sys_settickets(int n)
+sys_settickets(void)
 {
+  int n;
+  argint(0, &n);
   return settickets(n);
+}
+
+// setpriority system call
+uint64
+sys_setpriority(void)
+{
+  int priority, pid;
+  argint(0, &priority);
+  argint(1, &pid);
+  return set_priority(priority, pid);
 }

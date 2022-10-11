@@ -490,6 +490,19 @@ int random_at_most(int total) {
   return (seed % total) + 1;
 }
 
+int min(int a, int b) {
+  if (a < b) {
+    return a;
+  }
+  return b;
+}
+
+int max(int a, int b) {
+  if (a > b) {
+    return a;
+  }
+  return b;
+}
 
 void
 scheduler(void)
@@ -501,26 +514,26 @@ scheduler(void)
 
   // Round Robin Scheduler
   // preemptive scheduler with round robin format
-  for(;;){
-    // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+  // for(;;){
+  //   // Avoid deadlock by ensuring that devices can interrupt.
+  //   intr_on();
+  //   for(p = proc; p < &proc[NPROC]; p++) {
+  //     acquire(&p->lock);
+  //     if(p->state == RUNNABLE) {
+  //       // Switch to chosen process.  It is the process's job
+  //       // to release its lock and then reacquire it
+  //       // before jumping back to us.
+  //       p->state = RUNNING;
+  //       c->proc = p;
+  //       swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-      }
-      release(&p->lock);
-    }
-  }
+  //       // Process is done running for now.
+  //       // It should have changed its p->state before coming back.
+  //       c->proc = 0;
+  //     }
+  //     release(&p->lock);
+  //   }
+  // }
 
   #ifdef FCFS
 
@@ -615,60 +628,49 @@ scheduler(void)
 
   // #ifdef PBS
 
-  // for(;;) {
-  //   // Avoid deadlock by ensuring that devices can interrupt.
-  //   intr_on();
+  for(;;) {
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
 
-  //   int min_priority = 100;
-  //   int min_priority_count = 2147483647;
-  //   int min_priority_start_time = 2147483647;
+    int min_priority = 100;
+    int min_priority_count = 2147483647;
+    int min_priority_start_time = 2147483647;
+    int min_priority_pid = 0;
 
-  //   for(p = proc; p < &proc[NPROC]; p++) {
-  //     acquire(&p->lock);
-  //     if(p->state == RUNNABLE) {
-  //       int niceness = (p->sleeping_time * 10) / (p->sleeping_time + p->running_time);
-  //       int priority = max(0, min(p->static_priority - niceness + 5, 100));
-  //       if(priority > max_priority) {
-  //         max_priority = priority;
-  //         max_priority_count = p->num_sched;
-  //         max_priority_time = p->creation_time;
-  //         max_priority_pid = p->pid;
-  //       } else if(priority == max_priority) {
-  //         if(p->num_sched > max_priority_count) {
-  //           max_priority = priority;
-  //           max_priority_count = p->num_sched;
-  //           max_priority_time = p->creation_time;
-  //           max_priority_pid = p->pid;
-  //         } else if(p->num_sched == max_priority_count) {
-  //           if(p->creation_time < max_priority_time) {
-  //             max_priority = priority;
-  //             max_priority_count = p->num_sched;
-  //             max_priority_time = p->creation_time;
-  //             max_priority_pid = p->pid;
-  //           }
-  //         }
-  //       }
-  //     }
-  //     release(&p->lock);
-  //   }
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        int niceness;
+        if(p->sleeping_time + p->running_time == 0) niceness = 5;
+        else niceness = (p->sleeping_time * 10) / (p->sleeping_time + p->running_time);
+        int priority = max(0, min(p->static_priority - niceness + 5, 100));
+        if(priority < min_priority || (priority == min_priority && p->num_sched < min_priority_count) || (priority == min_priority && p->num_sched == min_priority_count && p->creation_time < min_priority_start_time)) {
+          if(min_priority_pid != 0) {
+            release(&fc->lock);
+          }
+          min_priority = priority;
+          min_priority_count = p->num_sched;
+          min_priority_start_time = p->creation_time;
+          min_priority_pid = p->pid;
+          fc = p;
+        } else {
+          release(&p->lock);
+        }
+      } else {
+        release(&p->lock);
+      }
+    }
 
-  //   if(max_priority_pid != 0) {
-  //     for(p = proc; p < &proc[NPROC]; p++) {
-  //       acquire(&p->lock);
-  //       if(p->pid == max_priority_pid) {
-  //         p->state = RUNNING;
-  //         p->run_tick = ticks;
-  //         p->num_sched++;
-  //         c->proc = p;
-  //         swtch(&c->context, &p->context);
-  //         c->proc = 0;
-  //         release(&p->lock);
-  //         break;
-  //       }
-  //       release(&p->lock);
-  //     }
-  //   }
-  // }
+    if(min_priority_pid != 0) {
+      fc->state = RUNNING;
+      fc->run_tick = ticks;
+      fc->num_sched++;
+      c->proc = fc;
+      swtch(&c->context, &fc->context);
+      c->proc = 0;
+      release(&fc->lock);
+    }
+  }
 
   // #endif  // PBS
 
@@ -897,4 +899,24 @@ int settickets(int number) {
   p->tickets = number;
   release(&p->lock);
   return 0;
+}
+
+int set_priority(int priority, int pid) {
+  struct proc *p;
+  if (priority < 0 || priority > 100) {
+    return -1;
+  }
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->pid == pid) {
+      int to_return = p->static_priority;
+      p->static_priority = priority;
+      p->running_time = 0;
+      p->sleeping_time = 0;
+      release(&p->lock);
+      return to_return;
+    }
+    release(&p->lock);
+  }
+  return -1;
 }
