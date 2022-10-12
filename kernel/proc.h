@@ -114,4 +114,7 @@ struct proc {
   uint64 running_time;         // Time spent running
   uint64 static_priority;      // Static priority
   int mask;
+  uint rtime;                   // How long the process ran for
+  uint ctime;                   // When was the process created 
+  uint etime;                   // When did the process exited
 };

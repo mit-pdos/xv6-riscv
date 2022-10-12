@@ -105,6 +105,8 @@ extern uint64 sys_close(void);
 extern uint64 sys_settickets(void);
 extern uint64 sys_setpriority(void);
 extern uint64 sys_trace(void);
+extern uint64 sys_waitx(void);
+
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -130,6 +132,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_waitx]   sys_waitx,
 [SYS_settickets] sys_settickets,
 [SYS_setpriority] sys_setpriority,
 [SYS_trace] sys_trace,
