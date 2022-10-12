@@ -17,15 +17,20 @@ int main() {
           break;
       if (pid == 0) {
           if (n < IO) {
-            sleep(200); // IO bound processes
+            sleep((n+1)*100); // IO bound processes
           } else {
-            for (int i = 0; i < 10000000; i++) {}; // CPU bound process
+            for (uint64 i = 0; i < 1000000000; i++) {}; // CPU bound process
           }
-          // printf("Process %d finished", n);
+          printf("Process %d finished\n", n);
           exit(0);
       } else {
+// #define LOTTERY
+#define PBS
+#ifdef LOTTERY
+          settickets((n+1)*(n+1)*(n+1));
+#endif
 #ifdef PBS
-        setpriority(60-IO+n, pid); // Will only matter for PBS, set lower priority for IO bound processes 
+        set_priority(60-IO-n, pid); // Will only matter for PBS, set lower priority for IO bound processes 
 #endif
       }
   }

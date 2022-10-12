@@ -19,4 +19,5 @@ main(int argc, char** argv) {
         fprintf(2, "Failed to set priority");
         exit(1);
     }
+    exit(0);
 }

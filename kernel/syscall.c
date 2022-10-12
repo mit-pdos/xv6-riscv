@@ -134,7 +134,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_waitx]   sys_waitx,
 [SYS_settickets] sys_settickets,
-[SYS_setpriority] sys_setpriority,
+[SYS_set_priority] sys_setpriority,
 [SYS_trace] sys_trace,
 };
 
@@ -164,7 +164,7 @@ static int nargs[] = {
 [SYS_mkdir]   1,
 [SYS_close]   1,
 [SYS_settickets] 1,
-[SYS_setpriority] 1,
+[SYS_set_priority] 1,
 [SYS_trace] 1,
 };
 
