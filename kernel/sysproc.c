@@ -108,3 +108,12 @@ sys_setpriority(void)
   argint(1, &pid);
   return set_priority(priority, pid);
 }
+// trace system call
+uint64
+sys_trace(void)
+{
+  int mask=0;
+  argint(0, &mask); 
+  myproc()->mask = mask;
+  return 0;
+}

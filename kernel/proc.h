@@ -113,4 +113,5 @@ struct proc {
   uint64 sleeping_time;        // Time spent sleeping
   uint64 running_time;         // Time spent running
   uint64 static_priority;      // Static priority
+  int mask;
 };

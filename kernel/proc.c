@@ -333,6 +333,8 @@ fork(void)
   np->state = RUNNABLE;
   release(&np->lock);
 
+  np->mask = p->mask;
+
   return pid;
 }
 
@@ -507,7 +509,9 @@ int max(int a, int b) {
 void
 scheduler(void)
 {
-  struct proc *p, *fc;
+  struct proc *p;
+  // struct proc *fc;
+
   struct cpu *c = mycpu();
   
   c->proc = 0;

@@ -104,6 +104,7 @@ extern uint64 sys_close(void);
 
 extern uint64 sys_settickets(void);
 extern uint64 sys_setpriority(void);
+extern uint64 sys_trace(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -131,7 +132,67 @@ static uint64 (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_settickets] sys_settickets,
 [SYS_setpriority] sys_setpriority,
+[SYS_trace] sys_trace,
 };
+
+
+// An array mapping syscall numbers from syscall.h
+// to the number of arguments the system call takes.
+static int nargs[] = {
+[SYS_fork]    0,
+[SYS_exit]    1,
+[SYS_wait]    1,
+[SYS_pipe]    0,
+[SYS_read]    3,
+[SYS_kill]    2,
+[SYS_exec]    2,
+[SYS_fstat]   1,
+[SYS_chdir]   1,
+[SYS_dup]     1,
+[SYS_getpid]  0,
+[SYS_sbrk]    1,
+[SYS_sleep]   1,  
+[SYS_uptime]  0,
+[SYS_open]    2,
+[SYS_write]   3,
+[SYS_mknod]   3,
+[SYS_unlink]  1,
+[SYS_link]    2,
+[SYS_mkdir]   1,
+[SYS_close]   1,
+[SYS_settickets] 1,
+[SYS_setpriority] 1,
+[SYS_trace] 1,
+};
+
+// An array mapping indexes to the name of the system call.
+static char *sysnames[] = {
+  "fork",
+  "exit",
+  "wait",
+  "pipe",
+  "read",
+  "kill",
+  "exec",
+  "fstat",
+  "chdir",
+  "dup",
+  "getpid",
+  "sbrk",
+  "sleep",
+  "uptime",
+  "open",
+  "write",
+  "mknod",
+  "unlink",
+  "link",
+  "mkdir",
+  "close",
+  "settickets",
+  "setpriority",
+  "trace",
+};
+
 
 void
 syscall(void)
@@ -144,6 +205,19 @@ syscall(void)
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
     p->trapframe->a0 = syscalls[num]();
+
+    if(p->mask & (1 << num)) {
+      // print process id, system call name,decimal value of arguments, and return value
+      printf("%d: syscall %s (", p->pid, sysnames[num-1]);
+      for(int i = 0; i < nargs[num]; i++) {
+        printf("%d", argraw(i));
+        if(i != nargs[num] - 1) {
+          printf(" ");
+        }
+      }
+      printf(") -> %d\n", p->trapframe->a0);
+    }
+      
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);
