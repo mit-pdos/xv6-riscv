@@ -692,8 +692,9 @@ scheduler(void)
       release(&p->lock);
     }
 
-    // for(int i = 1; i < 5; i++) {
-    //   for(int j = mlfq_pointers[i][1]; j != mlfq_pointers[i][0]; j = (j - 1 + NPROC) % NPROC) {
+    // Aging
+    // for(int i = 4; i > 0; i--) {
+    //   for(int j = mlfq_pointers[i][0]; j != mlfq_pointers[i][1]; j = (j + 1) % NPROC) {
     //     p = mlfq[i][j];
     //     acquire(&p->lock);
     //     if(p->state == RUNNABLE && p->wait_time >= (4 << p->queue)) {
@@ -1042,7 +1043,7 @@ int set_priority(int priority, int pid) {
       if(priority < d_priority) {
         yield();
       }
-      
+
       return old_sp;
     }
     release(&p->lock);
@@ -1114,6 +1115,14 @@ update_time()
       p->stime++;
     } else if(p->state == RUNNABLE) {
       p->wait_time++;
+      if(p->wait_time >= 4 << p->queue) {
+        if(p->queue > 0) {
+          p->wait_time = 0;
+          pop(p->queue);
+          p->queue--;
+          push(p->queue, p);
+        }
+      }
     }
     release(&p->lock); 
   }
