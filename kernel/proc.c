@@ -5,10 +5,15 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+// #include "queue.h"
 
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
+
+struct proc* mlfq[5][NPROC];
+int mlfq_pointers[5][2];
+
 
 struct proc *initproc;
 
@@ -159,6 +164,12 @@ found:
   // p->sleeping_time = 0;
   p->running_time = 0;
   p->static_priority = 60;
+
+  p->wait_time = 0;
+  p->queue = 0;
+  p->queued = 1;
+  push(0, p);
+
 
   return p;
 }
@@ -453,43 +464,6 @@ wait(uint64 addr)
   }
 }
 
-// Per-CPU process scheduler.
-// Each CPU calls scheduler() after setting itself up.
-// Scheduler never returns.  It loops, doing:
-//  - choose a process to run.
-//  - swtch to start running that process.
-//  - eventually that process transfers control
-//    via swtch back to the scheduler.
-// void
-// scheduler(void)
-// {
-//   struct proc *p;
-//   struct cpu *c = mycpu();
-  
-//   c->proc = 0;
-//   for(;;){
-//     // Avoid deadlock by ensuring that devices can interrupt.
-//     intr_on();
-
-//     for(p = proc; p < &proc[NPROC]; p++) {
-//       acquire(&p->lock);
-//       if(p->state == RUNNABLE) {
-//         // Switch to chosen process.  It is the process's job
-//         // to release its lock and then reacquire it
-//         // before jumping back to us.
-//         p->state = RUNNING;
-//         c->proc = p;
-//         swtch(&c->context, &p->context);
-
-//         // Process is done running for now.
-//         // It should have changed its p->state before coming back.
-//         c->proc = 0;
-//       }
-//       release(&p->lock);
-//     }
-//   }
-// }
-
 int random_at_most(int total) {
   int seed = 0;
   for (int i = 0; i < 100; i++) {
@@ -512,6 +486,13 @@ int max(int a, int b) {
   return b;
 }
 
+// Per-CPU process scheduler.
+// Each CPU calls scheduler() after setting itself up.
+// Scheduler never returns.  It loops, doing:
+//  - choose a process to run.
+//  - swtch to start running that process.
+//  - eventually that process transfers control
+//    via swtch back to the scheduler.
 void
 scheduler(void)
 {
@@ -522,7 +503,6 @@ scheduler(void)
   
   c->proc = 0;
 
-  #define NONE
 
   // FCFS Scheduler
   // selects the process with the lowest creation time
@@ -571,8 +551,8 @@ scheduler(void)
   // proportion to the number of tickets it owns. That is the probability that the process runs
   // in a given time slice is proportional to the number of tickets owned by it.
 
-  // #define LOTTERY
-  #ifdef LOTTERY
+  // #define LBS
+  #ifdef LBS
   printf("Lottery Scheduler\n");
 
   for(;;) {
@@ -672,11 +652,117 @@ scheduler(void)
 
   #endif  // PBS
 
+  // Multi-Level Feedback Queue Scheduler
+  // a preemptive scheduler that uses a multi-level feedback queue to schedule
+  // processes. The scheduler has five queues, each with a different time slice. The first
+  // queue has the highest priority and the last queue has the lowest priority. The time
+  // slice for each queue is 1, 2, 4, 8, and 16 ticks, respectively. The scheduler selects
+  // the process with the highest priority for execution. If two or more processes have the
+  // same priority, the scheduler selects the process that has been waiting for the longest
+  // time. If the tie remains, the scheduler selects the process with the lowest process ID.
+
+  // #define MLFQ
+  #ifdef MLFQ
+  printf("Multi-Level Feedback Queue Scheduler\n");
+
+  // init_mlfq();
+  static char *states[] = {
+  [UNUSED]    "unused",
+  [USED]      "used",
+  [SLEEPING]  "sleep ",
+  [RUNNABLE]  "runble",
+  [RUNNING]   "run   ",
+  [ZOMBIE]    "zombie"
+  };
+  (void) states;
+
+  for(;;) {
+    intr_on();
+    // print_mlfq();
+
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      // printf("%d %s %d %d\n", p->pid, states[p->state], p->queue, p->queued);
+      
+      if(p->state == RUNNABLE && p->queued == 0) {
+        // printf("pushing %d\n", p->pid);
+        p->queued = 1;
+        push(p->queue, p);
+      } 
+      // else if(p->state == RUNNABLE && p->wait_time >= 4 * (1 << p->queue)) {
+      //   p->queued = 1;
+      //   if(p->queue > 0) {
+      //     pop(p->queue);
+      //     p->queue--;
+      //     push(p->queue, p);
+      //     p->wait_time = 0;
+      //   }
+      // }
+      release(&p->lock);
+    }
+    // print_mlfq();
+
+    // printf("\n");
+    // for(p = proc; p < &proc[NPROC]; p++) {
+    //   acquire(&p->lock);
+    //   printf("%d %s %d %d\n", p->pid, states[p->state], p->queue, p->queued);
+    //   release(&p->lock);
+    // }
+    // printf("\n");
+
+    for(int i = 0; i < 5; i++) {
+      while(!is_empty(i)) {
+        // printf("popping \n");
+        p = pop(i);
+        acquire(&p->lock);
+        // printf("popped %d\n", p->pid);
+        // printf("%d %s %d %d\n", p->pid, states[p->state], p->queue, p->queued);
+        p->queued = 0;
+        if(p->state == RUNNABLE) {
+          goto gotcha;
+        }
+        release(&p->lock);
+      }
+    }
+    // break;
+    continue;
+
+gotcha:
+      // printf("%d %s\n", p->pid, states[p->state]);
+      if (p->state == RUNNABLE) {
+      //   printf("MLFQ running %d\n", p->pid);
+      //   p->state = RUNNING;
+      //   c->proc = p;
+      //   swtch(&c->context, &p->context);
+      //   c->proc = 0;
+      // release(&p->lock);
+      p->state = RUNNING;
+      c->proc = p;
+      swtch(&c->context, &p->context);
+      if(p->queue < 4 && p->state == RUNNABLE) {
+        p->queue++;
+        p->queued = 1;
+        push(p->queue, p);
+      }
+      p->running_time = 0;
+      p->wait_time = 0;
+      c->proc = 0;
+      release(&p->lock);
+    }
+
+
+  }
+  
+
+  #endif
+
+
 
   #ifndef FCFS
   #ifndef LOTTERY
   #ifndef PBS
-  printf("ROUND ROBIN SCHEDULER\n");
+  // #ifndef MLFQ
+  // printf("ROUND ROBIN SCHEDULER\n");
   // Round Robin Scheduler
   // preemptive scheduler with round robin format
   for(;;){
@@ -702,6 +788,7 @@ scheduler(void)
   #endif
   #endif
   #endif
+  // #endif
 
 }
 
@@ -920,6 +1007,7 @@ procdump(void)
     printf("%d %s %s %d %d %d %d", p->pid, state, p->name, p->rtime, p->running_time, p->sleeping_time, p->stime);
     printf("\n");
   }
+  print_mlfq();
 }
 
 int settickets(int number) {
@@ -942,13 +1030,18 @@ int set_priority(int priority, int pid) {
   for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
     if(p->pid == pid) {
-      int to_return = p->static_priority;
-      // int 
+      int old_sp = p->static_priority;
+
+      int niceness;
+      if(p->stime + p->running_time == 0) niceness = 5;
+      else niceness = (p->stime * 10) / (p->stime + p->running_time);
+      int priority = max(0, min(p->static_priority - niceness + 5, 100));
+
       p->static_priority = priority;
       p->running_time = 0;
       p->stime = 0;
       release(&p->lock);
-      return to_return;
+      return old_sp;
     }
     release(&p->lock);
   }
@@ -1017,7 +1110,78 @@ update_time()
       p->running_time++;
     } else if (p->state == SLEEPING) {
       p->stime++;
+    } else if(p->state == RUNNABLE) {
+      p->wait_time++;
     }
     release(&p->lock); 
   }
+}
+
+
+void init_mlfq() {
+  // printf("init mlfq\n");
+    for (int i = 0; i < 5; i++) {
+        mlfq_pointers[i][0] = -1;
+        mlfq_pointers[i][1] = -1;
+    }
+}
+
+void push(int mlfq_num, struct proc *p) {
+    // printf("pushing %d to mlfq %d\n", p->pid, mlfq_num);
+    if (mlfq_pointers[mlfq_num][0] == -1) {
+        mlfq_pointers[mlfq_num][0] = 0;
+        mlfq_pointers[mlfq_num][1] = 1;
+        mlfq[mlfq_num][0] = p;
+    } else {
+        mlfq[mlfq_num][mlfq_pointers[mlfq_num][1]] = p;
+        mlfq_pointers[mlfq_num][1] = (mlfq_pointers[mlfq_num][1] + 1) % NPROC;
+    }
+    // print_mlfq();
+}
+
+struct proc *pop(int mlfq_num) {
+    // printf("popping from mlfq %d", mlfq_num);
+    if (mlfq_pointers[mlfq_num][0] == -1) {
+        return 0;
+    } else {
+        struct proc *p = mlfq[mlfq_num][mlfq_pointers[mlfq_num][0]];
+        mlfq_pointers[mlfq_num][0] = (mlfq_pointers[mlfq_num][0] + 1) % NPROC;
+        if (mlfq_pointers[mlfq_num][0] == mlfq_pointers[mlfq_num][1]) {
+            mlfq_pointers[mlfq_num][0] = -1;
+            mlfq_pointers[mlfq_num][1] = -1;
+        }
+        return p;
+    }
+}
+
+int is_empty(int mlfq_num) {
+    return mlfq_pointers[mlfq_num][0] == -1;
+}
+
+struct proc* front(int mlfq_num) {
+    if (mlfq_pointers[mlfq_num][0] == -1) {
+        return 0;
+    } else {
+        return mlfq[mlfq_num][mlfq_pointers[mlfq_num][0]];
+    }
+}
+
+struct proc* highest() {
+    for (int i = 0; i < 5; i++) {
+        if (!is_empty(i)) {
+            // printf("highest: %d", front(i)->pid);
+            return front(i);
+        }
+    }
+    return 0;
+}
+
+void print_mlfq() {
+    for (int i = 0; i < 5; i++) {
+        printf("MLFQ %d: ", i);
+        for (int j = mlfq_pointers[i][0]; j != mlfq_pointers[i][1]; j = (j + 1) % NPROC) {
+            printf("%d ", mlfq[i][j]->pid);
+        }
+        printf("\n");
+    }
 }

@@ -74,6 +74,15 @@ endif
 ifeq ("$(SCHEDULER)","FCFS")
 CFLAGS += -DFCFS=1
 endif
+ifeq ("$(SCHEDULER)","LBS")
+CFLAGS += -DLBS=1
+endif
+ifeq ("$(SCHEDULER)","PBS")
+CFLAGS += -DPBS=1
+endif
+ifeq ("$(SCHEDULER)","MLFQ")
+CFLAGS += -DMLFQ=1
+endif
 
 LDFLAGS = -z max-page-size=4096
 

@@ -17,16 +17,14 @@ int main() {
           break;
       if (pid == 0) {
           if (n < IO) {
-            sleep((n+1)*100); // IO bound processes
+            sleep(250); // IO bound processes
           } else {
             for (uint64 i = 0; i < 1000000000; i++) {}; // CPU bound process
           }
           printf("Process %d finished\n", n);
           exit(0);
       } else {
-// #define LOTTERY
-#define PBS
-#ifdef LOTTERY
+#ifdef LBS
           settickets((n+1)*(n+1)*(n+1));
 #endif
 #ifdef PBS

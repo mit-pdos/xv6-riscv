@@ -111,6 +111,7 @@ struct proc {
   // uint64 run_tick;             // Tick process is running
   uint64 num_sched;            // Number of times process is scheduled
   uint64 sleeping_time;        // Time spent sleeping
+  uint64 wait_time;            // Time spent waiting
   uint64 running_time;         // Time spent running
   uint64 static_priority;      // Static priority
   int mask;
@@ -118,4 +119,7 @@ struct proc {
   uint rtime;                   // How long the process ran for
   uint ctime;                   // When was the process created 
   uint etime;                   // When did the process exited
+
+  int queue;                    // Which queue the process is in
+  int queued;                   // Whether the process is in the queue
 };

@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+// #include "queue.h"
 
 struct spinlock tickslock;
 uint ticks;
@@ -76,9 +77,22 @@ usertrap(void)
   if(killed(p))
     exit(-1);
 
+  #ifndef FCFS
+  #ifndef PBS
+  #ifndef MLFQ
   // give up the CPU if this is a timer interrupt.
-  // if(which_dev == 2)
-  //   yield();
+  if(which_dev == 2)
+    yield();
+  #endif
+  #endif
+  #endif
+
+  #ifdef MLFQ
+  int max_time_slice = 1 << p->queue;
+  if(which_dev == 2 && p->running_time >= max_time_slice) {
+    yield();
+  }
+  #endif
 
   usertrapret();
 }
@@ -150,9 +164,13 @@ kerneltrap()
     panic("kerneltrap");
   }
 
+  #ifndef FCFS
+  #ifndef PBS
   // give up the CPU if this is a timer interrupt.
-  // if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
-  //   yield();
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+    yield();
+  #endif
+  #endif
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.

@@ -190,5 +190,14 @@ void            virtio_disk_init(void);
 void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
 
+// queue
+void init_mlfq();
+void push(int, struct proc*);
+struct proc* pop(int);
+struct proc* front(int);
+int is_empty(int);
+struct proc* highest();
+void print_mlfq();
+
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
