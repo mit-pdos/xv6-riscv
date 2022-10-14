@@ -123,8 +123,10 @@ int cowfault(uint64 va, pagetable_t pagetable)
     return -1;
   if (!(*pte & PTE_V))
     return -1;
-  if (!(*pte & PTE_COW))
+  if(!(*pte & PTE_U))
     return -1;
+  // if (!(*pte & PTE_COW))
+  //   return 0;
 
   pa = PTE2PA(*pte);
 

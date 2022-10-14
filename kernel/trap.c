@@ -73,6 +73,8 @@ usertrap(void)
   {
     if ((cowfault(r_stval(), p->pagetable) < 0))
     {
+      // printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+      // printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
       setkilled(p);
     }
 
