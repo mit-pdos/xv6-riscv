@@ -71,6 +71,19 @@ ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]nopie'),)
 CFLAGS += -fno-pie -nopie
 endif
 
+ifeq ("$(SCHEDULER)","FCFS")
+CFLAGS += -DFCFS=1
+endif
+ifeq ("$(SCHEDULER)","LBS")
+CFLAGS += -DLBS=1
+endif
+ifeq ("$(SCHEDULER)","PBS")
+CFLAGS += -DPBS=1
+endif
+ifeq ("$(SCHEDULER)","MLFQ")
+CFLAGS += -DMLFQ=1
+endif
+
 LDFLAGS = -z max-page-size=4096
 
 $K/kernel: $(OBJS) $K/kernel.ld $U/initcode
@@ -133,6 +146,10 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_strace\
+	$U/_setpriority\
+	$U/_time\
+	$U/_schedulertest\
+	$U/_alarmtest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
@@ -156,6 +173,7 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 ifndef CPUS
 CPUS := 3
 endif
+
 
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
 QEMUOPTS += -global virtio-mmio.force-legacy=false

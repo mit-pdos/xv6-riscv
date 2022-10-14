@@ -108,6 +108,11 @@ int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 int             settickets(int);
 int             set_priority(int, int);
+int             waitx(uint64, uint*, uint*);
+void            update_time(void);
+int             sigalarm(int ticks, void (*handler)());
+int             sigreturn(void);
+
 
 // swtch.S
 void            swtch(struct context*, struct context*);
@@ -186,6 +191,15 @@ void            plic_complete(int);
 void            virtio_disk_init(void);
 void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
+
+// queue
+void init_mlfq();
+void push(int, struct proc*);
+struct proc* pop(int);
+struct proc* front(int);
+int is_empty(int);
+struct proc* highest();
+void print_mlfq();
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

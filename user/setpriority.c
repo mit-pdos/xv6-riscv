@@ -15,8 +15,9 @@ main(int argc, char** argv) {
         fprintf(2, "Priority must be between 0 and 100");
         exit(1);
     }
-    if (setpriority(priority, pid) < 0) {
+    if (set_priority(priority, pid) < 0) {
         fprintf(2, "Failed to set priority");
         exit(1);
     }
+    exit(0);
 }
