@@ -1116,7 +1116,7 @@ update_time()
       p->stime++;
     } else if(p->state == RUNNABLE) {
       p->wait_time++;
-      if(p->wait_time >= 4 << p->queue) {
+      if(p->wait_time >= 20) {
         if(p->queue > 0) {
           p->wait_time = 0;
           pop(p->queue);
@@ -1127,6 +1127,14 @@ update_time()
     }
     release(&p->lock); 
   }
+  #ifdef MLFQ
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->pid > 3) 
+      printf("%d %d %d\n", ticks, p->pid, p->queue);
+    release(&p->lock);
+  }
+  #endif
 }
 
 
