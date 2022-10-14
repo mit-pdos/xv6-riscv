@@ -115,6 +115,8 @@ int cowfault(uint64 va, pagetable_t pagetable)
 {
   if (va >= MAXVA)
     return -1;
+  if(va == 0) 
+    return -1;
   uint64 pa;
   uint64 mem;
   pte_t *pte;
