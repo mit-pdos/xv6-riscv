@@ -689,17 +689,22 @@ scheduler(void)
         p->queued = 1;
         push(p->queue, p);
       } 
-      // else if(p->state == RUNNABLE && p->wait_time >= 4 * (1 << p->queue)) {
-      //   p->queued = 1;
-      //   if(p->queue > 0) {
-      //     pop(p->queue);
-      //     p->queue--;
-      //     push(p->queue, p);
-      //     p->wait_time = 0;
-      //   }
-      // }
       release(&p->lock);
     }
+
+    // for(int i = 1; i < 5; i++) {
+    //   for(int j = mlfq_pointers[i][1]; j != mlfq_pointers[i][0]; j = (j - 1 + NPROC) % NPROC) {
+    //     p = mlfq[i][j];
+    //     acquire(&p->lock);
+    //     if(p->state == RUNNABLE && p->wait_time >= (4 << p->queue)) {
+    //       pop(p->queue);
+    //       p->queue--;
+    //       push(p->queue, p);
+    //       p->wait_time = 0;
+    //     }
+    //     release(&p->lock);
+    //   }
+    // }
     // print_mlfq();
 
     // printf("\n");
@@ -724,20 +729,13 @@ scheduler(void)
         release(&p->lock);
       }
     }
-    // break;
     continue;
 
 gotcha:
-      // printf("%d %s\n", p->pid, states[p->state]);
       if (p->state == RUNNABLE) {
-      //   printf("MLFQ running %d\n", p->pid);
-      //   p->state = RUNNING;
-      //   c->proc = p;
-      //   swtch(&c->context, &p->context);
-      //   c->proc = 0;
-      // release(&p->lock);
       p->state = RUNNING;
       c->proc = p;
+      p->wait_time = 0;
       swtch(&c->context, &p->context);
       if(p->queue < 4 && p->state == RUNNABLE) {
         p->queue++;
@@ -745,7 +743,6 @@ gotcha:
         push(p->queue, p);
       }
       p->running_time = 0;
-      p->wait_time = 0;
       c->proc = 0;
       release(&p->lock);
     }
@@ -1035,12 +1032,17 @@ int set_priority(int priority, int pid) {
       int niceness;
       if(p->stime + p->running_time == 0) niceness = 5;
       else niceness = (p->stime * 10) / (p->stime + p->running_time);
-      int priority = max(0, min(p->static_priority - niceness + 5, 100));
+      int d_priority = max(0, min(p->static_priority - niceness + 5, 100));
 
       p->static_priority = priority;
       p->running_time = 0;
       p->stime = 0;
       release(&p->lock);
+
+      if(priority < d_priority) {
+        yield();
+      }
+      
       return old_sp;
     }
     release(&p->lock);
