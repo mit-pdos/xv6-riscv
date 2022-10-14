@@ -109,7 +109,14 @@ usertrap(void)
 
   #ifdef MLFQ
   int max_time_slice = 1 << p->queue;
-  if(which_dev == 2 && p->running_time >= max_time_slice) {
+  int to_preempt = 0;
+  for(int i = 0; i < p->queue; i++) {
+    if(!is_empty(i)) {
+      to_preempt = 1;
+      break;
+    }
+  }
+  if((which_dev == 2 && p->running_time >= max_time_slice) || to_preempt) {
     yield();
   }
   #endif
