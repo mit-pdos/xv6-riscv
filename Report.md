@@ -1,3 +1,4 @@
+
 # REPORT
 
 ## Specification 1: System Calls
@@ -19,6 +20,7 @@ Modificatons made:
 7. user.h: `int trace(int);`
 8. strace.c: Created a new file to test the trace system call in Users
 9. usys.pl: `entry("trace");` 
+
 
 ### `sigalarm` and `sigreturn`
 
