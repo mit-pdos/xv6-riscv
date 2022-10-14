@@ -110,6 +110,8 @@ int             settickets(int);
 int             set_priority(int, int);
 int             waitx(uint64, uint*, uint*);
 void            update_time(void);
+int             sigalarm(int ticks, void (*handler)());
+int             sigreturn(void);
 
 
 // swtch.S

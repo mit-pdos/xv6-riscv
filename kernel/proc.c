@@ -170,6 +170,7 @@ found:
   p->queued = 1;
   push(0, p);
 
+  p->alarm_flag = 0;
 
   return p;
 }
@@ -1195,4 +1196,24 @@ void print_mlfq() {
         }
         printf("\n");
     }
+}
+
+int sigalarm(int ticks, void (*handler)()) {
+  struct proc *p = myproc();
+  if (ticks < 0) {
+    return -1;
+  }
+  p->alarm_interval = ticks;
+  p->alarm_handler = handler;
+  p->alarm_flag = 1;
+  p->alarm_time = 0;
+  return 0;
+}
+
+int sigreturn(void) {
+  struct proc *p = myproc();
+  *p->trapframe = p->old_trapframe;
+  p->alarm_time = 0;
+  p->alarm_flag = 1;
+  return p->old_trapframe.a0;
 }

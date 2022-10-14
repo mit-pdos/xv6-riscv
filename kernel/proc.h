@@ -122,4 +122,11 @@ struct proc {
 
   int queue;                    // Which queue the process is in
   int queued;                   // Whether the process is in the queue
+
+  // sigs
+  int alarm_flag;               // Whether the alarm is set
+  uint64 alarm_interval;        // Alarm interval
+  void(*alarm_handler)(void);   // Alarm handler
+  uint64 alarm_time;            // Alarm time
+  struct trapframe old_trapframe; // backup trapframe
 };

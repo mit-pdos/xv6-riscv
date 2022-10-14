@@ -134,3 +134,19 @@ sys_waitx(void)
     return -1;
   return ret;
 }
+
+uint64
+sys_sigreturn(void)
+{
+  return sigreturn();
+}
+
+uint64
+sys_sigalarm(void)
+{
+  int ticks;
+  void (*handler)(void);
+  argint(0, &ticks);
+  argaddr(1, (uint64*)&handler);
+  return sigalarm(ticks, handler);
+}
