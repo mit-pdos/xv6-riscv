@@ -1277,7 +1277,7 @@ createdelete(char *s)
 
   for(i = 0; i < N; i++){
     for(pi = 0; pi < NCHILD; pi++){
-      name[0] = 'p' + i;
+      name[0] = 'p' + pi;
       name[1] = '0' + i;
       unlink(name);
     }
