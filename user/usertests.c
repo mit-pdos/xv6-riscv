@@ -1591,7 +1591,7 @@ subdir(char *s)
     exit(1);
   }
   if(chdir("dd/../../../dd") != 0){
-    printf("chdir dd/../../dd failed\n", s);
+    printf("chdir dd/../../../dd failed\n", s);
     exit(1);
   }
   if(chdir("./..") != 0){
@@ -1677,7 +1677,7 @@ subdir(char *s)
   }
 
   if(unlink("dd/dd/ffff") != 0){
-    printf("%s: unlink dd/dd/ff failed\n", s);
+    printf("%s: unlink dd/dd/ffff failed\n", s);
     exit(1);
   }
   if(unlink("dd/ff") != 0){
