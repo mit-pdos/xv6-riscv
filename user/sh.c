@@ -143,6 +143,25 @@ getcmd(char *buf, int nbuf)
 }
 
 int
+isblank(char c)
+{
+  // \t = 9, \n = 10, \v = 11, \f = 12, \r = 13
+  return (('\t' <= c && c <= '\r') || (c == ' '));
+}
+
+int
+isblankstr(const char *s)
+{
+  char c = 0;
+  while((c = *s++)){
+    if(!isblank(c)){
+      return 0;
+    }
+  }
+  return 1;
+}
+
+int
 main(void)
 {
   static char buf[100];
@@ -165,6 +184,8 @@ main(void)
         fprintf(2, "cannot cd %s\n", buf+3);
       continue;
     }
+    if(isblankstr(buf))
+      continue;
     if(fork1() == 0)
       runcmd(parsecmd(buf));
     wait(0);
