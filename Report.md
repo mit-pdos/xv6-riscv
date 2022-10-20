@@ -11,7 +11,7 @@ Modificatons made:
 2. proc.h: Added a variable `int mask` 
 3. proc.c : Added `np->mask = p->mask;` to fork funtion
 4. syscall.c: 
-    + Added `extern uint64 sys_trace(void);``
+    + Added `extern uint64 sys_trace(void);`
     + Added `[SYS_trace] sys_trace` under syscall mapping fucntion
     + Created 2 arrays `nargs[]` and `sysnames` to map number o of arguments and index to system call name respectively
     + Modified `syscall` function to print process id, system call name, arguments and return value
