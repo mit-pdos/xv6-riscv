@@ -74,7 +74,7 @@ time it was scheduled.
 
 ## Specification 4: Copy on Write
 
-1. vm.c: changed `umvcopy` to not allocate the new pa
+1. vm.c: changed `umvcopy` to not allocate the new physical address.
 2. kalloc.c: defined `ref_count` and changed `kalloc.c`,`kfree.c` and added a new function `increase`
 3. trap.c: handle function in Trap 
 4. kalloc.c: added `int cowfault` 
