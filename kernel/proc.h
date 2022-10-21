@@ -104,4 +104,29 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  uint64 creation_time;        // Time of creation
+  uint64 tickets;              // Number of tickets
+  uint64 sleep_tick;           // Tick sleep is called
+  // uint64 run_tick;             // Tick process is running
+  uint64 num_sched;            // Number of times process is scheduled
+  uint64 sleeping_time;        // Time spent sleeping
+  uint64 wait_time;            // Time spent waiting
+  uint64 running_time;         // Time spent running
+  uint64 static_priority;      // Static priority
+  int mask;
+  uint stime;
+  uint rtime;                   // How long the process ran for
+  uint ctime;                   // When was the process created 
+  uint etime;                   // When did the process exited
+
+  int queue;                    // Which queue the process is in
+  int queued;                   // Whether the process is in the queue
+
+  // sigs
+  int alarm_flag;               // Whether the alarm is set
+  uint64 alarm_interval;        // Alarm interval
+  void(*alarm_handler)(void);   // Alarm handler
+  uint64 alarm_time;            // Alarm time
+  struct trapframe old_trapframe; // backup trapframe
 };

@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+// #include "queue.h"
 
 struct spinlock tickslock;
 uint ticks;
@@ -67,6 +68,16 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  }
+  else if (r_scause() == 15)
+  {
+    if ((cowfault(r_stval(), p->pagetable) < 0))
+    {
+      // printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+      // printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+      setkilled(p);
+    }
+
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
@@ -76,9 +87,39 @@ usertrap(void)
   if(killed(p))
     exit(-1);
 
+  #ifndef FCFS
+  #ifndef PBS
+  #ifndef MLFQ
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2){
+    if(p->alarm_flag) {
+      p->alarm_time++;
+      if(p->alarm_time >= p->alarm_interval) {
+        p->old_trapframe = *p->trapframe;
+        p->alarm_time = 0;
+        p->alarm_flag = 0;
+        p->trapframe->epc = (uint64)p->alarm_handler;
+      }
+    }
     yield();
+  }
+  #endif
+  #endif
+  #endif
+
+  #ifdef MLFQ
+  int max_time_slice = 1 << p->queue;
+  int to_preempt = 0;
+  for(int i = 0; i < p->queue; i++) {
+    if(!is_empty(i)) {
+      to_preempt = 1;
+      break;
+    }
+  }
+  if((which_dev == 2 && p->running_time >= max_time_slice) || to_preempt) {
+    yield();
+  }
+  #endif
 
   usertrapret();
 }
@@ -150,9 +191,13 @@ kerneltrap()
     panic("kerneltrap");
   }
 
+  #ifndef FCFS
+  #ifndef PBS
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
     yield();
+  #endif
+  #endif
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
@@ -165,6 +210,7 @@ clockintr()
 {
   acquire(&tickslock);
   ticks++;
+  update_time();
   wakeup(&ticks);
   release(&tickslock);
 }
