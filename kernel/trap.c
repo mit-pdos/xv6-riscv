@@ -44,6 +44,7 @@ usertrap(void)
   // send interrupts and exceptions to kerneltrap(),
   // since we're now in the kernel.
   w_stvec((uint64)kernelvec);
+  //? why not trapinithart();
 
   struct proc *p = myproc();
   
@@ -51,6 +52,7 @@ usertrap(void)
   p->trapframe->epc = r_sepc();
   
   if(r_scause() == 8){
+    // risc-v puts a number here that describes the reason for the trap
     // system call
 
     if(killed(p))
@@ -126,7 +128,12 @@ usertrapret(void)
   // switches to the user page table, restores user registers,
   // and switches to user mode with sret.
   uint64 trampoline_userret = TRAMPOLINE + (userret - trampoline);
-  ((void (*)(uint64))trampoline_userret)(satp);
+  ((void (*)(uint64))trampoline_userret)(satp); //# only $a0
+  
+  /* 
+   * uint64 fn = TRAMPOLINE + (uservec - trampoline);
+   * ((void (*)(uint64, uint64))fn) (TRAMPOLINE, satp); //# $a0, $a1
+  **/
 }
 
 // interrupts and exceptions from kernel code go here via kernelvec,

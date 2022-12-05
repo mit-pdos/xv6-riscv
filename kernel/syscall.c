@@ -104,6 +104,14 @@ extern uint64 sys_close(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
+
+/*
+ * When system call occured with system call number `x`
+ * function pointed by function pointer whose number is `x` will be called
+ * The file is not place you're gotta implement it
+ * => put function prototype inside this file (above definations)
+**/
+
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
 [SYS_exit]    sys_exit,

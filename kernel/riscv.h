@@ -42,6 +42,12 @@ w_mepc(uint64 x)
 
 // Supervisor Status Register, sstatus
 
+/*
+ * SIE: if kernel clears it, risc-v defers device interrupts until kernel sets
+ * SPP: indicates the trap from and controls to which mode `sret` returns (0: U)
+ * SSTATUS [SPP _ _ SPIE UPIE _ _ SIE UIE]
+**/
+
 #define SSTATUS_SPP (1L << 8)  // Previous mode, 1=Supervisor, 0=User
 #define SSTATUS_SPIE (1L << 5) // Supervisor Previous Interrupt Enable
 #define SSTATUS_UPIE (1L << 4) // User Previous Interrupt Enable
@@ -116,6 +122,12 @@ w_mie(uint64 x)
 // supervisor exception program counter, holds the
 // instruction address to which a return from
 // exception will go.
+
+/*
+ * when a trap occurs, risc-v saves pc here (pc'll be overwritten with `stvec` value)
+ * `sret` copies `sepc` to pc (returned from trap)
+**/
+
 static inline void 
 w_sepc(uint64 x)
 {
@@ -162,6 +174,12 @@ w_mideleg(uint64 x)
 
 // Supervisor Trap-Vector Base Address
 // low two bits are mode.
+
+/*
+ * stvec: The kernel writes the address of its trap handler here
+ * and the risc-v jumps to the address in stvec to handle the trap
+**/
+
 static inline void 
 w_stvec(uint64 x)
 {
@@ -224,6 +242,8 @@ w_mscratch(uint64 x)
 }
 
 // Supervisor Trap Cause
+// A number here to describe the reason for trap
+
 static inline uint64
 r_scause()
 {

@@ -28,11 +28,17 @@ uservec:
 
         # save user a0 in sscratch so
         # a0 can be used to get at TRAPFRAME.
+        
+        # csrw: atomic write `csr`
+        # `sscratch` helps handler code avoid overwriting user regs before saving them
         csrw sscratch, a0
 
         # each process has a separate p->trapframe memory area,
         # but it's mapped to the same virtual address
+
         # (TRAPFRAME) in every process's user page table.
+
+        # li: load immediate ($imm)
         li a0, TRAPFRAME
         
         # save the user registers in TRAPFRAME
@@ -86,6 +92,11 @@ uservec:
 
         # wait for any previous memory operations to complete, so that
         # they use the user page table.
+
+        # The `SFENCE.VMA` is used to flush any local hardware caches related to address translation.
+        # `SFENCE.VMA` is also used by higher privilege levels to synchronize page table writes and the address translation hardware.
+        # If rs1=x0 and rs2=x0, the fence orders all reads and writes made to any level of the page tables, for all address spaces.
+
         sfence.vma zero, zero
 
         # install the kernel page table.
@@ -105,11 +116,21 @@ userret:
         # a0: user page table, for satp.
 
         # switch to the user page table.
+
+        # print/x $a0
+        # print/x $a1
+        
         sfence.vma zero, zero
-        csrw satp, a0
+        csrw satp, a0 # a1
         sfence.vma zero, zero
 
         li a0, TRAPFRAME
+
+        # put the saved user a0 in sscratch
+        # so we can swap it with our a0 (TRAPFRAME) in last step
+
+        ## ld t0, 112(a0)
+        ## csrw sscratch, t0
 
         # restore all but a0 from TRAPFRAME
         ld ra, 40(a0)
@@ -143,8 +164,18 @@ userret:
         ld t5, 272(a0)
         ld t6, 280(a0)
 
+        # print/x $a0
+        # print/x $sscratch
+
 	# restore user a0
         ld a0, 112(a0)
+
+        # print/x $a0
+        # print/x $sscratch
+
+        # and save TRAPFRAME in `sscratch`
+        # csrrw: atomic read/write `csr`
+        ## csrrw a0, sscratch, a0
         
         # return to user mode and user pc.
         # usertrapret() set up sstatus and sepc.

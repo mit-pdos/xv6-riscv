@@ -1,3 +1,5 @@
+/* Functions in this file will be called by users */
+
 struct stat;
 
 // system calls
