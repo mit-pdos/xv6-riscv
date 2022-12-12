@@ -55,7 +55,7 @@ start()
 }
 
 // arrange to receive timer interrupts.
-// they will arrive in machine mode at
+// they will arrive in machine mode
 // at timervec in kernelvec.S,
 // which turns them into software interrupts for
 // devintr() in trap.c.
