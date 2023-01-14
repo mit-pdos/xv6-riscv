@@ -55,6 +55,9 @@ procinit(void)
       initlock(&p->lock, "proc");
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
+      p->original_tickets = 0;
+      p->current_tickets = 0;
+      p->cpu_slices = 0;
   }
 }
 
@@ -169,6 +172,9 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->original_tickets = 0;
+  p->current_tickets = 0;
+  p->cpu_slices = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -249,6 +255,8 @@ userinit(void)
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
+  p->original_tickets = DEFAULT_TICKET;
+
   p->state = RUNNABLE;
 
   release(&p->lock);
@@ -311,6 +319,8 @@ fork(void)
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
+
+  np->original_tickets = p->original_tickets;
 
   release(&np->lock);
 
@@ -437,13 +447,16 @@ wait(uint64 addr)
 int
 settickets(int tc)
 {
-  // struct proc *p;
+  struct proc *p;
 
   if(tc < 0) {
     return -1;
   }
 
-  printf("setting ticket count = %d\n", tc);
+  p = myproc();
+  acquire(&p->lock);
+  p->original_tickets = tc;
+  release(&p->lock);
   
   return 0;
 }
