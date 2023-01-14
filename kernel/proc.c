@@ -439,7 +439,7 @@ settickets(int tc)
 {
   // struct proc *p;
 
-  if(tc < 0){
+  if(tc < 0) {
     return -1;
   }
 
