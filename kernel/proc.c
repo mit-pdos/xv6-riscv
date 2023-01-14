@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "pstat.h"
 
 struct cpu cpus[NCPU];
 
@@ -456,6 +457,7 @@ settickets(int tc)
   p = myproc();
   acquire(&p->lock);
   p->original_tickets = tc;
+  p->current_tickets = tc;
   release(&p->lock);
   
   return 0;
@@ -487,6 +489,7 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        p->cpu_slices++;
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
@@ -707,4 +710,26 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int getpinfo(uint64 addr) {
+  struct proc *p;
+  struct pstat ps;
+  int i;
+
+  for(p = proc, i = 0; p < &proc[NPROC]; p++, i++){
+    acquire(&p->lock);
+    ps.pid[i] = p->pid;
+    ps.inuse[i] = (p->state != UNUSED);
+    ps.tickets_original[i] = p->original_tickets;
+    ps.tickets_current[i] = p->current_tickets;
+    ps.time_slices[i] = p->cpu_slices;
+    if (ps.inuse[i]) {
+      printf("%s\n", p->name);
+    }
+    release(&p->lock);
+  }
+  
+  p = myproc();
+  return copyout(p->pagetable, addr, (char *)&ps, sizeof(ps));
 }

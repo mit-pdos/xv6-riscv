@@ -10,8 +10,12 @@ main(int argc, char *argv[])
   }
 
   int tc = atoi(argv[1]);
-  printf("ticket count = %d\n", tc);
-  settickets(tc);
+  if (settickets(tc) < 0) {
+    fprintf(2, "settickets sys_call failed\n");
+    exit(1);
+  }
+
+  while (1) ;
 
   exit(0);
 }
