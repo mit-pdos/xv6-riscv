@@ -89,3 +89,12 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_settickets(void)
+{
+  int tc;
+
+  argint(0, &tc);
+  return settickets(tc);
+}

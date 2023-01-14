@@ -434,6 +434,20 @@ wait(uint64 addr)
   }
 }
 
+int
+settickets(int tc)
+{
+  // struct proc *p;
+
+  if(tc < 0){
+    return -1;
+  }
+
+  printf("setting ticket count = %d\n", tc);
+  
+  return 0;
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
