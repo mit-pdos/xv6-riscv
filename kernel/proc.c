@@ -450,13 +450,11 @@ wait(uint64 addr)
 int
 settickets(int tc)
 {
-  struct proc *p;
-
   if(tc < 0) {
     return -1;
   }
 
-  p = myproc();
+  struct proc *p = myproc();
   acquire(&p->lock);
   p->original_tickets = tc;
   p->current_tickets = tc;
@@ -558,7 +556,6 @@ lottery_scheduler(void)
     if (proc[winner].state != RUNNABLE) {
       panic("winner not RUNNABLE");
     }
-
 
     // release the locks of other processes
     for (int i = 0; i < NPROC; ++i) {
@@ -796,20 +793,20 @@ procdump(void)
 }
 
 int getpinfo(uint64 addr) {
-  struct proc *p;
-  struct pstat ps;
-  int i;
-
-  for(p = proc, i = 0; p < &proc[NPROC]; p++, i++){
-    acquire(&p->lock);
-    ps.pid[i] = p->pid;
-    ps.inuse[i] = (p->state != UNUSED);
-    ps.tickets_original[i] = p->original_tickets;
-    ps.tickets_current[i] = p->current_tickets;
-    ps.time_slices[i] = p->cpu_slices;
-    release(&p->lock);
+  if (addr == 0) {
+    return -1;
   }
   
-  p = myproc();
-  return copyout(p->pagetable, addr, (char *)&ps, sizeof(ps));
+  struct pstat ps;
+  for (int i = 0; i < NPROC; ++i) {
+    acquire(&proc[i].lock);
+    ps.pid[i] = proc[i].pid;
+    ps.inuse[i] = (proc[i].state != UNUSED);
+    ps.tickets_original[i] = proc[i].original_tickets;
+    ps.tickets_current[i] = proc[i].current_tickets;
+    ps.time_slices[i] = proc[i].cpu_slices;
+    release(&proc[i].lock);
+  }
+  
+  return copyout(myproc()->pagetable, addr, (char *) &ps, sizeof(ps));
 }

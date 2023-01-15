@@ -105,7 +105,7 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
-  // field for lottery scheduling
+  // additional fields for lottery scheduling
   int original_tickets;
   int current_tickets;
   int cpu_slices;

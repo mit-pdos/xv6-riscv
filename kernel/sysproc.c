@@ -105,6 +105,5 @@ sys_getpinfo(void) {
 
   argaddr(0, &addr);
   
-  procdump();
   return getpinfo(addr);
 }

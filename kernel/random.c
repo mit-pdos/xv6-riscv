@@ -27,8 +27,6 @@
 /* see http://www.math.keio.ac.jp/matumoto/emt.html or email       */
 /* matumoto@math.keio.ac.jp                                        */
 
-// #include "param.h"
-
 /* Period parameters */  
 #define N 624
 #define M 397
@@ -45,6 +43,7 @@
 #define TEMPERING_SHIFT_L(y)  (y >> 18)
 
 #define RAND_MAX 0x7fffffff
+#define SEED 4357
 
 static unsigned long mt[N]; /* the array for the state vector  */
 static int mti=N+1; /* mti==N+1 means mt[N] is not initialized */
@@ -73,7 +72,7 @@ genrand()
         int kk;
 
         if (mti == N+1)   /* if sgenrand() has not been called, */
-            sgenrand(4357); /* a default initial seed is used   */
+            sgenrand(SEED); /* a default initial seed is used   */
 
         for (kk=0;kk<N-M;kk++) {
             y = (mt[kk]&UPPER_MASK)|(mt[kk+1]&LOWER_MASK);
