@@ -503,6 +503,86 @@ scheduler(void)
   }
 }
 
+void
+lottery_scheduler(void)
+{
+  struct cpu *c = mycpu();
+  c->proc = 0; // initially the cpu has no process scheduled
+
+  // loop infinitely
+  while (1) {
+    intr_on(); // enable interrupt to avoid deadlocks
+
+    int is_runnable[NPROC] = {0};
+    int total_tickets = 0;
+    for (int i = 0; i < NPROC; ++i) {
+      acquire(&proc[i].lock);
+      if (proc[i].state != RUNNABLE) {
+        release(&proc[i].lock);
+        continue;
+      }
+      is_runnable[i] = 1;
+      total_tickets += proc[i].current_tickets;
+    }
+    // the locks for all RUNNABLE processes are still held
+    
+    // reinstate original ticket count of all RUNNABLE processes if none has any ticket
+    if (total_tickets == 0) {
+      for (int i = 0; i < NPROC; ++i) {
+        if (is_runnable[i]) {
+          proc[i].current_tickets = proc[i].original_tickets;
+          release(&proc[i].lock);
+        }
+      }
+      // now try to schedule again
+      continue;
+    }
+
+    int lottery = random_at_most(total_tickets - 1);
+    if (lottery < 0 || lottery >= total_tickets) {
+      panic("invalid lottery draw");
+    }
+
+    int winner = -1; // process to schedule
+    for (int i = 0, s = 0; i < NPROC; ++i) {
+      if (is_runnable[i]) {
+        s += proc[i].current_tickets;
+        if (lottery < s) {
+          winner = i;
+          break;
+        }
+      }
+    }
+    if (winner == -1) {
+      panic("invalid lottery winner");
+    }
+    if (proc[winner].state != RUNNABLE) {
+      panic("winner not RUNNABLE");
+    }
+
+    // release the locks of other processes
+    for (int i = 0; i < NPROC; ++i) {
+      if (is_runnable[i] && i != winner) {
+        release(&proc[i].lock);
+      }
+    }
+
+    // now schedule proc[winner]
+    // the process should release its lock and then reacquire it before jumping back here
+    proc[winner].state = RUNNING;
+    ++proc[winner].cpu_slices;
+    c->proc = &proc[winner];
+    swtch(&c->context, &proc[winner].context);
+
+    // the process is done running for now
+    // it should have changed its state before coming back
+    c->proc = 0;
+    release(&proc[winner].lock);
+  }
+
+  panic("end of scheduler"); // this will never be reached
+}
+
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this

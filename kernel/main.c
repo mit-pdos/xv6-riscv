@@ -41,5 +41,9 @@ main()
     plicinithart();   // ask PLIC for device interrupts
   }
 
-  scheduler();        
+  // printf("running default scheduler\n");
+  // scheduler();
+
+  printf("running lottery scheduler\n");
+  lottery_scheduler();
 }

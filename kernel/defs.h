@@ -109,6 +109,7 @@ int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 int             settickets(int);
 int             getpinfo(uint64);
+void            lottery_scheduler(void) __attribute__((noreturn));          
 
 // swtch.S
 void            swtch(struct context*, struct context*);
