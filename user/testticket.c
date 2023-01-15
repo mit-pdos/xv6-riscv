@@ -15,6 +15,7 @@ main(int argc, char *argv[])
     exit(1);
   }
 
+  // fork();
   while (1) ;
 
   exit(0);
