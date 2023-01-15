@@ -1,6 +1,7 @@
 #include "kernel/types.h"
 #include "user/user.h"
 #include "kernel/pstat.h"
+#include "kernel/random.c"
 
 int
 main(int argc, char *argv[])
@@ -15,8 +16,7 @@ main(int argc, char *argv[])
     fprintf(2, "getpinfo sys_call failed\n");
     exit(1);
   }
-
-
+  
   for (int i = 0; i < NPROC; ++i) {
     if (ps.inuse[i]) {
       printf("%d %d %d %d %d\n", ps.pid[i], ps.inuse[i], ps.tickets_original[i], ps.tickets_current[i], ps.time_slices[i]);  

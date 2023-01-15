@@ -321,7 +321,9 @@ fork(void)
 
   pid = np->pid;
 
+  // set ticket count for the child process
   np->original_tickets = p->original_tickets;
+  np->current_tickets = p->original_tickets;
 
   release(&np->lock);
 
@@ -724,9 +726,6 @@ int getpinfo(uint64 addr) {
     ps.tickets_original[i] = p->original_tickets;
     ps.tickets_current[i] = p->current_tickets;
     ps.time_slices[i] = p->cpu_slices;
-    if (ps.inuse[i]) {
-      printf("%s\n", p->name);
-    }
     release(&p->lock);
   }
   
