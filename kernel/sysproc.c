@@ -104,6 +104,7 @@ sys_getpinfo(void) {
   uint64 addr;
 
   argaddr(0, &addr);
-
+  
+  procdump();
   return getpinfo(addr);
 }

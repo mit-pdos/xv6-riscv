@@ -17,9 +17,10 @@ main(int argc, char *argv[])
     exit(1);
   }
   
+  printf("PID | In Use | Original Tickets | Current Tickets | Time Slices\n");
   for (int i = 0; i < NPROC; ++i) {
     if (ps.inuse[i]) {
-      printf("%d %d %d %d %d\n", ps.pid[i], ps.inuse[i], ps.tickets_original[i], ps.tickets_current[i], ps.time_slices[i]);  
+      printf("%d | %d | %d | %d | %d\n", ps.pid[i], ps.inuse[i], ps.tickets_original[i], ps.tickets_current[i], ps.time_slices[i]);  
     }
   }
 

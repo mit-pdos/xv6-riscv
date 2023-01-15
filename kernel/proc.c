@@ -491,7 +491,6 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-        p->cpu_slices++;
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
@@ -560,6 +559,7 @@ lottery_scheduler(void)
       panic("winner not RUNNABLE");
     }
 
+
     // release the locks of other processes
     for (int i = 0; i < NPROC; ++i) {
       if (is_runnable[i] && i != winner) {
@@ -569,8 +569,9 @@ lottery_scheduler(void)
 
     // now schedule proc[winner]
     // the process should release its lock and then reacquire it before jumping back here
-    proc[winner].state = RUNNING;
+    --proc[winner].current_tickets;
     ++proc[winner].cpu_slices;
+    proc[winner].state = RUNNING;
     c->proc = &proc[winner];
     swtch(&c->context, &proc[winner].context);
 
