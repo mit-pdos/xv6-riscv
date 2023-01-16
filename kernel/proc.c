@@ -257,6 +257,7 @@ userinit(void)
   p->cwd = namei("/");
 
   p->original_tickets = DEFAULT_TICKET;
+  p->current_tickets = DEFAULT_TICKET;
 
   p->state = RUNNABLE;
 
