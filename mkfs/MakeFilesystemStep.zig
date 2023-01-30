@@ -230,7 +230,6 @@ fn iappend(inum: u32, data: []const u8) !void {
     var buf: [fs.BSIZE]u8 = undefined;
     var n: usize = data.len;
     var n1: usize = undefined;
-    var x: usize = undefined;
     var idx: usize = 0;
     var indirect: [fs.NINDIRECT]u32 = undefined;
 
@@ -244,14 +243,14 @@ fn iappend(inum: u32, data: []const u8) !void {
     }) {
         var fbn = off / fs.BSIZE;
         std.debug.assert(fbn < fs.MAXFILE);
-        if (fbn < fs.NDIRECT) {
+        var x = if (fbn < fs.NDIRECT) blk: {
             if (mem.readVarInt(u32, mem.asBytes(&din.addrs[fbn]), .Little) == 0) {
                 var fblk = mem.readVarInt(u32, mem.asBytes(&freeblock), .Little);
                 defer freeblock += 1;
                 din.addrs[fbn] = fblk;
             }
-            x = mem.readVarInt(usize, mem.asBytes(&din.addrs[fbn]), .Little);
-        } else {
+            break :blk mem.readVarInt(usize, mem.asBytes(&din.addrs[fbn]), .Little);
+        } else blk: {
             if (mem.readVarInt(u32, mem.asBytes(&din.addrs[fs.NDIRECT]), .Little) == 0) {
                 var fblk = mem.readVarInt(u32, mem.asBytes(&freeblock), .Little);
                 defer freeblock += 1;
@@ -265,8 +264,8 @@ fn iappend(inum: u32, data: []const u8) !void {
                 indirect[fbn - fs.NDIRECT] = fblk;
                 try wsect(num, mem.sliceAsBytes(&indirect));
             }
-            x = mem.readVarInt(usize, mem.asBytes(&indirect[fbn - fs.NDIRECT]), .Little);
-        }
+            break :blk mem.readVarInt(usize, mem.asBytes(&indirect[fbn - fs.NDIRECT]), .Little);
+        };
         n1 = math.min(n, (fbn + 1) * fs.BSIZE - off);
         try rsect(x, &buf);
 
