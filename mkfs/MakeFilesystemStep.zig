@@ -116,7 +116,7 @@ fn make(step: *Step) !void {
     }
 
     mem.set(u8, &buf, 0);
-    mem.copy(u8, &buf, &@bitCast([@sizeOf(@TypeOf(sb))]u8, sb));
+    mem.copy(u8, &buf, mem.asBytes(&sb));
     try wsect(1, &buf);
 
     const rootino = @intCast(u16, try ialloc(.dir));
@@ -194,7 +194,7 @@ fn rinode(inum: u32, ip: *fs.Dinode) !void {
     var bn = sb.IBLOCK(inum);
     try rsect(bn, &buf);
     var dip = buf[(inum % fs.IPB) * @sizeOf(fs.Dinode) ..];
-    ip.* = @bitCast(fs.Dinode, dip[0..@sizeOf(fs.Dinode)].*);
+    mem.copy(u8, mem.asBytes(ip), dip[0..@sizeOf(fs.Dinode)]);
 }
 
 fn ialloc(@"type": stat.FileType) !u32 {
