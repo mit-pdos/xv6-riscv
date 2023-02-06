@@ -3,7 +3,7 @@ const mem = std.mem;
 const build = std.build;
 const Step = std.build.Step;
 const Builder = std.build.Builder;
-const LibExeObjStep = std.build.LibExeObjStep;
+const CompileStep = std.build.CompileStep;
 const MakeFilesystemStep = @import("MakeFilesystemStep.zig");
 const RunStep = std.build.RunStep;
 
@@ -21,7 +21,7 @@ step: Step,
 builder: *Builder,
 
 /// The kernel (executable) to be run by this step
-kernel: *LibExeObjStep,
+kernel: *CompileStep,
 
 /// The filesystem image for the os
 image: *MakeFilesystemStep,
@@ -38,7 +38,7 @@ cwd: ?[]const u8,
 stdout_action: RunStep.StdIoAction = .inherit,
 stderr_action: RunStep.StdIoAction = .inherit,
 
-pub fn create(builder: *Builder, kernel: *LibExeObjStep, image: *MakeFilesystemStep) *QemuRunStep {
+pub fn create(builder: *Builder, kernel: *CompileStep, image: *MakeFilesystemStep) *QemuRunStep {
     std.debug.assert(kernel.kind == .exe);
     const self = builder.allocator.create(QemuRunStep) catch unreachable;
 

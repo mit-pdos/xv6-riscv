@@ -7,7 +7,7 @@ const MakeFilesystemStep = @This();
 
 const InstallDir = std.build.InstallDir;
 const Builder = std.build.Builder;
-const LibExeObjStep = std.build.LibExeObjStep;
+const CompileStep = std.build.CompileStep;
 const Step = std.build.Step;
 
 const fs = @import("fs.zig");
@@ -31,12 +31,12 @@ var file: std.fs.File = undefined;
 
 step: Step,
 builder: *Builder,
-artifacts: std.ArrayList(*LibExeObjStep),
+artifacts: std.ArrayList(*CompileStep),
 dest_dir: InstallDir,
 dest_filename: []const u8,
 output_file: std.build.GeneratedFile,
 
-pub fn create(builder: *Builder, artifacts: std.ArrayList(*LibExeObjStep), dest_filename: []const u8) *MakeFilesystemStep {
+pub fn create(builder: *Builder, artifacts: std.ArrayList(*CompileStep), dest_filename: []const u8) *MakeFilesystemStep {
     const self = builder.allocator.create(MakeFilesystemStep) catch unreachable;
     self.* = MakeFilesystemStep{
         .step = Step.init(.custom, builder.fmt("make filesystem image {s}", .{dest_filename}), builder.allocator, make),

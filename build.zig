@@ -1,6 +1,6 @@
 const std = @import("std");
 const mem = std.mem;
-const LibExeObjStep = std.build.LibExeObjStep;
+const CompileStep = std.build.CompileStep;
 const InstallFileStep = std.build.InstallFileStep;
 const MakeFilesystemStep = @import("mkfs/MakeFilesystemStep.zig");
 const QemuRunStep = @import("mkfs/QemuRunStep.zig");
@@ -62,13 +62,15 @@ pub fn build(b: *std.build.Builder) !void {
         "-Wno-unused-but-set-variable", // workaround for compiler error
     };
 
-    const kernel = b.addExecutable("kernel", null);
+    const kernel = b.addExecutable(.{
+        .name = "kernel",
+        .target = target,
+        .optimize = std.builtin.Mode.ReleaseSmall,
+    });
     kernel.addCSourceFiles(&kernel_src, &cflags);
     kernel.addIncludePath(".");
     kernel.setLinkerScriptPath(.{ .path = kernel_linker });
     kernel.code_model = .medium;
-    kernel.setTarget(target);
-    kernel.setBuildMode(std.builtin.Mode.ReleaseSmall);
     kernel.install();
     kernel.strip = true;
 
@@ -100,15 +102,17 @@ pub fn build(b: *std.build.Builder) !void {
 
     const usys_install = try generateUsys(b);
 
-    var artifacts = std.ArrayList(*LibExeObjStep).init(b.allocator);
+    var artifacts = std.ArrayList(*CompileStep).init(b.allocator);
     inline for (user_progs) |src| {
         const exe_name = "_" ++ src["user/".len .. src.len - 2];
-        const user_prog = b.addExecutable(exe_name, null);
+        const user_prog = b.addExecutable(.{
+            .name = exe_name,
+            .target = target,
+            .optimize = std.builtin.Mode.ReleaseSmall,
+        });
         user_prog.addCSourceFiles(&[_][]const u8{src} ++ ulib_src, &cflags);
         user_prog.addIncludePath(".");
         user_prog.setLinkerScriptPath(.{ .path = user_linker });
-        user_prog.setTarget(target);
-        user_prog.setBuildMode(std.builtin.Mode.ReleaseSmall);
         user_prog.code_model = .medium;
         user_prog.install();
         user_prog.step.dependOn(&usys_install.step);
@@ -170,23 +174,23 @@ pub fn generateUsys(b: *std.build.Builder) !*InstallFileStep {
 }
 
 /// Output filesystem image determined by filename
-pub fn installFilesystem(b: *std.build.Builder, artifacts: std.ArrayList(*LibExeObjStep), dest_filename: []const u8) *MakeFilesystemStep {
+pub fn installFilesystem(b: *std.build.Builder, artifacts: std.ArrayList(*CompileStep), dest_filename: []const u8) *MakeFilesystemStep {
     const img = addMakeFilesystem(b, artifacts, dest_filename);
     b.getInstallStep().dependOn(&img.step);
     return img;
 }
 
-pub fn addMakeFilesystem(b: *std.build.Builder, artifacts: std.ArrayList(*LibExeObjStep), dest_filename: []const u8) *MakeFilesystemStep {
+pub fn addMakeFilesystem(b: *std.build.Builder, artifacts: std.ArrayList(*CompileStep), dest_filename: []const u8) *MakeFilesystemStep {
     return MakeFilesystemStep.create(b, artifacts, dest_filename);
 }
 
 /// Run os with qemu
-pub fn qemuRun(b: *std.build.Builder, kernel: *LibExeObjStep, image: *MakeFilesystemStep) *QemuRunStep {
+pub fn qemuRun(b: *std.build.Builder, kernel: *CompileStep, image: *MakeFilesystemStep) *QemuRunStep {
     const run_step = addQemuRun(b, kernel, image);
     b.getInstallStep().dependOn(&run_step.step);
     return run_step;
 }
 
-pub fn addQemuRun(b: *std.build.Builder, kernel: *LibExeObjStep, image: *MakeFilesystemStep) *QemuRunStep {
+pub fn addQemuRun(b: *std.build.Builder, kernel: *CompileStep, image: *MakeFilesystemStep) *QemuRunStep {
     return QemuRunStep.create(b, kernel, image);
 }
