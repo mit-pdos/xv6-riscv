@@ -81,8 +81,10 @@ printf(char *fmt, ...)
       continue;
     }
     c = fmt[++i] & 0xff;
-    if(c == 0)
+    if(c == 0){
+      consputc('%');
       break;
+    }
     switch(c){
     case 'd':
       printint(va_arg(ap, int), 10, 1);
