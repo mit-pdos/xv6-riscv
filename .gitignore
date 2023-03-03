@@ -15,3 +15,5 @@ mkfs
 kernel/kernel
 user/usys.S
 .gdbinit
+.cache
+compile_commands.json
