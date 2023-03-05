@@ -23,6 +23,18 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 
+#define SYS_PROCESS_LOCK_ALLOCATE 0
+#define SYS_PROCESS_LOCK_FREE     1
+#define SYS_PROCESS_LOCK_ACQUIRE  2
+#define SYS_PROCESS_LOCK_RELEASE  3
+
+/// First argument is the type of call
+/// (one out of four mentioned above).
+///
+/// Second argument is id of process lock
+/// (for all type except SYS_PROCESS_LOCK_ALLOCATE).
+int process_lock(int type, int processlock_id);
+
 // ulib.c
 int stat(const char*, struct stat*);
 char* strcpy(char*, const char*);
