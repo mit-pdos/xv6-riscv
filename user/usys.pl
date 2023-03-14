@@ -36,3 +36,8 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
+entry("initlk");
+entry("acqlk");
+entry("rellk");
+entry("holdlk");
+entry("dellk");

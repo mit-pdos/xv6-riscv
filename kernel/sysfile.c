@@ -95,6 +95,49 @@ sys_write(void)
 }
 
 uint64
+sys_initlk(void) {
+  uint64 ptr;
+  int ld;
+  struct proc *p = myproc();
+
+  argaddr(0, &ptr);
+
+  uint64 error = initpoollock(&ld);
+  if (error)
+    return error;
+  
+  return copyout(p->pagetable, ptr, (char*)&ld, sizeof(ld));
+}
+
+uint64
+sys_acqlk(void) {
+  int ld;
+  argint(0, &ld);
+  return acquirepoollock(ld);
+}
+
+uint64
+sys_rellk(void) {
+  int ld;
+  argint(0, &ld);
+  return releasepoollock(ld);
+}
+
+uint64
+sys_holdlk(void) {
+  int ld;
+  argint(0, &ld);
+  return holdingpoollock(ld);
+}
+
+uint64
+sys_dellk(void) {
+  int ld;
+  argint(0, &ld);
+  return deletepoollock(ld);
+}
+
+uint64
 sys_close(void)
 {
   int fd;
