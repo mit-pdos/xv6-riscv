@@ -95,6 +95,16 @@ sys_write(void)
 }
 
 uint64
+sys_hello(void)
+{
+  int n1, n2;
+  argint(0, &n1);
+  argint(1, &n2);
+  return n1 + n2;
+}
+
+
+uint64
 sys_close(void)
 {
   int fd;
