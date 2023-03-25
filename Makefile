@@ -30,7 +30,8 @@ OBJS = \
   $K/plic.o \
   $K/virtio_disk.o \
   $K/lockrequestprocessing.o \
-  $K/sys_sleeplock_request_processing.o
+  $K/sys_sleeplock_request_processing.o\
+  $K/system_char_buf.o
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -135,6 +136,7 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_ht_2_task_1\
+	$U/_hometask_4\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

@@ -185,8 +185,9 @@ void            virtio_disk_init(void);
 void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
 
-// lockrequestprocessing.c
+// custom
 void            initialize_locks(void); 
+void            lock_init(void); 
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
