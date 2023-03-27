@@ -446,11 +446,13 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  int foundrunnable;
   
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
+    foundrunnable = 0;
 
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
@@ -458,6 +460,7 @@ scheduler(void)
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
+        foundrunnable = 1;
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
@@ -467,6 +470,13 @@ scheduler(void)
         c->proc = 0;
       }
       release(&p->lock);
+    }
+
+    // Wait for interrupt if no runnable process is found.
+    // Otherwise there would be a high cpu usage.
+    if(!foundrunnable) {
+      intr_on();
+      asm volatile("wfi");
     }
   }
 }
