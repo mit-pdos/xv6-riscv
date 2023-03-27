@@ -97,11 +97,16 @@ timervec:
         # scratch[0,8,16] : register save area.
         # scratch[24] : address of CLINT's MTIMECMP register.
         # scratch[32] : desired interval between interrupts.
+        # scratch[40] : halt flag set by timerhalt.
         
         csrrw a0, mscratch, a0
         sd a1, 0(a0)
         sd a2, 8(a0)
         sd a3, 16(a0)
+
+        # halt if timerhalt has set halt flag to 1
+        ld a1, 40(a0)
+        bne a1, zero, halt
 
         # schedule the next timer interrupt
         # by adding interval to mtimecmp.
@@ -122,3 +127,14 @@ timervec:
         csrrw a0, mscratch, a0
 
         mret
+
+halt:
+        # based on qemu's hw/riscv/virt.c:
+        # qemu halts if FINISHER_PASS(=0x5555) is 
+        # written at address *VIRT_TEST(=0x100000L)
+        lui a1, 0x100
+        lui a2, 0x5
+        addi a2, a2, 0x555
+        sw a2, 0(a1)
+spin:
+        j spin
