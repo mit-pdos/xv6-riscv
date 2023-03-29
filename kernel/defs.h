@@ -188,6 +188,7 @@ void            virtio_disk_intr(void);
 // custom
 void            initialize_locks(void); 
 void            lock_init(void); 
+void            display_table_lock_init(void); 
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

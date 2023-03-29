@@ -16,7 +16,6 @@
 short flag = 1;
 
 struct {
-    int number_of_words;
     int last_pos;
     struct spinlock spnlock;
     char buffer[NUMBER_OF_CHARS];
@@ -41,7 +40,6 @@ void writer(const char *str, short needs_n){
     spinned_buffer.last_pos += len_to_write;
     if (needs_n){
         spinned_buffer.buffer[spinned_buffer.last_pos++] = '\n';
-        spinned_buffer.number_of_words++;
     }
 }
 
