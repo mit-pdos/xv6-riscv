@@ -47,7 +47,7 @@ void pr_msg (const char *str){
     acquire(&spinned_buffer.spnlock);
 
     acquire(&tickslock);
-    int ticks_at_start = ticks;
+    uint ticks_at_start = ticks;
     release(&tickslock);
     
     if (flag){
