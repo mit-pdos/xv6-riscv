@@ -22,6 +22,9 @@ void            consoleinit(void);
 void            consoleintr(int);
 void            consputc(int);
 
+// dmesg.c
+int             pr_msg(const char*);
+
 // exec.c
 int             exec(char*, char**);
 
