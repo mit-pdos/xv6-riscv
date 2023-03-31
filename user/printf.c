@@ -13,6 +13,32 @@ putc(int fd, char c)
 }
 
 static void
+printuint64(int fd, uint64 xx, int base, int sgn)
+{
+  char buf[32];
+  int i, neg;
+  uint64 x;
+
+  neg = 0;
+  if(sgn && xx < 0){
+    neg = 1;
+    x = -xx;
+  } else {
+    x = xx;
+  }
+
+  i = 0;
+  do{
+    buf[i++] = digits[x % base];
+  }while((x /= base) != 0);
+  if(neg)
+    buf[i++] = '-';
+
+  while(--i >= 0)
+    putc(fd, buf[i]);
+}
+
+static void
 printint(int fd, int xx, int base, int sgn)
 {
   char buf[16];
@@ -47,7 +73,7 @@ printptr(int fd, uint64 x) {
     putc(fd, digits[x >> (sizeof(uint64) * 8 - 4)]);
 }
 
-// Print to the given fd. Only understands %d, %x, %p, %s.
+// Print to the given fd. Only understands %d, %l, %x, %p, %s.
 void
 vprintf(int fd, const char *fmt, va_list ap)
 {
@@ -67,7 +93,7 @@ vprintf(int fd, const char *fmt, va_list ap)
       if(c == 'd'){
         printint(fd, va_arg(ap, int), 10, 1);
       } else if(c == 'l') {
-        printint(fd, va_arg(ap, uint64), 10, 0);
+        printuint64(fd, va_arg(ap, uint64), 10, 0);
       } else if(c == 'x') {
         printint(fd, va_arg(ap, int), 16, 0);
       } else if(c == 'p') {
