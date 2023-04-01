@@ -89,3 +89,10 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+//enable tracing on system calls
+uint64 sys_trace(void) {
+	struct proc *p = myproc();
+	argint(0, &(p->trace_mask));
+	return 0;
+}
