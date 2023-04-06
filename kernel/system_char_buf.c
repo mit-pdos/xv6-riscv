@@ -31,16 +31,21 @@ void lock_init() {
     initlock(&spinned_buffer.spnlock, "spnlock");
 }
 
-void writer(const char *str, short needs_n){
+void writer(const char *str, const char *ticks){
     int len_to_write = min(strlen(str), NUMBER_OF_CHARS - spinned_buffer.last_pos - 1);
     if (len_to_write < 0)
         return;
     for (int ind = 0; ind < len_to_write; ind++)
         spinned_buffer.buffer[spinned_buffer.last_pos + ind] = str[ind];
     spinned_buffer.last_pos += len_to_write;
-    if (needs_n){
-        spinned_buffer.buffer[spinned_buffer.last_pos++] = '\n';
-    }
+    len_to_write = min(strlen(ticks), NUMBER_OF_CHARS - spinned_buffer.last_pos - 1);
+    if (len_to_write < 0)
+        return;
+    for (int ind = 0; ind < len_to_write; ind++)
+        spinned_buffer.buffer[spinned_buffer.last_pos + ind] = ticks[ind];
+    spinned_buffer.last_pos += len_to_write;
+    spinned_buffer.buffer[spinned_buffer.last_pos++] = '\n';
+    
 }
 
 void pr_msg (const char *str){   
@@ -55,28 +60,20 @@ void pr_msg (const char *str){
         spinned_buffer.last_pos = 0;
     }
 
-    writer(str, 0);
-
-    char msg[32];
+    char number_rev[TICKS_BUFFER_SIZE - 1];
     char number[TICKS_BUFFER_SIZE];
-
-    const char *tks_msg_b = ", ticks: ";
-    const char *tks_msg_e = "; ";
-    
-    strncpy(msg, tks_msg_b, strlen(tks_msg_b));
+    number[0] = ' ';
 
     int len_of_num = (ticks_at_start == 0);
-    number[0] = '0';
-    while (ticks_at_start > 0 && len_of_num < TICKS_BUFFER_SIZE) {
-        number[len_of_num++] = '0' + ticks_at_start % 10;
+    number_rev[0] = '0';
+    while (ticks_at_start > 0 && len_of_num < TICKS_BUFFER_SIZE - 1) {
+        number_rev[len_of_num++] = '0' + ticks_at_start % 10;
         ticks_at_start /= 10;
     }
     for (int i = len_of_num - 1; i >= 0; i--)
-        msg[strlen(tks_msg_b) + (len_of_num - 1 - i)] = number[i];
-    
-    strncpy(msg + strlen(tks_msg_b) + len_of_num, tks_msg_e, strlen(tks_msg_e));
-
-    writer(msg, 1);
+        number[len_of_num - i] = number_rev[i];
+    number[len_of_num + 1] = 0;
+    writer(str, number);
     release(&spinned_buffer.spnlock);  
 }
 
