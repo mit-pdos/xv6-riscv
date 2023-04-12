@@ -32,11 +32,11 @@ main()
     userinit();      // first user process
 
     lock_init();      // lock_for_log init
-    pr_msg("hello wolrld 1");
-    pr_msg("hello wolrld 2");
-    //pr_msg("hello wolrld 3");
-    //pr_msg("hello wolrld 4");
-    //pr_msg("hello wolrld 5");
+    //pr_msg("hello world 1");
+    //pr_msg("hello world 2");
+    //pr_msg("hello world 3");
+    //pr_msg("hello world 4");
+    //pr_msg("hello world 5");
     display_table_lock_init();    
     initialize_locks(); //init sleeplock array
     __sync_synchronize();

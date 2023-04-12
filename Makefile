@@ -139,6 +139,7 @@ UPROGS=\
 	$U/_ht_2_task_1\
 	$U/_hometask_4\
 	$U/_ht_3_test\
+	$U/_hometask_5\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

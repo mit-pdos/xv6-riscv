@@ -6,7 +6,9 @@
 #include "proc.h"
 #include "defs.h"
 #include "elf.h"
-//#include "pageprinter.h"
+#include "system_char_buf.h"
+
+int cnt = 0;
 
 static int loadseg(pde_t *, uint64, struct inode *, uint, uint);
 
@@ -29,8 +31,24 @@ exec(char *path, char **argv)
   struct elfhdr elf;
   struct inode *ip;
   struct proghdr ph;
-  pagetable_t pagetable = 0, oldpagetable;
+  pagetable_t pagetable = 0, oldpagetable; 
   struct proc *p = myproc();
+
+  if (cnt == 0){
+    pr_msg("%d", 1);
+    cnt++;
+  }
+  else if (cnt == 1){
+    pr_msg("%d", 2);
+    cnt++;
+  }
+  else if (cnt == 2){
+    pr_msg("%d", 3);
+    cnt++;
+  } else if (cnt == 3){
+    pr_msg("%d", 4);
+    cnt++;
+  }
 
   begin_op();
 

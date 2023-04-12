@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "system_char_buf.h"
 
 struct cpu cpus[NCPU];
 
@@ -346,6 +347,8 @@ reparent(struct proc *p)
 void
 exit(int status)
 {
+  //pr_msg("exit");
+  
   struct proc *p = myproc();
 
   if(p == initproc)

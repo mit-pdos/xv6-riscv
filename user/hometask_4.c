@@ -3,6 +3,6 @@
 #include "user/user.h"
 
 int main(){
-    dmesg();
+    // dmesg();
     exit(0);
 }
