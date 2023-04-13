@@ -22,7 +22,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int dmesg(void);
+int dmesg(void *, uint64);
 
 // ulib.c
 int stat(const char*, struct stat*);

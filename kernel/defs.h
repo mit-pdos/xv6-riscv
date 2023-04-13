@@ -23,7 +23,8 @@ void            consoleintr(int);
 void            consputc(int);
 
 // dmesg.c
-int             pr_msg(const char*);
+void            debug_buffer_init();
+void            pr_msg(char*, ...);
 
 // exec.c
 int             exec(char*, char**);
