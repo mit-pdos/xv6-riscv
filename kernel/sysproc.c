@@ -96,3 +96,16 @@ uint64 sys_trace(void) {
 	argint(0, &(p->trace_mask));
 	return 0;
 }
+
+uint64 sys_getuid() {
+	return myproc()->uid;
+}
+
+uint64 sys_setuid() {
+
+	struct proc *current = myproc();
+
+	argint(0, &(current->uid));
+
+	return 1;
+}

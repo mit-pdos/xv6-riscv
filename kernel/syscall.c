@@ -15,9 +15,11 @@ fetchaddr(uint64 addr, uint64 *ip)
   if(addr >= p->sz || addr+sizeof(uint64) > p->sz) // both tests needed, in case of overflow
     return -1;
   if(copyin(p->pagetable, (char *)ip, addr, sizeof(*ip)) != 0)
-    return -1;
+   	return -1;
+  //*ip = *(int*)(addr);
   return 0;
 }
+  
 
 // Fetch the nul-terminated string at addr from the current process.
 // Returns length of string, not including nul, or -1 for error.
@@ -57,6 +59,8 @@ void
 argint(int n, int *ip)
 {
   *ip = argraw(n);
+ //return fetchaddr(argraw(n) + 4 + 4*n, (int*) ip);
+ //return fetchaddr((myproc()->trapframe->sp) + 4 + 4*n, (uint64 *)ip);
 }
 
 // Retrieve an argument as a pointer.
@@ -102,6 +106,8 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_trace(void);
+extern uint64 sys_getuid(void);
+extern uint64 sys_setuid(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -127,7 +133,9 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-[SYS_trace]	  sys_trace,
+[SYS_trace]   sys_trace,
+[SYS_getuid]  sys_getuid,
+[SYS_setuid]  sys_setuid,
 };
 
 static char *sys_names[] = {
@@ -152,7 +160,9 @@ static char *sys_names[] = {
 [SYS_link]    "link",
 [SYS_mkdir]   "mkdir",
 [SYS_close]   "close",
-[SYS_trace]	  "trace",
+[SYS_trace]   "trace",
+[SYS_getuid]  "getuid",
+[SYS_setuid]  "setuid",
 };
 
 void

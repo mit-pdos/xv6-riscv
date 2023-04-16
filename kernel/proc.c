@@ -294,8 +294,10 @@ fork(void)
     release(&np->lock);
     return -1;
   }
-  np->sz = p->sz;
 
+  np->uid = p->uid;
+
+  np->sz = p->sz;
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
