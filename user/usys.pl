@@ -39,3 +39,4 @@ entry("uptime");
 entry("trace");
 entry("getuid");
 entry("setuid");
+entry("setID");

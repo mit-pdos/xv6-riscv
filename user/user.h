@@ -24,6 +24,8 @@ int sleep(int);
 int uptime(void);
 int trace(int);
 int getuid(void);
+int setuid(void);
+int setID(void);
 
 // ulib.c
 int stat(const char*, struct stat*);

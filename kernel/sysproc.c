@@ -6,6 +6,8 @@
 #include "spinlock.h"
 #include "proc.h"
 
+//uint64 sys_setuid();
+
 uint64
 sys_exit(void)
 {
@@ -101,11 +103,33 @@ uint64 sys_getuid() {
 	return myproc()->uid;
 }
 
-uint64 sys_setuid() {
+uint64 sys_setuid(void) {
 
-	struct proc *current = myproc();
+	//int uid;
+
+	//struct proc* current = myproc();
+	struct proc* current = myproc();
 
 	argint(0, &(current->uid));
+	
+	//if(current->uid!=0)
+	//	return -1;
+
+	//current->uid=uid; //
+
+	return 1;
+}
+
+uint64 sys_setID(void) {
+	
+	struct proc* current = myproc();
+
+	argint(0, &(current->uid));
+
+	if(current->uid!=0)
+		return -1;
+
+	current->uid=5;
 
 	return 1;
 }
