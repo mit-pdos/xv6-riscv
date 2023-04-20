@@ -294,8 +294,10 @@ fork(void)
     release(&np->lock);
     return -1;
   }
-  np->sz = p->sz;
 
+  np->uid = p->uid;
+
+  np->sz = p->sz;
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
@@ -309,6 +311,9 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+
+  //copy the trace mask from parent to child
+  np->trace_mask = p->trace_mask;
 
   pid = np->pid;
 

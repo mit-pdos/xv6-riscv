@@ -15,9 +15,11 @@ fetchaddr(uint64 addr, uint64 *ip)
   if(addr >= p->sz || addr+sizeof(uint64) > p->sz) // both tests needed, in case of overflow
     return -1;
   if(copyin(p->pagetable, (char *)ip, addr, sizeof(*ip)) != 0)
-    return -1;
+   	return -1;
+  //*ip = *(int*)(addr);
   return 0;
 }
+  
 
 // Fetch the nul-terminated string at addr from the current process.
 // Returns length of string, not including nul, or -1 for error.
@@ -57,6 +59,8 @@ void
 argint(int n, int *ip)
 {
   *ip = argraw(n);
+ //return fetchaddr(argraw(n) + 4 + 4*n, (int*) ip);
+ //return fetchaddr((myproc()->trapframe->sp) + 4 + 4*n, (uint64 *)ip);
 }
 
 // Retrieve an argument as a pointer.
@@ -101,6 +105,10 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
+extern uint64 sys_trace(void);
+extern uint64 sys_getuid(void);
+extern uint64 sys_setuid(void);
+extern uint64 sys_setID(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -126,6 +134,38 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_trace]   sys_trace,
+[SYS_getuid]  sys_getuid,
+[SYS_setuid]  sys_setuid,
+[SYS_setID]   sys_setID,
+};
+
+static char *sys_names[] = {
+[SYS_fork]    "fork",
+[SYS_exit]    "exit",
+[SYS_wait]    "wait",
+[SYS_pipe]    "pipe",
+[SYS_read]    "read",
+[SYS_kill]    "kill",
+[SYS_exec]    "exec",
+[SYS_fstat]   "fstat",
+[SYS_chdir]   "chdir",
+[SYS_dup]     "dup",
+[SYS_getpid]  "getpid",
+[SYS_sbrk]    "sbrk",
+[SYS_sleep]   "sleep",
+[SYS_uptime]  "uptime",
+[SYS_open]    "open",
+[SYS_write]   "write",
+[SYS_mknod]   "mknod",
+[SYS_unlink]  "unlink",
+[SYS_link]    "link",
+[SYS_mkdir]   "mkdir",
+[SYS_close]   "close",
+[SYS_trace]   "trace",
+[SYS_getuid]  "getuid",
+[SYS_setuid]  "setuid",
+[SYS_setID]   "setID",
 };
 
 void
@@ -139,6 +179,8 @@ syscall(void)
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
     p->trapframe->a0 = syscalls[num]();
+	if(1 & (p->trace_mask >> num))
+		printf("%d: syscall %s -> %d\n", p->pid, sys_names[num], p->trapframe->a0);
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);
