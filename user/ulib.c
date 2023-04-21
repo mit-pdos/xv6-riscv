@@ -7,11 +7,10 @@
 // wrapper so that it's OK if main() does not call exit().
 //
 void
-_main()
+start()
 {
   extern int main();
-  main();
-  exit(0);
+  exit(main());
 }
 
 char*
