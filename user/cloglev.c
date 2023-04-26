@@ -10,8 +10,8 @@ int main(int argc, char * argv[]) {
     if (mask < 0 || mask > 7) {
         printf("Mask should be from 0 to 7, since:\n",
             "1-st bit for interrupt logging,\n", 
-            "2-nd bit for system calls logging,\n", 
-            "3-rd bit for context switching logging\n");
+            "2-nd bit for context switching logging,\n", 
+            "3-rd bit for system calls logging\n");
         return 0;
     }
     cloglev(mask);

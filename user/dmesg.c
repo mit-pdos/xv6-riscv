@@ -3,10 +3,10 @@
 #include "user/user.h"
 
 int main(int argc, char* argv[]) {
-    const int buffsize = 10000;
+    const int buffsize = 5000;
     char* buff = malloc(buffsize);
-    int res = dmesg(buff, 10000);
-    buff[10000 - 1] = 0;
+    int res = dmesg(buff, 5000);
+    buff[5000 - 1] = 0;
     printf("dmesg: exited with code %p\n res: %s\n", res, buff);
     return 0;
 }
