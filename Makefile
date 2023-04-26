@@ -136,6 +136,8 @@ UPROGS=\
 	$U/_dmesg\
 	$U/_cloglev\
 	$U/_clogdur\
+	$U/_pipe\
+	$U/_pingpong\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
