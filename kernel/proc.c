@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "dmesg.h"
 
 struct cpu cpus[NCPU];
 
@@ -460,6 +461,7 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        LOG_IF(context_switch, "switch to process '%s' with pid %d\n", p->name, p->pid);
         swtch(&c->context, &p->context);
 
         // Process is done running for now.

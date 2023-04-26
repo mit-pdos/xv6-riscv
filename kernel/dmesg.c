@@ -4,11 +4,11 @@
 #include "defs.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "dmesg.h"
 
 #include <stdarg.h>
 
-#define NULL 0
-#define BUFSIZE DMESGPS * PGSIZE
+struct log logger;
 
 static struct {
     char buf[BUFSIZE];
@@ -66,6 +66,12 @@ static void push_int(int x, int base) {
 void debug_buffer_init() {
     initlock(&debug_buffer.lock, "debug buffer");
     debug_buffer.cycled = 0;
+    initlock(&logger.lock, "logger");
+    logger.level.interrupt = 0;
+    logger.level.context_switch = 0;
+    logger.level.syscall = 0;
+    logger.tick_count = 0;
+    logger.tick_start = 0;
 }
 
 // In realization there is no panics so additional field for locking isn't needed
@@ -74,6 +80,9 @@ void pr_msg(char *fmt, ...) {
         panic("No formatter");
     }
     acquire(&debug_buffer.lock);
+    push_char('[');
+    push_int(ticks, 10);
+    push_str("] ");
     va_list list;
     va_start(list, fmt);
     char c = fmt[0];
@@ -137,4 +146,27 @@ int sys_dmesg(void) {
     if (first_copy == -1 || last_copy == -1)
         return -1;
     return first_copy + last_copy;
+}
+
+int sys_cloglev(void) {
+    int mask;
+    argint(0, &mask);
+    if (mask < 0 || mask > 7)
+        return -1;
+    acquire(&logger.lock);
+    logger.level.interrupt = mask & 1;
+    logger.level.context_switch = mask & 2;
+    logger.level.syscall = mask & 4;
+    release(&logger.lock);
+    return 0;
+}
+
+int sys_clogdur(void) {
+    int tick_count;
+    argint(0, &tick_count);
+    acquire(&logger.lock);
+    logger.tick_start = ticks;
+    logger.tick_count = tick_count;
+    release(&logger.lock);
+    return 0;
 }

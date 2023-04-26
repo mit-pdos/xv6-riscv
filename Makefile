@@ -133,7 +133,9 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
-	$U/_dmesg
+	$U/_dmesg\
+	$U/_cloglev\
+	$U/_clogdur\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

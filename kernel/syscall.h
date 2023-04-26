@@ -21,3 +21,5 @@
 #define SYS_mkdir  20
 #define SYS_close  21
 #define SYS_dmesg  22
+#define SYS_cloglev 23
+#define SYS_clogdur 24

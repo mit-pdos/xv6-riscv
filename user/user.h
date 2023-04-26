@@ -23,6 +23,8 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int dmesg(void *, uint64);
+int cloglev(int);
+int clogdur(int);
 
 // ulib.c
 int stat(const char*, struct stat*);
