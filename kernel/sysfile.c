@@ -258,6 +258,8 @@ create(char *path, short type, short major, short minor)
     ilock(ip);
     if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
       return ip;
+    if (type == T_SYMLINK)
+      return ip;
     iunlockput(ip);
     return 0;
   }
@@ -299,6 +301,15 @@ create(char *path, short type, short major, short minor)
   iunlockput(ip);
   iunlockput(dp);
   return 0;
+}
+
+static void read_link_once(struct inode *ip, char *buf) {
+  int len = 0;
+  readi(ip, 0, (uint64) &len, 0, sizeof(int));
+  if (len > MAXPATH)
+    panic("len of symlink path is too big");
+  readi(ip, 0, (uint64) buf, sizeof(int), len + 1);
+  iunlockput(ip);
 }
 
 uint64
@@ -347,6 +358,20 @@ sys_open(void)
     iunlockput(ip);
     end_op();
     return -1;
+  }
+
+  if ((ip->type == T_SYMLINK) && !(omode & O_NOFOLLOW)) {
+    int cnt = 0;
+    while (cnt < SLINK_FOLLOW && ip->type == T_SYMLINK) {
+      read_link_once(ip, path);
+      ilock(ip);
+      count++;
+    }
+    if (count == SLINK_FOLLOW) {
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
   }
 
   if(ip->type == T_DEVICE){
@@ -501,5 +526,40 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  return 0;
+}
+
+
+uint64
+sys_symlink(void) {
+  char target[MAXPATH], path[MAXARG];
+  if (argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
+    return -1;
+
+  begin_op();
+  struct inode *ip = create(path, T_SYMLINK, 0, 0);
+  if (ip == 0) {
+    end_op();
+    return -1;
+  }
+  int len = strlen(target);
+  if (writei(ip, 0, (uint64) &len, 0, sizeof(int)) < sizeof(int) || writei(ip, 0, (uint64) target, sizeof(int), len + 1) < len + 1)
+    panic("symlink: cannot write data to symlink");
+  iunlockput(ip);
+  end_op();
+  return 0;
+}
+
+uint64
+sys_readlink(void) {
+  char linkpath[MAXPATH], buf[MAXPATH];
+  if (argstr(0, linkpath, MAXPATH) < 0 || argstr(1, buf, MAXPATH) < 0)
+    return -1;
+
+  begin_op();
+  struct inode *ip = create(linkpath, T_SYMLINK, 0, 0);
+  read_link_once(ip, buf);
+  iunlockput(ip);
+  end_op();
   return 0;
 }
