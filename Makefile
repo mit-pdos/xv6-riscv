@@ -1,3 +1,4 @@
+E=etc
 K=kernel
 U=user
 
@@ -115,6 +116,9 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 # http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
 .PRECIOUS: %.o
 
+UFILES=\
+	$E/group\
+
 UPROGS=\
 	$U/_cat\
 	$U/_echo\
@@ -133,8 +137,8 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 
-fs.img: mkfs/mkfs README $(UPROGS)
-	mkfs/mkfs fs.img README $(UPROGS)
+fs.img: mkfs/mkfs README $(UFILES) $(UPROGS)
+	mkfs/mkfs fs.img README $(UFILES) $(UPROGS)
 
 -include kernel/*.d user/*.d
 
@@ -144,7 +148,7 @@ clean:
 	$U/initcode $U/initcode.out $K/kernel fs.img \
 	mkfs/mkfs .gdbinit \
         $U/usys.S \
-	$(UPROGS)
+	$(UFILES) $(UPROGS)
 
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
