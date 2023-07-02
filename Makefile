@@ -3,37 +3,37 @@ K=kernel
 U=user
 
 OBJS = \
-  $K/entry.o \
-  $K/start.o \
-  $K/console.o \
-  $K/printf.o \
-  $K/uart.o \
-  $K/kalloc.o \
-  $K/spinlock.o \
-  $K/string.o \
-  $K/main.o \
-  $K/vm.o \
-  $K/proc.o \
-  $K/swtch.o \
-  $K/trampoline.o \
-  $K/trap.o \
-  $K/syscall.o \
-  $K/sysproc.o \
-  $K/bio.o \
-  $K/fs.o \
-  $K/log.o \
-  $K/sleeplock.o \
-  $K/file.o \
-  $K/pipe.o \
-  $K/exec.o \
-  $K/sysfile.o \
-  $K/kernelvec.o \
-  $K/plic.o \
-  $K/virtio_disk.o
+	$K/entry.o \
+	$K/start.o \
+	$K/console.o \
+	$K/printf.o \
+	$K/uart.o \
+	$K/kalloc.o \
+	$K/spinlock.o \
+	$K/string.o \
+	$K/main.o \
+	$K/vm.o \
+	$K/proc.o \
+	$K/swtch.o \
+	$K/trampoline.o \
+	$K/trap.o \
+	$K/syscall.o \
+	$K/sysproc.o \
+	$K/bio.o \
+	$K/fs.o \
+	$K/log.o \
+	$K/sleeplock.o \
+	$K/file.o \
+	$K/pipe.o \
+	$K/exec.o \
+	$K/sysfile.o \
+	$K/kernelvec.o \
+	$K/plic.o \
+	$K/virtio_disk.o
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
-#TOOLPREFIX = 
+#TOOLPREFIX =
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX
@@ -118,8 +118,10 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 
 UFILES=\
 	$E/group\
+	$E/passwd\
 
 UPROGS=\
+	$U/_adduser\
 	$U/_cat\
 	$U/_echo\
 	$U/_forktest\
@@ -143,13 +145,13 @@ fs.img: mkfs/mkfs README $(UFILES) $(UPROGS)
 
 -include kernel/*.d user/*.d
 
-clean: 
+clean:
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*/*.o */*.d */*.asm */*.sym \
 	$U/initcode $U/initcode.out $K/kernel fs.img \
 	mkfs/mkfs .gdbinit \
         $U/usys.S \
-	$(UFILES) $(UPROGS)
+	$(UPROGS)
 
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
@@ -175,4 +177,3 @@ qemu: $K/kernel fs.img
 qemu-gdb: $K/kernel .gdbinit fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
-
