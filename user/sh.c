@@ -1,8 +1,10 @@
 // Shell.
 
 #include "kernel/types.h"
+#include "kernel/stat.h"
 #include "user/user.h"
 #include "kernel/fcntl.h"
+#include "kernel/fs.h"
 
 // Parsed command representation
 #define EXEC 1
@@ -12,6 +14,10 @@
 #define BACK 5
 
 #define MAXARGS 10
+
+void getnamebyuid(int uid, char *buffer, int buf_size);
+int ft_atoi(char *str);
+int ft_strcmp(char *s1, char *s2);
 
 struct cmd
 {
@@ -143,10 +149,18 @@ void runcmd(struct cmd *cmd)
 int getcmd(char *buf, int nbuf)
 {
   int uid = getuid();
+  char username[512];
+
   if (uid == 0)
+  {
     write(2, "# ", 2);
+  }
   else
+  {
+    getnamebyuid(uid, username, 512);
+    write(2, username, strlen(username));
     write(2, "$ ", 2);
+  }
   memset(buf, 0, nbuf);
   gets(buf, nbuf);
   if (buf[0] == 0) // EOF
@@ -512,4 +526,99 @@ nulterminate(struct cmd *cmd)
     break;
   }
   return cmd;
+}
+
+void getnamebyuid(int uid, char *buffer, int buf_size)
+{
+  int fd = open("/passwd", O_RDONLY);
+  if (fd < 0)
+    return;
+
+  char line[512];
+  int i = 0;
+  char c;
+
+  while (read(fd, &c, 1) > 0)
+  {
+    if (c == '\n' || i == sizeof(line) - 1)
+    {
+      line[i] = '\0';
+      i = 0;
+
+      int j = 0;
+      while (line[i] != ':' && j < buf_size - 1)
+        buffer[j++] = line[i++];
+      buffer[j] = '\0';
+      i += 3;
+      int uid_in_file = ft_atoi(&line[i]);
+      if (uid_in_file == uid)
+      {
+        close(fd);
+        return;
+      }
+    }
+    else
+    {
+      line[i++] = c;
+    }
+  }
+
+  close(fd);
+}
+
+int ft_atoi(char *str)
+{
+  int i;
+  int result;
+  int sign;
+
+  i = 0;
+  sign = 1;
+  result = 0;
+  while (str[i] && ((9 <= str[i] && str[i] <= 13) || str[i] == ' '))
+    i++;
+  while (str[i] && (str[i] == '+' || str[i] == '-'))
+  {
+    if (str[i] == '-')
+      sign *= -1;
+    i++;
+  }
+  while (str[i])
+  {
+    if ('0' <= str[i] && str[i] <= '9')
+      result = result * 10 + (str[i] - '0');
+    else
+      break;
+    i++;
+  }
+  result *= sign;
+  return (result);
+}
+
+int ft_strcmp(char *s1, char *s2)
+{
+  int i;
+
+  i = 0;
+  while (s1[i] && s2[i])
+  {
+    if (s1[i] > s2[i])
+    {
+      return (1);
+    }
+    else if (s1[i] < s2[i])
+    {
+      return (-1);
+    }
+    i++;
+  }
+  if (s1[i] > s2[i])
+  {
+    return (1);
+  }
+  else if (s1[i] < s2[i])
+  {
+    return (-1);
+  }
+  return (0);
 }

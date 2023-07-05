@@ -136,6 +136,7 @@ UPROGS=\
 	$U/_rm\
 	$U/_sh\
 	$U/_stressfs\
+	$U/_su\
 	$U/_usertests\
 	$U/_wc\
 	$U/_zombie\

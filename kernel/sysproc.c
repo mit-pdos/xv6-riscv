@@ -97,3 +97,17 @@ sys_getuid(void)
 {
   return myproc()->uid;
 }
+
+uint64
+sys_setuid(int uid)
+{
+  struct proc *p = myproc();
+  acquire(&p->lock);
+
+  printf("sysproc.c: Before setting, uid: %d\n", p->uid); // Print the uid before setting
+  p->uid = uid;
+  printf("sysproc.c: After setting, uid: %d\n", p->uid); // Print the uid after setting
+
+  release(&p->lock);
+  return 0;
+}
