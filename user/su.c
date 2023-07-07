@@ -30,13 +30,6 @@ int main(int argc, char *argv[])
     }
     else if (pid == 0)
     {
-        printf("su.c: Initial uid: %d\n", getuid());
-        setuid(0);
-        printf("su.c: After setuid(0), uid: %d\n", getuid());
-        printf("su.c: Initial uid: %d\n", getuid());
-        setuid(1);
-        printf("su.c: After setuid(1), uid: %d\n", getuid());
-
         setuid(uid);
         if (getuid() != uid)
         {
@@ -45,7 +38,6 @@ int main(int argc, char *argv[])
         }
         char *args[] = {"sh", 0};
         exec(args[0], args);
-
         fprintf(2, "su: failed to switch user\n");
         exit(1);
     }
@@ -87,6 +79,9 @@ int getuidbyname(char *username)
             name[j] = '\0';
             if (ft_strncmp(name, username, strlen(username)) == 0)
             {
+                while (line[j] != ':')
+                    j++;
+                j++;
                 while (line[j] != ':')
                     j++;
                 uid = atoi(&line[j + 1]);

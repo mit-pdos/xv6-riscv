@@ -18,6 +18,7 @@
 void getnamebyuid(int uid, char *buffer, int buf_size);
 int ft_atoi(char *str);
 int ft_strcmp(char *s1, char *s2);
+char *ft_strncpy(char *dest, char *src, unsigned int n);
 
 struct cmd
 {
@@ -158,6 +159,11 @@ int getcmd(char *buf, int nbuf)
   else
   {
     getnamebyuid(uid, username, 512);
+    if (username[0] == 0)
+    {
+      fprintf(2, "User not found: %d\n", uid);
+      exit(1);
+    }
     write(2, username, strlen(username));
     write(2, "$ ", 2);
   }
@@ -536,6 +542,7 @@ void getnamebyuid(int uid, char *buffer, int buf_size)
 
   char line[512];
   int i = 0;
+  int line_start = 0;
   char c;
 
   while (read(fd, &c, 1) > 0)
@@ -543,19 +550,28 @@ void getnamebyuid(int uid, char *buffer, int buf_size)
     if (c == '\n' || i == sizeof(line) - 1)
     {
       line[i] = '\0';
-      i = 0;
+      line_start = 0;
 
+      char temp_buf[buf_size];
       int j = 0;
-      while (line[i] != ':' && j < buf_size - 1)
-        buffer[j++] = line[i++];
-      buffer[j] = '\0';
-      i += 3;
-      int uid_in_file = ft_atoi(&line[i]);
+      while (line[line_start] != ':' && j < buf_size - 1)
+        temp_buf[j++] = line[line_start++];
+      temp_buf[j] = '\0';
+
+      while (line[line_start++] != ':')
+        ;
+      while (line[line_start++] != ':')
+        ;
+
+      int uid_in_file = ft_atoi(&line[line_start]);
       if (uid_in_file == uid)
       {
+        ft_strncpy(buffer, temp_buf, buf_size);
         close(fd);
         return;
       }
+
+      i = 0;
     }
     else
     {
@@ -621,4 +637,24 @@ int ft_strcmp(char *s1, char *s2)
     return (-1);
   }
   return (0);
+}
+
+char *ft_strncpy(char *dest, char *src, unsigned int n)
+{
+  char null_byte;
+  unsigned int i;
+
+  null_byte = '\0';
+  i = 0;
+  while (i < n && src[i] != null_byte)
+  {
+    dest[i] = src[i];
+    i++;
+  }
+  while (i < n)
+  {
+    dest[i] = null_byte;
+    i++;
+  }
+  return (dest);
 }
