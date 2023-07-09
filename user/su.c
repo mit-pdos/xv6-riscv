@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     int uid = getuidbyname(argv[1]);
     if (uid < 0)
     {
-        fprintf(2, "User %s not found\n");
+        fprintf(2, "User not found\n");
         exit(1);
     }
 
