@@ -54,8 +54,9 @@ start()
   asm volatile("mret");
 }
 
-// set up to receive timer interrupts in machine mode,
-// which arrive at timervec in kernelvec.S,
+// arrange to receive timer interrupts.
+// they will arrive in machine mode at
+// at timervec in kernelvec.S,
 // which turns them into software interrupts for
 // devintr() in trap.c.
 void

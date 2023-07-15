@@ -62,7 +62,8 @@ main(int argc, char *argv[])
 }
 
 // Regexp matcher from Kernighan & Pike,
-// The Practice of Programming, Chapter 9.
+// The Practice of Programming, Chapter 9, or
+// https://www.cs.princeton.edu/courses/archive/spr09/cos333/beautiful.html
 
 int matchhere(char*, char*);
 int matchstar(int, char*, char*);

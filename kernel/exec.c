@@ -7,7 +7,17 @@
 #include "defs.h"
 #include "elf.h"
 
-static int loadseg(pde_t *pgdir, uint64 addr, struct inode *ip, uint offset, uint sz);
+static int loadseg(pde_t *, uint64, struct inode *, uint, uint);
+
+int flags2perm(int flags)
+{
+    int perm = 0;
+    if(flags & 0x1)
+      perm = PTE_X;
+    if(flags & 0x2)
+      perm |= PTE_W;
+    return perm;
+}
 
 int
 exec(char *path, char **argv)
@@ -32,6 +42,7 @@ exec(char *path, char **argv)
   // Check ELF header
   if(readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
     goto bad;
+
   if(elf.magic != ELF_MAGIC)
     goto bad;
 
@@ -48,12 +59,12 @@ exec(char *path, char **argv)
       goto bad;
     if(ph.vaddr + ph.memsz < ph.vaddr)
       goto bad;
+    if(ph.vaddr % PGSIZE != 0)
+      goto bad;
     uint64 sz1;
-    if((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz)) == 0)
+    if((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz, flags2perm(ph.flags))) == 0)
       goto bad;
     sz = sz1;
-    if((ph.vaddr % PGSIZE) != 0)
-      goto bad;
     if(loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
       goto bad;
   }
@@ -65,10 +76,11 @@ exec(char *path, char **argv)
   uint64 oldsz = p->sz;
 
   // Allocate two pages at the next page boundary.
+  // Make the first inaccessible as a stack guard.
   // Use the second as the user stack.
   sz = PGROUNDUP(sz);
   uint64 sz1;
-  if((sz1 = uvmalloc(pagetable, sz, sz + 2*PGSIZE)) == 0)
+  if((sz1 = uvmalloc(pagetable, sz, sz + 2*PGSIZE, PTE_W)) == 0)
     goto bad;
   sz = sz1;
   uvmclear(pagetable, sz-2*PGSIZE);

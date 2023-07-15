@@ -1,7 +1,6 @@
 //
 // driver for qemu's virtio disk device.
 // uses qemu's mmio interface to virtio.
-// qemu presents a "legacy" virtio interface.
 //
 // qemu ... -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 //
@@ -21,36 +20,22 @@
 #define R(r) ((volatile uint32 *)(VIRTIO0 + (r)))
 
 static struct disk {
-  // the virtio driver and device mostly communicate through a set of
-  // structures in RAM. pages[] allocates that memory. pages[] is a
-  // global (instead of calls to kalloc()) because it must consist of
-  // two contiguous pages of page-aligned physical memory.
-  char pages[2*PGSIZE];
-
-  // pages[] is divided into three regions (descriptors, avail, and
-  // used), as explained in Section 2.6 of the virtio specification
-  // for the legacy interface.
-  // https://docs.oasis-open.org/virtio/virtio/v1.1/virtio-v1.1.pdf
-  
-  // the first region of pages[] is a set (not a ring) of DMA
-  // descriptors, with which the driver tells the device where to read
-  // and write individual disk operations. there are NUM descriptors.
+  // a set (not a ring) of DMA descriptors, with which the
+  // driver tells the device where to read and write individual
+  // disk operations. there are NUM descriptors.
   // most commands consist of a "chain" (a linked list) of a couple of
   // these descriptors.
-  // points into pages[].
   struct virtq_desc *desc;
 
-  // next is a ring in which the driver writes descriptor numbers
+  // a ring in which the driver writes descriptor numbers
   // that the driver would like the device to process.  it only
   // includes the head descriptor of each chain. the ring has
   // NUM elements.
-  // points into pages[].
   struct virtq_avail *avail;
 
-  // finally a ring in which the device writes descriptor numbers that
+  // a ring in which the device writes descriptor numbers that
   // the device has finished processing (just the head of each chain).
   // there are NUM used ring entries.
-  // points into pages[].
   struct virtq_used *used;
 
   // our own book-keeping.
@@ -71,7 +56,7 @@ static struct disk {
   
   struct spinlock vdisk_lock;
   
-} __attribute__ ((aligned (PGSIZE))) disk;
+} disk;
 
 void
 virtio_disk_init(void)
@@ -81,15 +66,20 @@ virtio_disk_init(void)
   initlock(&disk.vdisk_lock, "virtio_disk");
 
   if(*R(VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 ||
-     *R(VIRTIO_MMIO_VERSION) != 1 ||
+     *R(VIRTIO_MMIO_VERSION) != 2 ||
      *R(VIRTIO_MMIO_DEVICE_ID) != 2 ||
      *R(VIRTIO_MMIO_VENDOR_ID) != 0x554d4551){
     panic("could not find virtio disk");
   }
   
+  // reset device
+  *R(VIRTIO_MMIO_STATUS) = status;
+
+  // set ACKNOWLEDGE status bit
   status |= VIRTIO_CONFIG_S_ACKNOWLEDGE;
   *R(VIRTIO_MMIO_STATUS) = status;
 
+  // set DRIVER status bit
   status |= VIRTIO_CONFIG_S_DRIVER;
   *R(VIRTIO_MMIO_STATUS) = status;
 
@@ -108,34 +98,56 @@ virtio_disk_init(void)
   status |= VIRTIO_CONFIG_S_FEATURES_OK;
   *R(VIRTIO_MMIO_STATUS) = status;
 
-  // tell device we're completely ready.
-  status |= VIRTIO_CONFIG_S_DRIVER_OK;
-  *R(VIRTIO_MMIO_STATUS) = status;
-
-  *R(VIRTIO_MMIO_GUEST_PAGE_SIZE) = PGSIZE;
+  // re-read status to ensure FEATURES_OK is set.
+  status = *R(VIRTIO_MMIO_STATUS);
+  if(!(status & VIRTIO_CONFIG_S_FEATURES_OK))
+    panic("virtio disk FEATURES_OK unset");
 
   // initialize queue 0.
   *R(VIRTIO_MMIO_QUEUE_SEL) = 0;
+
+  // ensure queue 0 is not in use.
+  if(*R(VIRTIO_MMIO_QUEUE_READY))
+    panic("virtio disk should not be ready");
+
+  // check maximum queue size.
   uint32 max = *R(VIRTIO_MMIO_QUEUE_NUM_MAX);
   if(max == 0)
     panic("virtio disk has no queue 0");
   if(max < NUM)
     panic("virtio disk max queue too short");
+
+  // allocate and zero queue memory.
+  disk.desc = kalloc();
+  disk.avail = kalloc();
+  disk.used = kalloc();
+  if(!disk.desc || !disk.avail || !disk.used)
+    panic("virtio disk kalloc");
+  memset(disk.desc, 0, PGSIZE);
+  memset(disk.avail, 0, PGSIZE);
+  memset(disk.used, 0, PGSIZE);
+
+  // set queue size.
   *R(VIRTIO_MMIO_QUEUE_NUM) = NUM;
-  memset(disk.pages, 0, sizeof(disk.pages));
-  *R(VIRTIO_MMIO_QUEUE_PFN) = ((uint64)disk.pages) >> PGSHIFT;
 
-  // desc = pages -- num * virtq_desc
-  // avail = pages + 0x40 -- 2 * uint16, then num * uint16
-  // used = pages + 4096 -- 2 * uint16, then num * vRingUsedElem
+  // write physical addresses.
+  *R(VIRTIO_MMIO_QUEUE_DESC_LOW) = (uint64)disk.desc;
+  *R(VIRTIO_MMIO_QUEUE_DESC_HIGH) = (uint64)disk.desc >> 32;
+  *R(VIRTIO_MMIO_DRIVER_DESC_LOW) = (uint64)disk.avail;
+  *R(VIRTIO_MMIO_DRIVER_DESC_HIGH) = (uint64)disk.avail >> 32;
+  *R(VIRTIO_MMIO_DEVICE_DESC_LOW) = (uint64)disk.used;
+  *R(VIRTIO_MMIO_DEVICE_DESC_HIGH) = (uint64)disk.used >> 32;
 
-  disk.desc = (struct virtq_desc *) disk.pages;
-  disk.avail = (struct virtq_avail *)(disk.pages + NUM*sizeof(struct virtq_desc));
-  disk.used = (struct virtq_used *) (disk.pages + PGSIZE);
+  // queue is ready.
+  *R(VIRTIO_MMIO_QUEUE_READY) = 0x1;
 
   // all NUM descriptors start out unused.
   for(int i = 0; i < NUM; i++)
     disk.free[i] = 1;
+
+  // tell device we're completely ready.
+  status |= VIRTIO_CONFIG_S_DRIVER_OK;
+  *R(VIRTIO_MMIO_STATUS) = status;
 
   // plic.c and trap.c arrange for interrupts from VIRTIO0_IRQ.
 }
