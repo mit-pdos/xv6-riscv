@@ -1,4 +1,4 @@
-# Extended xv6-riscv
+# Multiuser xv6-riscv
 
 もとのxv6-riscをマルチユーザー対応させました。
 以下のように動作します。
