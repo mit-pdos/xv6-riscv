@@ -31,6 +31,14 @@ exec(char *path, char **argv)
   pagetable_t pagetable = 0, oldpagetable;
   struct proc *p = myproc();
 
+  /* Check on-demand status. */
+  if (strncmp(path, "/init", sizeof("/init")) != 0 && 
+      // strncmp(path, "cat", sizeof("cat")) != 0 &&
+      strncmp(path, "sh", sizeof("sh")) != 0) {
+    p->ondemand = true;
+    print_ondemand_proc(path);
+  }
+
   begin_op();
 
   if((ip = namei(path)) == 0){
@@ -61,6 +69,13 @@ exec(char *path, char **argv)
       goto bad;
     if(ph.vaddr % PGSIZE != 0)
       goto bad;
+    
+    if (p->ondemand) {
+        print_skip_section(path, ph.vaddr, ph.memsz);
+        sz = PGROUNDUP(sz + ph.memsz);
+        continue;
+    }
+
     uint64 sz1;
     if((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz, flags2perm(ph.flags))) == 0)
       goto bad;
@@ -128,6 +143,14 @@ exec(char *path, char **argv)
   p->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
 
+  // Clear all heap track regions
+  for (int i = 0; i < MAXHEAP; i++) {
+    p->heap_tracker[i].addr            = 0xFFFFFFFFFFFFFFFF;
+    p->heap_tracker[i].startblock      = -1;
+    p->heap_tracker[i].last_load_time  = 0xFFFFFFFFFFFFFFFF;
+    p->heap_tracker[i].loaded          = false;
+  }
+  p->resident_heap_pages = 0;
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
  bad:

@@ -1,3 +1,6 @@
+#include <stddef.h>
+#include <stdbool.h>
+
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -81,6 +84,14 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+/* Data structure to track a process' heap regions */
+struct heap_tracker_t {
+  uint64 addr;                  // starting virtual address of heap page
+  uint64 last_load_time;        // when the page was loaded into memory
+  bool   loaded;                // has the heap page been loaded yet
+  int    startblock;            // if located in disk, the starting block
+};
+
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -104,4 +115,9 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // Heap tracking variables
+  bool ondemand;
+  struct heap_tracker_t heap_tracker[MAXHEAP];
+  int resident_heap_pages;
 };

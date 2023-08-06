@@ -28,7 +28,9 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o \
+  $K/pfault.o \
+  $K/debug.o
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -56,7 +58,8 @@ LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
-CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb -gdwarf-2
+# CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb -gdwarf-2
+CFLAGS = -Wall -O -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
@@ -131,7 +134,16 @@ UPROGS=\
 	$U/_usertests\
 	$U/_grind\
 	$U/_wc\
+	$U/_test4-odheap\
+	$U/_test5-odheap-big\
+	$U/_test6-pswap1\
+	$U/_test7-pswap2\
+	$U/_test8-ws\
 	$U/_zombie\
+
+# swap disk
+swap.img:
+	dd if=/dev/zero of=$@ bs=1K count=1000
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
@@ -160,6 +172,10 @@ QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nogr
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+
+# Avoid disk-related issues
+clean-disk:
+	rm -rf fs.img
 
 qemu: $K/kernel fs.img
 	$(QEMU) $(QEMUOPTS)

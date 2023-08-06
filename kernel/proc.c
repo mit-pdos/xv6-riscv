@@ -254,6 +254,20 @@ userinit(void)
   release(&p->lock);
 }
 
+/* Tracking each heap page allocated to the process. */
+void track_heap(struct proc* p, uint64 start, int npages) {
+  for (int i = 0; i < MAXHEAP; i++) {
+    if (p->heap_tracker[i].addr == 0xFFFFFFFFFFFFFFFF) {
+      p->heap_tracker[i].addr           = start + (i*PGSIZE);
+      p->heap_tracker[i].loaded         = false;
+      p->heap_tracker[i].startblock     = -1;
+      npages--;
+      if (npages == 0) return;
+    }
+  }
+  panic("Error: No more process heap pages allowed.\n");
+}
+
 // Grow or shrink user memory by n bytes.
 // Return 0 on success, -1 on failure.
 int
@@ -262,13 +276,26 @@ growproc(int n)
   uint64 sz;
   struct proc *p = myproc();
 
+  /* Instead of allocating pages, make these allocations
+   * on-demand. Also, keep track of all allocated heap pages. 
+   */
+
+  // All allocations are at page-level
+  n = PGROUNDUP(n);
+
   sz = p->sz;
-  if(n > 0){
-    if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
-      return -1;
+  if(!p->ondemand) {
+    if(n > 0){
+      if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
+        return -1;
+      }
+    } else if(n < 0){
+      sz = uvmdealloc(p->pagetable, sz, sz + n);
     }
-  } else if(n < 0){
-    sz = uvmdealloc(p->pagetable, sz, sz + n);
+  } else {
+    track_heap(p, p->sz, n/PGSIZE);
+    print_skip_heap_region(p->name, p->sz, n/PGSIZE);
+    sz = sz + n;
   }
   p->sz = sz;
   return 0;
@@ -309,6 +336,11 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+
+  /* Copy the on-demand bit too. This is needed since
+   * sh is always forked on any command, and it is reexecuted
+   * from its forked counterpart. */
+  np->ondemand = p->ondemand;
 
   pid = np->pid;
 
