@@ -90,7 +90,7 @@ $U/initcode: $U/initcode.S
 tags: $(OBJS) _init
 	etags *.S *.c
 
-ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o
+ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o $U/ulthread.o $U/ulthread_swtch.o
 
 _%: %.o $(ULIB)
 	$(LD) $(LDFLAGS) -T $U/user.ld -o $@ $^
@@ -139,6 +139,16 @@ UPROGS=\
 	$U/_test6-pswap1\
 	$U/_test7-pswap2\
 	$U/_test8-ws\
+	$U/_multithread-0\
+	$U/_multithread-1\
+	$U/_multithread-2\
+	$U/_multithread-3\
+	$U/_multithread-4\
+	$U/_multithread-5\
+	$U/_multithread-test_fcfs\
+	$U/_multithread-test_priority\
+	$U/_multithread-test_thread_create\
+	$U/_multithread-test_yield\
 	$U/_zombie\
 
 # swap disk
@@ -165,7 +175,7 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
 ifndef CPUS
-CPUS := 3
+CPUS := 1
 endif
 
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
@@ -177,7 +187,7 @@ QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 clean-disk:
 	rm -rf fs.img
 
-qemu: $K/kernel fs.img
+qemu: $K/kernel clean-disk fs.img swap.img
 	$(QEMU) $(QEMUOPTS)
 
 .gdbinit: .gdbinit.tmpl-riscv
@@ -186,4 +196,3 @@ qemu: $K/kernel fs.img
 qemu-gdb: $K/kernel .gdbinit fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
-

@@ -34,7 +34,8 @@ exec(char *path, char **argv)
   /* Check on-demand status. */
   if (strncmp(path, "/init", sizeof("/init")) != 0 && 
       // strncmp(path, "cat", sizeof("cat")) != 0 &&
-      strncmp(path, "sh", sizeof("sh")) != 0) {
+      strncmp(path, "sh", sizeof("sh")) != 0 &&
+      strncmp(path, "multithread-", strlen("multithread-")) != 0) {
     p->ondemand = true;
     print_ondemand_proc(path);
   }
