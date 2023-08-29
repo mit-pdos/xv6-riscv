@@ -1,3 +1,5 @@
+-include conf/lab.mk
+
 K=kernel
 U=user
 
@@ -137,9 +139,13 @@ UPROGS=\
 	$U/_prime\
 	$U/_find\
 
+UEXTRA=
+ifeq ($(LAB),util)
+	UEXTRA += user/xargstest.sh
+endif
 
-fs.img: mkfs/mkfs README $(UPROGS)
-	mkfs/mkfs fs.img README $(UPROGS)
+fs.img: mkfs/mkfs README $(UEXTRA) $(UPROGS)
+	mkfs/mkfs fs.img README $(UEXTRA) $(UPROGS)
 
 -include kernel/*.d user/*.d
 
