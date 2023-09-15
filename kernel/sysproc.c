@@ -98,3 +98,19 @@ sys_trace(){
   myproc() -> mask = mask;
   return 0;
 }
+
+uint64
+sys_info(){
+  uint64 freeMem, procNum, addr; //address of sysinfo in user space
+  struct proc *p = myproc();  
+
+  if (argaddr(0, &addr) < 0 ) return -1; //get the argument(an address pointing to a instance of sysinfo struct) of the sysinfo function call from user mode and store into the address into varaible addr
+
+  freeMem = countFreeMemory();
+  procNum = countProcs();
+
+  if(copyout(p->pagetable, addr, (char *)&freeMem, sizeof(freeMem)) < 0 ||
+    copyout(p->pagetable, addr + sizeof(freeMem), (char *)&procNum, sizeof(procNum)) < 0 )
+     return -1;
+   return 0;
+}

@@ -111,7 +111,7 @@ uint64
 sys_fstat(void)
 {
   struct file *f;
-  uint64 st; // user pointer to struct stat
+  uint64 st; // user pointer to struct stat | here the st is an address in virtual memory hence it's uint64
 
   argaddr(1, &st);
   if(argfd(0, 0, &f) < 0)

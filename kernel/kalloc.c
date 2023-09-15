@@ -52,13 +52,13 @@ kfree(void *pa)
     panic("kfree");
 
   // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
+  memset(pa, 1, PGSIZE); //free the physical memory
 
   r = (struct run*)pa;
 
   acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
+  r->next = kmem.freelist; //make the newly freed memory a new head of the kmem.freelist
+  kmem.freelist = r; 
   release(&kmem.lock);
 }
 
@@ -73,10 +73,25 @@ kalloc(void)
   acquire(&kmem.lock);
   r = kmem.freelist;
   if(r)
-    kmem.freelist = r->next;
+    kmem.freelist = r->next; //essencially kmem.freelist = kmem.freelist->next; to update the kemem.freelist to the new head of the free memory
   release(&kmem.lock);
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
 }
+
+uint64
+countFreeMemory(){
+  uint64 count = 0;
+  struct run *r;
+  acquire(&kmem.lock);
+  r = kmem.freelist;
+  while(r){
+    count += 1;
+    r = r -> next;
+  };
+  release(&kmem.lock); 
+  return count * PGSIZE;
+}
+
