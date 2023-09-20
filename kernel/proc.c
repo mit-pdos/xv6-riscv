@@ -603,6 +603,23 @@ kill(int pid)
   return -1;
 }
 
+int
+getfilenum(int pid)
+{
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->pid == pid){
+      int fileCount;
+      for(fileCount = 0; fileCount < NOFILE ; fileCount++){
+      if(p->ofile[fileCount] == 0){
+        return fileCount;
+        }
+      }
+      return fileCount;
+    }
+  }
+  return -1;
+}
 void
 setkilled(struct proc *p)
 {
