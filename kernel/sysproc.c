@@ -16,9 +16,9 @@ sys_exit(void)
 }
 
 uint64
-sys_getpid(void)
+sys_getppid(void)
 {
-  return myproc()->pid;
+  return myproc()->parent->pid;
 }
 
 uint64

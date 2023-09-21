@@ -147,7 +147,7 @@ go(int which_child)
     } else if(what == 18){
       int pid = fork();
       if(pid == 0){
-        kill(getpid());
+        kill(getppid());
         exit(0);
       } else if(pid < 0){
         printf("grind: fork failed\n");
