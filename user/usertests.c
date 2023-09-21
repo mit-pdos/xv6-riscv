@@ -800,7 +800,7 @@ killstatus(char *s)
     }
     if(pid1 == 0){
       while(1) {
-        getpid();
+        getppid();
       }
       exit(0);
     }
@@ -905,7 +905,7 @@ exitwait(char *s)
 void
 reparent(char *s)
 {
-  int master_pid = getpid();
+  int master_pid = getppid();
   for(int i = 0; i < 200; i++){
     int pid = fork();
     if(pid < 0){
