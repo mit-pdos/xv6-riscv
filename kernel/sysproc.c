@@ -5,6 +5,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "random.h"
 
 uint64 sys_exit(void) {
   int n;
@@ -65,6 +66,33 @@ uint64 sys_getfilenum(void) {
   argint(0,&pid);
 
   return getfilenum(pid);
+}
+
+uint64 sys_scaled_random(void) {
+  int first;
+  int second;
+  argint(0,&first);
+  argint(1,&second);
+  return scaled_random(first,second);
+}
+uint64 sys_rand_init(void) {
+  int first;
+  argint(0,&first);
+  rand_init(first);
+  return 0;
+}
+
+uint64 sys_settickets(void){
+  int first;
+  argint(0,&first);
+  settickets(first);
+  return 0;
+}
+
+uint64 sys_getpinfo(void){
+  return getpinfo();
+  return 0;
+  // return getpinfo(first);
 }
 // return how many clock tick interrupts have occurred
 // since start.

@@ -86,6 +86,9 @@ int             cpuid(void);
 void            exit(int);
 int             fork(void);
 int             growproc(int);
+int             settickets(int);
+int             getpinfo(void);
+
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
@@ -98,6 +101,7 @@ struct cpu*     getmycpu(void);
 struct proc*    myproc();
 void            procinit(void);
 void            scheduler(void) __attribute__((noreturn));
+void            lotteryscheduler(void) __attribute__((noreturn));
 void            sched(void);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
@@ -175,6 +179,9 @@ int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
 
+
+
+
 // plic.c
 void            plicinit(void);
 void            plicinithart(void);
@@ -188,3 +195,4 @@ void            virtio_disk_intr(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
