@@ -23,6 +23,9 @@ char *sbrk(int);
 int sleep(int);
 int uptime(void);
 int getfilenum(int);
+int scaled_random(int, int);
+void rand_init(int);
+int getpinfo(void);
 
 // ulib.c
 int stat(const char *, struct stat *);

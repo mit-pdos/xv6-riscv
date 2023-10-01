@@ -37,3 +37,6 @@ entry("sbrk");
 entry("sleep");
 entry("uptime");
 entry("getfilenum");
+entry("rand_init");
+entry("scaled_random");
+entry("getpinfo");
