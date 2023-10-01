@@ -603,19 +603,18 @@ kill(int pid)
   return -1;
 }
 
-int
-getfilenum(int pid)
-{
+int getfilenum(int pid) {
   struct proc *p;
-  for(p = proc; p < &proc[NPROC]; p++){
-    if(p->pid == pid){
+  for (p = proc; p < &proc[NPROC]; p++) {
+    if (p->pid == pid) {
       int fileCount;
-      for(fileCount = 0; fileCount < NOFILE ; fileCount++){
-      if(p->ofile[fileCount] == 0){
-        return fileCount;
+      int count = 0;
+      for (fileCount = 0; fileCount < NOFILE; fileCount++) {
+        if (p->ofile[fileCount] != 0) {
+          count++;
         }
       }
-      return fileCount;
+      return count;
     }
   }
   return -1;
