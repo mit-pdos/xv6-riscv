@@ -42,4 +42,5 @@ main()
   }
 
   lotteryscheduler();        
+  // scheduler();
 }

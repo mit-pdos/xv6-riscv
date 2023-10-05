@@ -53,10 +53,10 @@ int getpinfo(){
   int i;
   for(i=0;i<NPROC ;i++){
     if ((&pstat)->inuse[i]){
-      printf("\n pid=%d",(&pstat)->pid[i]);
-      printf("\n tickets=%d",(&pstat)->tickets[i]);
-      printf("\n inuse=%d",(&pstat)->inuse[i]);
-      printf("\n ticks=%d",(&pstat)->ticks[i]);
+      printf("\npid=%d",(&pstat)->pid[i]);
+      printf(" tickets=%d",(&pstat)->tickets[i]);
+      printf(" inuse=%d",(&pstat)->inuse[i]);
+      printf(" ticks=%d\n",(&pstat)->ticks[i]);
     }
     
   }
@@ -147,17 +147,26 @@ static struct proc *allocproc(void) {
 
 found:
   p->pid = allocpid();
-  (&pstat)->pid[i] = p->pid;
-  (&pstat)->inuse[i] = 1;
-  (&pstat)->ticks[i] = -1;
+  for (int j = 0 ; j < NPROC ; j++){
+    if (!(&pstat)->inuse[j]){
+      (&pstat)->pid[i] = p->pid;
+      (&pstat)->inuse[i] = 1;
+      (&pstat)->ticks[i] = 0;
+      int random = scaled_random(1,10);
+      (&pstat)->tickets[i] = random;
+      p->tickets = random;
+      totaltickets= totaltickets + random;
+      break;    
+    }
+  }
   // rand_init(17);
   // int random = scaled_random(1,10);
-  int random = scaled_random(1,3);
-  // int random = 1;
-  (&pstat)->tickets[i] = random;
-  p->tickets = random;
-  totaltickets= totaltickets + random;
-  printf("\n now %d total tickets from allocproc ( %d new tickets)\n",totaltickets,random);
+  // // int random = scaled_random(1,3);
+  // // int random = 1;
+  // (&pstat)->tickets[i] = random;
+  // p->tickets = random;
+  // totaltickets= totaltickets + random;
+  // // printf("\n now %d total tickets from allocproc ( %d new tickets)\n",totaltickets,random);
 
   p->state = USED;
 
@@ -198,13 +207,12 @@ static void freeproc(struct proc *p) {
   p->sz = 0;
   for (int i = 0 ; i < NPROC ; i++){
     if ((&pstat)->pid[i]==p->pid){
-      printf("\n now %d total tickets before freeproc",totaltickets);
-      printf("\n total time slices needed: %d",(&pstat)->tickets[i]);
 
       totaltickets = totaltickets - (&pstat)->tickets[i];
       (&pstat)->inuse[i]=0;
       (&pstat)->tickets[i] = 0;
-      printf("\n now %d total tickets from freeproc",totaltickets);
+      // (&pstat)->pid[i]=0;
+      break;
     }
   }
   p->pid = 0;
@@ -482,10 +490,6 @@ int wait(uint64 addr) {
 //    via swtch back to the scheduler.
 //
 //
-
-
-
-
 void scheduler(void) {
   struct proc *p;
   int i;
@@ -521,19 +525,18 @@ void scheduler(void) {
 void lotteryscheduler(void){
   struct proc *p;
   struct cpu *c = mycpu();
-  int ticks=0;
   c->proc=0;
   rand_init(17);
   for(;;){
-    int i = 0;
     intr_on(); 
+    int i = 0;
     int random = scaled_random(0,totaltickets); //generate random number between 0 and the total number of tickets
     while(random > 0){
       if ((&pstat)->inuse[i]){
         random = random - (&pstat)->tickets[i];
-        if (random > 0 ){
-          i++;
-        }
+      }
+      if (random > 0 ){
+        i++;
       }
     }
     p = &proc[i];
@@ -541,17 +544,11 @@ void lotteryscheduler(void){
     if (p->state == RUNNABLE){
       p->state = RUNNING;
       c->proc = p;
-      if (p->pid > 2){
-        printf("\nproc chosen:\n  -pid: %x\n  -tickets given: %d\n  -ticks: %d\n",p->pid,(&pstat)->tickets[i],(&pstat)->ticks[i]);
-        if ((&pstat)->ticks[i]==-1){
-          (&pstat)->ticks[i]=ticks;
-        }
-      }
+      (&pstat)->ticks[i]++;
       swtch(&c->context,&p->context);
       c->proc=0;
     }
     release(&p->lock);
-    ticks++;
   }
 }
 
@@ -667,9 +664,6 @@ int kill(int pid) {
         p->state = RUNNABLE;
       }
       release(&p->lock);
-      (&pstat)->inuse[i]=0;
-      totaltickets = totaltickets - (&pstat)->tickets[i];
-      printf("\n now %d total tickets from kill \n",totaltickets);
       return 0;
     }
     release(&p->lock);
@@ -742,17 +736,18 @@ void procdump(void) {
       [UNUSED] "unused",   [USED] "used",      [SLEEPING] "sleep ",
       [RUNNABLE] "runble", [RUNNING] "run   ", [ZOMBIE] "zombie"};
   struct proc *p;
+  int i;
   char *state;
 
   printf("\n");
-  for (p = proc; p < &proc[NPROC]; p++) {
+  for (p = proc,i = 0; p < &proc[NPROC]; p++,i++) {
     if (p->state == UNUSED)
       continue;
     if (p->state >= 0 && p->state < NELEM(states) && states[p->state])
       state = states[p->state];
     else
       state = "???";
-    printf("%d %s %s", p->pid, state, p->name);
+    printf("%d %s %s %d tickets %d ticks %d", p->pid, state, p->name,(&pstat)->pid[i],(&pstat)->tickets[i],(&pstat)->ticks[i]);
     printf("\n");
   }
 }

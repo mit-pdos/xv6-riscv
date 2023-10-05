@@ -2594,7 +2594,6 @@ struct test {
   {dirtest, "dirtest"},
   {exectest, "exectest"},
   {pipe1, "pipe1"},
-  {killstatus, "killstatus"},
   {preempt, "preempt"},
   {exitwait, "exitwait"},
   {reparent, "reparent" },
@@ -2635,6 +2634,7 @@ struct test {
   {sbrklast, "sbrklast"},
   {sbrk8000, "sbrk8000"},
   {badarg, "badarg" },
+  {killstatus, "killstatus"},
 
   { 0, 0},
 };
