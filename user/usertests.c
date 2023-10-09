@@ -2596,6 +2596,7 @@ struct test {
   {pipe1, "pipe1"},
   {preempt, "preempt"},
   {exitwait, "exitwait"},
+  {killstatus, "killstatus"},
   {reparent, "reparent" },
   {twochildren, "twochildren"},
   {forkfork, "forkfork"},
@@ -2634,7 +2635,6 @@ struct test {
   {sbrklast, "sbrklast"},
   {sbrk8000, "sbrk8000"},
   {badarg, "badarg" },
-  {killstatus, "killstatus"},
 
   { 0, 0},
 };
