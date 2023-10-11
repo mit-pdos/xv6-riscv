@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
         {
             int status;
             wait(&status);
-            printf("Child %d finished with status %d!\n", i, status);
+            printf("Child %d finished with status %d!\n", i, status);  
             exit(0);  
         }
     }

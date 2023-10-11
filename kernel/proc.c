@@ -681,3 +681,18 @@ procdump(void)
     printf("\n");
   }
 }
+
+
+int ps(void)
+{
+  struct proc *p;
+  int sum = 0;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    if(p->state != UNUSED) {
+      sum++;
+    } 
+  }
+
+  return sum;
+}
