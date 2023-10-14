@@ -15,7 +15,8 @@ void print_pagetable(pagetable_t pagetable, int level) {
     for (int i = 0; i < level; ++i)
       printf(" ..");
     uint64 pa = PTE2PA(pte); // physical address of the page    
-    printf("%d: pte %p pa %p\n", pte_index, pte, pa);
+    printf("%d: pte %p pa %p | V: %d R: %d W: %d E: %d A: %d\n", pte_index, pte, pa, (pte & PTE_V) > 0, 
+                (pte & PTE_R) > 0, (pte & PTE_W) > 0, (pte & PTE_X) > 0,(pte & PTE_A) > 0); 
     if ((pte & (PTE_R | PTE_W | PTE_X)))
       continue; // this is final level of the tree
     print_pagetable((pagetable_t)pa, level + 1);
