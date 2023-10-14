@@ -22,3 +22,4 @@
 #define SYS_close  21
 #define SYS_vmprint 22
 #define SYS_pgaccess 23
+#define SYS_dmesg  24

@@ -30,7 +30,8 @@ OBJS = \
   $K/plic.o \
   $K/virtio_disk.o \
   $K/vmprint.o \
-  $K/pgaccess.o 
+  $K/pgaccess.o \
+  $K/dmesg.o 
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -135,6 +136,7 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_hw3\
+	$U/_dmesg\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

@@ -38,3 +38,4 @@ entry("sleep");
 entry("uptime");
 entry("vmprint");
 entry("pgaccess");
+entry("dmesg");
