@@ -31,11 +31,10 @@ main()
     iinit();         // inode table
     fileinit();      // file table
     virtio_disk_init(); // emulated hard disk
-    pr_msg("emulated hard disk");
     userinit();      // first user process
     __sync_synchronize();
     started = 1;
-    pr_msg("kernel start");
+    pr_msg("kernel start %d, [%x], %p, '%s'", -1, 12, 0xa7, "working");
   } else {
     while(started == 0)
       ;
