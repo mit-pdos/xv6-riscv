@@ -299,6 +299,9 @@ fork(void)
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
+  // copy masker id
+  np->masker = p->masker;
+
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
@@ -695,4 +698,13 @@ int ps(void)
   }
 
   return sum;
+}
+
+
+int trace(int masker)
+{
+  struct proc *p = myproc();
+  p->masker = masker;
+  
+  return 0;
 }

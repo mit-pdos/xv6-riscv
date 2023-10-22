@@ -95,3 +95,11 @@ sys_ps(void)
 {
   return ps();
 }
+
+uint64
+sys_trace(void)
+{
+  int n;
+  argint(0, &n);
+  return trace(n);
+}

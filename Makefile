@@ -136,6 +136,7 @@ UPROGS=\
 	$U/_multiplewait\
 	$U/_pingpong\
 	$U/_ps\
+	$U/_trace\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
