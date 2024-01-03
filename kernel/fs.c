@@ -618,6 +618,7 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
     int last_slash_index =
         0;  // パスに`/`が含まれていない場合はルートと解釈できるようにする
     for (int i = 0; path[i] != '\0'; i++) {
+      printf("1");
       if (path[i] == '/') {
         // パスの末尾に'/'がある場合はlast_slash_indexは更新しない
         if (path[i + 1] != '\0') {
@@ -647,6 +648,7 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
     // 取得したパスがインデックスに存在するか確認
     int sum = 0;
     for (int i = 0; path[i] != '\0'; i++) {
+      printf("2");
       sum += path[i];
     }
     // なんらかの文字列はあるはずなので0のままはおかしい
