@@ -635,18 +635,20 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
   // 呼び出し元のsysfile.cのcreate関数内で、ディレクトリ作成後はそのフルパスをインデックスに登録するようにする
   // 登録時に衝突が起こった場合はpanicするので、ここでは同じキー内に複数の値があることは考えなくて良い
   if (nameiparent && flag == 1 && *path != '/') {
+    char *path2;
+    strcpy(path2, path);
     int last_slash_index =
         0;  // パスに`/`が含まれていない場合はルートと解釈できるようにする
-    for (int i = 0; path[i] != '\0'; i++) {
-      if (path[i] == '/') {
-        if (path[i + 1] != '\0') {
+    for (int i = 0; path2[i] != '\0'; i++) {
+      if (path2[i] == '/') {
+        if (path2[i + 1] != '\0') {
           // パスの末尾に'/'がある場合はlast_slash_indexは更新しない
           last_slash_index = i;
         } else {
           // パスの末尾に'/'がある場合は'\0'に置き換える
           // ルート直下にディレクトリを作るときは何もしない
           if (last_slash_index != 0) {
-            path[i] = '\0';
+            path2[i] = '\0';
           }
         }
       }
@@ -655,19 +657,19 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
     if (last_slash_index != 0) {
       // 末尾の作成するディレクトリ名を取得し、nameにコピーする
       // 本来はstrcpyの際にdirameの長さがDIRSIZを超えていないか確認する必要があるが、今回は扱わない
-      char *dirname = path + last_slash_index + 1;
+      char *dirname = path2 + last_slash_index + 1;
       strcpy(name, dirname);
       // パスから最後の要素を除いたものを取得する
-      path[last_slash_index] = '\0';
+      path2[last_slash_index] = '\0';
       // 先頭の'/'を無視する
       // パスの末尾に'/'はないはず（'\0'に置き換えられているはずなので）なので、末尾の'/'を無視するかどうかは考えなくて良い
-      if (path[0] == '/') {
-        path++;
+      if (path2[0] == '/') {
+        path2++;
       }
       // 取得したパスがインデックスに存在するか確認
       int sum = 0;
-      for (int i = 0; path[i] != '\0'; i++) {
-        sum += path[i];
+      for (int i = 0; path2[i] != '\0'; i++) {
+        sum += path2[i];
       }
       // なんらかの文字列はあるはずなので0のままはおかしい
       if (sum == 0) {
@@ -677,8 +679,8 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
       // 存在する場合はinodeを取得して返す
       printf("namex sum: %d\n", sum);
       printf("namex fullpath: %s\n", fullpath_index[hash].fullpath);
-      printf("namex path: %s\n", path);
-      if (strcmp(fullpath_index[hash].fullpath, path) == 0) {
+      printf("namex path: %s\n", path2);
+      if (strcmp(fullpath_index[hash].fullpath, path2) == 0) {
         ip = fullpath_index[hash].ip;
         ip->ref++;
         ip->type = T_DIR;
