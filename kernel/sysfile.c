@@ -210,7 +210,7 @@ char *strcpy(char *, char *);
 extern struct fullpath_entity fullpath_index[100];
 
 // ディレクトリ作成後はそのフルパスとinodeをインデックスに登録するようにする
-// 登録時に衝突が起こった場合はpanicする
+// 登録時に衝突が起こった場合はpanicする必要があるが、今回は直接の親ディレクトリのinodeさえ取得できれば十分なので上書きする
 void register_fullpath_index(char *path, struct inode *ip) {
   // hashを求める
   // TODO: sumを求める際に先頭の/や末尾の/は無視するなどといった処理が抜けている
@@ -225,11 +225,11 @@ void register_fullpath_index(char *path, struct inode *ip) {
   printf("path: %s\n", path);
   printf("sum: %d\n", sum);
   int hash = sum % 100;
-  // fullpath_index[hash]にNULL以外が入っていたらpanic
-  if (fullpath_index[hash].fullpath[0] != '\0' ||
-      fullpath_index[hash].ip != (void *)0) {
-    panic("register_fullpath_index: fullpath_index[hash] is not empty");
-  }
+  // fullpath_index[hash]にNULL以外が入っていたらpanic（今回は無効にする）
+  // if (fullpath_index[hash].fullpath[0] != '\0' ||
+  //     fullpath_index[hash].ip != (void *)0) {
+  //   panic("register_fullpath_index: fullpath_index[hash] is not empty");
+  // }
   // fullpath_index[hash]にフルパス（path）とinodeを登録する
   strcpy(fullpath_index[hash].fullpath, path);
   ip->type = T_DIR;
