@@ -226,10 +226,14 @@ void register_fullpath_index(char *path, struct inode *ip) {
   printf("sum: %d\n", sum);
   int hash = sum % 100;
   // fullpath_index[hash]にNULL以外が入っていたらpanic（今回は無効にする）
-  // if (fullpath_index[hash].fullpath[0] != '\0' ||
-  //     fullpath_index[hash].ip != (void *)0) {
-  //   panic("register_fullpath_index: fullpath_index[hash] is not empty");
-  // }
+  if (fullpath_index[hash].fullpath[0] != '\0') {
+    printf("fullpath_index[hash].fullpath: %s\n",
+           fullpath_index[hash].fullpath);
+    panic("register_fullpath_index: fullpath is not empty");
+  }
+  if (fullpath_index[hash].ip != (void *)0) {
+    panic("register_fullpath_index: ip is not empty");
+  }
   // fullpath_index[hash]にフルパス（path）とinodeを登録する
   strcpy(fullpath_index[hash].fullpath, path);
   ip->type = T_DIR;
@@ -280,12 +284,11 @@ static struct inode *create(char *path, short type, short major, short minor,
     // now that success is guaranteed:
     dp->nlink++;  // for ".."
     iupdate(dp);
-
-    // ディレクトリ作成後にフルパスとinodeを登録
-    register_fullpath_index(path, ip);
   }
 
   iunlockput(dp);
+  // ディレクトリ作成後にフルパスとinodeを登録
+  register_fullpath_index(path, ip);
 
   return ip;
 
