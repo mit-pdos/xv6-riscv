@@ -275,7 +275,8 @@ void ilock(struct inode *ip) {
   struct buf *bp;
   struct dinode *dip;
 
-  if (ip == 0 || ip->ref < 1) panic("ilock");
+  if (ip == 0) panic("ilock ip == 0");
+  if (ip->ref < 1) panic("ilock ref < 1");
 
   acquiresleep(&ip->lock);
 
@@ -689,7 +690,6 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
   }
 
   while ((path = skipelem(path, name)) != 0) {
-    printf("ilock1");
     ilock(ip);
     if (ip->type != T_DIR) {
       iunlockput(ip);
