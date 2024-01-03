@@ -629,15 +629,19 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
         }
       }
     }
+    printf("2");
     // 末尾の作成するディレクトリ名を取得し、nameにコピーする
     // 本来はstrcpyの際にdirameの長さがDIRSIZを超えていないか確認する必要があるが、今回は扱わない
     char *dirname = path + last_slash_index + 1;
     strcpy(name, dirname);
+    printf("3");
     // `/`の時はルートディレクトリのinodeを返す
     if (last_slash_index == 0) {
+      printf("4");
       ip = iget(ROOTDEV, ROOTINO);
       return ip;
     }
+    printf("5");
     // パスから最後の要素を除いたものを取得する
     path[last_slash_index] = '\0';
     // 先頭の'/'を無視する
@@ -647,8 +651,9 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
     }
     // 取得したパスがインデックスに存在するか確認
     int sum = 0;
+    printf("6");
     for (int i = 0; path[i] != '\0'; i++) {
-      printf("2");
+      printf("7");
       sum += path[i];
     }
     // なんらかの文字列はあるはずなので0のままはおかしい
