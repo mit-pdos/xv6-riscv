@@ -233,13 +233,11 @@ void iupdate(struct inode *ip) {
 static struct inode *iget(uint dev, uint inum) {
   struct inode *ip, *empty;
 
-  printf("iget1");
   acquire(&itable.lock);
 
   // Is the inode already in the table?
   empty = 0;
   for (ip = &itable.inode[0]; ip < &itable.inode[NINODE]; ip++) {
-    printf("iget2");
     if (ip->ref > 0 && ip->dev == dev && ip->inum == inum) {
       ip->ref++;
       release(&itable.lock);
@@ -248,7 +246,6 @@ static struct inode *iget(uint dev, uint inum) {
     if (empty == 0 && ip->ref == 0)  // Remember empty slot.
       empty = ip;
   }
-  printf("iget3");
 
   // Recycle an inode entry.
   if (empty == 0) panic("iget: no inodes");
@@ -259,7 +256,6 @@ static struct inode *iget(uint dev, uint inum) {
   ip->ref = 1;
   ip->valid = 0;
   release(&itable.lock);
-  printf("iget4");
 
   return ip;
 }
@@ -618,11 +614,9 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
   // 呼び出し元のsysfile.cのcreate関数内で、ディレクトリ作成後はそのフルパスをインデックスに登録するようにする
   // 登録時に衝突が起こった場合はpanicするので、ここでは同じキー内に複数の値があることは考えなくて良い
   if (nameiparent && flag == 1) {
-    printf("namex: nameiparent is 1 and flag is 1\n");
     int last_slash_index =
         0;  // パスに`/`が含まれていない場合はルートと解釈できるようにする
     for (int i = 0; path[i] != '\0'; i++) {
-      printf("1");
       if (path[i] == '/') {
         // パスの末尾に'/'がある場合はlast_slash_indexは更新しない
         if (path[i + 1] != '\0') {
@@ -633,18 +627,14 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
         }
       }
     }
-    printf("2");
     // 末尾の作成するディレクトリ名を取得し、nameにコピーする
     // 本来はstrcpyの際にdirameの長さがDIRSIZを超えていないか確認する必要があるが、今回は扱わない
     char *dirname = path + last_slash_index + 1;
     strcpy(name, dirname);
-    printf("3");
     // `/`の時はルートディレクトリのinodeを返す
     if (last_slash_index == 0) {
-      printf("4");
       return ip;
     }
-    printf("5");
     // パスから最後の要素を除いたものを取得する
     path[last_slash_index] = '\0';
     // 先頭の'/'を無視する
@@ -654,9 +644,7 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
     }
     // 取得したパスがインデックスに存在するか確認
     int sum = 0;
-    printf("6");
     for (int i = 0; path[i] != '\0'; i++) {
-      printf("7");
       sum += path[i];
     }
     // なんらかの文字列はあるはずなので0のままはおかしい
@@ -672,7 +660,6 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
       // 存在しない場合はエラーを返す
       return 0;
     }
-    printf("end of namex\n");
   }
 
   while ((path = skipelem(path, name)) != 0) {
