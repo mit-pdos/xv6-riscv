@@ -232,8 +232,8 @@ void register_fullpath_index(char *path, struct inode *ip) {
   }
   // fullpath_index[hash]にフルパス（path）とinodeを登録する
   strcpy(fullpath_index[hash].fullpath, path);
+  ip->type = T_DIR;
   fullpath_index[hash].ip = ip;
-  fullpath_index[hash].ip->type = T_DIR;
 }
 
 static struct inode *create(char *path, short type, short major, short minor,
