@@ -642,7 +642,6 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
     // `/`の時はルートディレクトリのinodeを返す
     if (last_slash_index == 0) {
       printf("4");
-      ip = iget(ROOTDEV, ROOTINO);
       return ip;
     }
     printf("5");
