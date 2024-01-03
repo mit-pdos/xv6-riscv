@@ -213,6 +213,7 @@ extern struct fullpath_entity fullpath_index[100];
 // 登録時に衝突が起こった場合はpanicする
 void register_fullpath_index(char *path, struct inode *ip) {
   // hashを求める
+  // TODO: sumを求める際に先頭の/や末尾の/は無視するなどといった処理が抜けている
   int sum = 0;
   for (int i = 0; path[i] != '\0'; i++) {
     sum += path[i];
@@ -221,6 +222,8 @@ void register_fullpath_index(char *path, struct inode *ip) {
   if (sum == 0) {
     panic("register_fullpath_index: sum is 0");
   }
+  printf("path: %s\n", path);
+  printf("sum: %d\n", sum);
   int hash = sum % 100;
   // fullpath_index[hash]にNULL以外が入っていたらpanic
   if (fullpath_index[hash].fullpath[0] != '\0' ||

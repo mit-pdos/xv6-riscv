@@ -674,6 +674,9 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
       }
       int hash = sum % 100;
       // 存在する場合はinodeを取得して返す
+      printf("namex sum: %d\n", sum);
+      printf("namex fullpath: %s\n", fullpath_index[hash].fullpath);
+      printf("namex path: %s\n", path);
       if (strcmp(fullpath_index[hash].fullpath, path) == 0) {
         ip = fullpath_index[hash].ip;
         return ip;
