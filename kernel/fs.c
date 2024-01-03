@@ -613,52 +613,54 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
   // なければエラーを返す
   // 呼び出し元のsysfile.cのcreate関数内で、ディレクトリ作成後はそのフルパスをインデックスに登録するようにする
   // 登録時に衝突が起こった場合はpanicするので、ここでは同じキー内に複数の値があることは考えなくて良い
-  if (nameiparent && flag == 1) {
+  if (nameiparent && flag == 1 && *path != '/') {
     int last_slash_index =
         0;  // パスに`/`が含まれていない場合はルートと解釈できるようにする
     for (int i = 0; path[i] != '\0'; i++) {
       if (path[i] == '/') {
-        // パスの末尾に'/'がある場合はlast_slash_indexは更新しない
         if (path[i + 1] != '\0') {
+          // パスの末尾に'/'がある場合はlast_slash_indexは更新しない
           last_slash_index = i;
         } else {
           // パスの末尾に'/'がある場合は'\0'に置き換える
-          path[i] = '\0';
+          // ルート直下にディレクトリを作るときは何もしない
+          if (last_slash_index != 0) {
+            path[i] = '\0';
+          }
         }
       }
     }
-    // 末尾の作成するディレクトリ名を取得し、nameにコピーする
-    // 本来はstrcpyの際にdirameの長さがDIRSIZを超えていないか確認する必要があるが、今回は扱わない
-    char *dirname = path + last_slash_index + 1;
-    strcpy(name, dirname);
-    // `/`の時はルートディレクトリのinodeを返す
-    if (last_slash_index == 0) {
-      return ip;
-    }
-    // パスから最後の要素を除いたものを取得する
-    path[last_slash_index] = '\0';
-    // 先頭の'/'を無視する
-    // パスの末尾に'/'はないはず（'\0'に置き換えられているはずなので）なので、末尾の'/'を無視するかどうかは考えなくて良い
-    if (path[0] == '/') {
-      path++;
-    }
-    // 取得したパスがインデックスに存在するか確認
-    int sum = 0;
-    for (int i = 0; path[i] != '\0'; i++) {
-      sum += path[i];
-    }
-    // なんらかの文字列はあるはずなので0のままはおかしい
-    if (sum == 0) {
-      panic("namex: sum is 0");
-    }
-    int hash = sum % 100;
-    // 存在する場合はinodeを取得して返す
-    if (fullpath_index[hash].fullpath == path) {
-      ip = fullpath_index[hash].ip;
-      return ip;
-    } else {
-      // 存在しない場合はエラーを返す
-      return 0;
+    // ルート直下にディレクトリを作る時は既存の処理を行う
+    if (last_slash_index != 0) {
+      // 末尾の作成するディレクトリ名を取得し、nameにコピーする
+      // 本来はstrcpyの際にdirameの長さがDIRSIZを超えていないか確認する必要があるが、今回は扱わない
+      char *dirname = path + last_slash_index + 1;
+      strcpy(name, dirname);
+      // パスから最後の要素を除いたものを取得する
+      path[last_slash_index] = '\0';
+      // 先頭の'/'を無視する
+      // パスの末尾に'/'はないはず（'\0'に置き換えられているはずなので）なので、末尾の'/'を無視するかどうかは考えなくて良い
+      if (path[0] == '/') {
+        path++;
+      }
+      // 取得したパスがインデックスに存在するか確認
+      int sum = 0;
+      for (int i = 0; path[i] != '\0'; i++) {
+        sum += path[i];
+      }
+      // なんらかの文字列はあるはずなので0のままはおかしい
+      if (sum == 0) {
+        panic("namex: sum is 0");
+      }
+      int hash = sum % 100;
+      // 存在する場合はinodeを取得して返す
+      if (fullpath_index[hash].fullpath == *path) {
+        ip = fullpath_index[hash].ip;
+        return ip;
+      } else {
+        // 存在しない場合はエラーを返す
+        return 0;
+      }
     }
   }
 
