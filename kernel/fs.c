@@ -614,6 +614,7 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
   // 呼び出し元のsysfile.cのcreate関数内で、ディレクトリ作成後はそのフルパスをインデックスに登録するようにする
   // 登録時に衝突が起こった場合はpanicするので、ここでは同じキー内に複数の値があることは考えなくて良い
   if (nameiparent && flag == 1) {
+    printf("namex: nameiparent is 1 and flag is 1\n");
     int last_slash_index =
         0;  // パスに`/`が含まれていない場合はルートと解釈できるようにする
     for (int i = 0; path[i] != '\0'; i++) {
@@ -661,6 +662,7 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
       // 存在しない場合はエラーを返す
       return 0;
     }
+    printf("end of namex\n");
   }
 
   while ((path = skipelem(path, name)) != 0) {
