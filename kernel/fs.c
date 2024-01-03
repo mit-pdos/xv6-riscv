@@ -233,14 +233,14 @@ void iupdate(struct inode *ip) {
 static struct inode *iget(uint dev, uint inum) {
   struct inode *ip, *empty;
 
-  acquire(&itable.lock);
+  // acquire(&itable.lock);
 
   // Is the inode already in the table?
   empty = 0;
   for (ip = &itable.inode[0]; ip < &itable.inode[NINODE]; ip++) {
     if (ip->ref > 0 && ip->dev == dev && ip->inum == inum) {
       ip->ref++;
-      release(&itable.lock);
+      // release(&itable.lock);
       return ip;
     }
     if (empty == 0 && ip->ref == 0)  // Remember empty slot.
@@ -255,7 +255,7 @@ static struct inode *iget(uint dev, uint inum) {
   ip->inum = inum;
   ip->ref = 1;
   ip->valid = 0;
-  release(&itable.lock);
+  // release(&itable.lock);
 
   return ip;
 }
