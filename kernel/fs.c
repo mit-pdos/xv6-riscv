@@ -681,6 +681,7 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
       if (strcmp(fullpath_index[hash].fullpath, path) == 0) {
         ip = fullpath_index[hash].ip;
         ip->ref++;
+        ip->type = T_DIR;
         return ip;
       } else {
         // 存在しない場合はエラーを返す
