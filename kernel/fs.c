@@ -689,6 +689,7 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
   }
 
   while ((path = skipelem(path, name)) != 0) {
+    printf("ilock1");
     ilock(ip);
     if (ip->type != T_DIR) {
       iunlockput(ip);

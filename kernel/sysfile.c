@@ -242,10 +242,12 @@ static struct inode *create(char *path, short type, short major, short minor,
 
   if ((dp = nameiparent(path, name, 1)) == 0) return 0;
 
+  printf("ilock2");
   ilock(dp);
 
   if ((ip = dirlookup(dp, name, 0)) != 0) {
     iunlockput(dp);
+    printf("ilock3");
     ilock(ip);
     if (type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
       return ip;
@@ -258,6 +260,7 @@ static struct inode *create(char *path, short type, short major, short minor,
     return 0;
   }
 
+  printf("ilock4");
   ilock(ip);
   ip->major = major;
   ip->minor = minor;
