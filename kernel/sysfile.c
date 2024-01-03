@@ -120,7 +120,7 @@ uint64 sys_link(void) {
   iupdate(ip);
   iunlock(ip);
 
-  if ((dp = nameiparent(new, name)) == 0) goto bad;
+  if ((dp = nameiparent(new, name, 0)) == 0) goto bad;
   ilock(dp);
   if (dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0) {
     iunlockput(dp);
@@ -164,7 +164,7 @@ uint64 sys_unlink(void) {
   if (argstr(0, path, MAXPATH) < 0) return -1;
 
   begin_op();
-  if ((dp = nameiparent(path, name)) == 0) {
+  if ((dp = nameiparent(path, name, 0)) == 0) {
     end_op();
     return -1;
   }
@@ -236,7 +236,7 @@ static struct inode *create(char *path, short type, short major, short minor) {
   struct inode *ip, *dp;
   char name[DIRSIZ];
 
-  if ((dp = nameiparent(path, name)) == 0) return 0;
+  if ((dp = nameiparent(path, name, 1)) == 0) return 0;
 
   ilock(dp);
 
@@ -274,7 +274,7 @@ static struct inode *create(char *path, short type, short major, short minor) {
     iupdate(dp);
 
     // ディレクトリ作成後にフルパスとinodeを登録
-//    register_fullpath_index(path, ip);
+    //    register_fullpath_index(path, ip);
   }
 
   iunlockput(dp);

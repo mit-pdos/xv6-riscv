@@ -600,7 +600,7 @@ struct fullpath_entity fullpath_index[100] = {0};
 // If parent != 0, return the inode for the parent and copy the final
 // path element into name, which must have room for DIRSIZ bytes.
 // Must be called inside a transaction since it calls iput().
-static struct inode *namex(char *path, int nameiparent, char *name) {
+static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
   struct inode *ip, *next;
 
   if (*path == '/')
@@ -613,7 +613,7 @@ static struct inode *namex(char *path, int nameiparent, char *name) {
   // なければエラーを返す
   // 呼び出し元のsysfile.cのcreate関数内で、ディレクトリ作成後はそのフルパスをインデックスに登録するようにする
   // 登録時に衝突が起こった場合はpanicするので、ここでは同じキー内に複数の値があることは考えなくて良い
-  if (nameiparent) {
+  if (nameiparent && flag == 1) {
     int last_slash_index =
         0;  // パスに`/`が含まれていない場合はルートと解釈できるようにする
     for (int i = 0; path[i] != '\0'; i++) {
@@ -693,9 +693,9 @@ static struct inode *namex(char *path, int nameiparent, char *name) {
 
 struct inode *namei(char *path) {
   char name[DIRSIZ];
-  return namex(path, 0, name);
+  return namex(path, 0, name, 0);
 }
 
-struct inode *nameiparent(char *path, char *name) {
-  return namex(path, 1, name);
+struct inode *nameiparent(char *path, char *name, int flag) {
+  return namex(path, 1, name, flag);
 }
