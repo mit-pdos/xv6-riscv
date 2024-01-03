@@ -594,6 +594,26 @@ char *strcpy(char *dest, char *src) {
   return (dest);
 }
 
+int strcmp(char *s1, char *s2) {
+  int i;
+
+  i = 0;
+  while (s1[i] && s2[i]) {
+    if (s1[i] > s2[i]) {
+      return (1);
+    } else if (s1[i] < s2[i]) {
+      return (-1);
+    }
+    i++;
+  }
+  if (s1[i] > s2[i]) {
+    return (1);
+  } else if (s1[i] < s2[i]) {
+    return (-1);
+  }
+  return (0);
+}
+
 struct fullpath_entity fullpath_index[100] = {0};
 
 // Look up and return the inode for a path name.
@@ -654,7 +674,7 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
       }
       int hash = sum % 100;
       // 存在する場合はinodeを取得して返す
-      if (fullpath_index[hash].fullpath == *path) {
+      if (strcmp(fullpath_index[hash].fullpath, path) == 0) {
         ip = fullpath_index[hash].ip;
         return ip;
       } else {
