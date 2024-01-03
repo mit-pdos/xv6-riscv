@@ -278,7 +278,7 @@ static struct inode *create(char *path, short type, short major, short minor,
     iupdate(dp);
 
     // ディレクトリ作成後にフルパスとinodeを登録
-    //    register_fullpath_index(path, ip);
+    register_fullpath_index(path, ip);
   }
 
   iunlockput(dp);
