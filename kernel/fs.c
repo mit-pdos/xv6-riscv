@@ -680,6 +680,7 @@ static struct inode *namex(char *path, int nameiparent, char *name, int flag) {
       printf("namex path: %s\n", path);
       if (strcmp(fullpath_index[hash].fullpath, path) == 0) {
         ip = fullpath_index[hash].ip;
+        ip->ref++;
         return ip;
       } else {
         // 存在しない場合はエラーを返す
