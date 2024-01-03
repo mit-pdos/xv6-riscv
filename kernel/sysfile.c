@@ -413,11 +413,11 @@ uint64 sys_mkdir(void) {
   begin_op();
   if (argstr(0, path, MAXPATH) < 0 ||
       (ip = create(path, T_DIR, 0, 0, 1)) == 0) {
-    printf("sys_mkdir: path: %s\n", path);
     end_op();
     return -1;
   }
   iunlockput(ip);
+  printf("sys_mkdir path: %s\n", path);
   end_op();
   return 0;
 }
