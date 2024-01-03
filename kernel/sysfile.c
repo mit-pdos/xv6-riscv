@@ -232,7 +232,8 @@ void register_fullpath_index(char *path, struct inode *ip) {
   fullpath_index[hash].ip = ip;
 }
 
-static struct inode *create(char *path, short type, short major, short minor) {
+static struct inode *create(char *path, short type, short major, short minor,
+                            int flag) {
   struct inode *ip, *dp;
   char name[DIRSIZ];
 
@@ -305,7 +306,7 @@ uint64 sys_open(void) {
   begin_op();
 
   if (omode & O_CREATE) {
-    ip = create(path, T_FILE, 0, 0);
+    ip = create(path, T_FILE, 0, 0, 0);
     if (ip == 0) {
       end_op();
       return -1;
@@ -400,7 +401,8 @@ uint64 sys_mkdir(void) {
   struct inode *ip;
 
   begin_op();
-  if (argstr(0, path, MAXPATH) < 0 || (ip = create(path, T_DIR, 0, 0)) == 0) {
+  if (argstr(0, path, MAXPATH) < 0 ||
+      (ip = create(path, T_DIR, 0, 0, 1)) == 0) {
     end_op();
     return -1;
   }
@@ -418,7 +420,7 @@ uint64 sys_mknod(void) {
   argint(1, &major);
   argint(2, &minor);
   if ((argstr(0, path, MAXPATH)) < 0 ||
-      (ip = create(path, T_DEVICE, major, minor)) == 0) {
+      (ip = create(path, T_DEVICE, major, minor, 0)) == 0) {
     end_op();
     return -1;
   }
