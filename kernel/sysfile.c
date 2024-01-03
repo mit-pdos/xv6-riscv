@@ -245,7 +245,9 @@ static struct inode *create(char *path, short type, short major, short minor,
   struct inode *ip, *dp;
   char name[DIRSIZ];
 
+  printf("create path before nameiparent: %s\n", path);
   if ((dp = nameiparent(path, name, 1)) == 0) return 0;
+  printf("create path after nameiparent: %s\n", path);
 
   printf("ilock2");
   ilock(dp);
