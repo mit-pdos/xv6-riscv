@@ -9,18 +9,17 @@
 // routines.  The (higher-level) system call implementations
 // are in sysfile.c.
 
-#include "fs.h"
-
-#include "buf.h"
-#include "defs.h"
-#include "file.h"
-#include "param.h"
-#include "proc.h"
-#include "riscv.h"
-#include "sleeplock.h"
-#include "spinlock.h"
-#include "stat.h"
 #include "types.h"
+#include "riscv.h"
+#include "defs.h"
+#include "param.h"
+#include "stat.h"
+#include "spinlock.h"
+#include "proc.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "buf.h"
+#include "file.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 // there should be one superblock per disk device, but we run with
