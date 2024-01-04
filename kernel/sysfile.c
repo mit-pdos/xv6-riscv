@@ -222,8 +222,6 @@ void register_fullpath_index(char *path, struct inode *ip) {
   if (sum == 0) {
     panic("register_fullpath_index: sum is 0");
   }
-  printf("path: %s\n", path);
-  printf("sum: %d\n", sum);
   int hash = sum % 100;
   // fullpath_index[hash]にNULL以外が入っていたらpanic（今回は無効にする）
   if (fullpath_index[hash].fullpath[0] != '\0') {
@@ -249,12 +247,10 @@ static struct inode *create(char *path, short type, short major, short minor,
   if ((dp = nameiparent(path, name, 1)) == 0) return 0;
   printf("create path after nameiparent: %s\n", path);
 
-  printf("ilock2");
   ilock(dp);
 
   if ((ip = dirlookup(dp, name, 0)) != 0) {
     iunlockput(dp);
-    printf("ilock3");
     ilock(ip);
     if (type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
       return ip;
@@ -267,7 +263,6 @@ static struct inode *create(char *path, short type, short major, short minor,
     return 0;
   }
 
-  printf("ilock4");
   ilock(ip);
   ip->major = major;
   ip->minor = minor;
