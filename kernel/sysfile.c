@@ -406,9 +406,14 @@ uint getgid(uint uid) { return uid; }
 uint64 sys_mkdir(void) {
   char path[MAXPATH];
   struct inode *ip;
-  uint64 mtime = *(uint64 *)CLINT_MTIME;
+  uint64 tmp;
 
-  printf("mtime: %x\n", mtime);
+  mkdir_flag = 1;
+  tmp = *(uint64 *)CLINT_MTIME;
+  printf("mkdir_mtime: %x", mkdir_mtime);
+  mkdir_flag = 0;
+  mkdir_mtime = 0;
+
   begin_op();
   if (argstr(0, path, MAXPATH) < 0 ||
       (ip = create(path, T_DIR, 0, 0, 1)) == 0) {
