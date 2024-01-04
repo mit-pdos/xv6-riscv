@@ -138,7 +138,7 @@ void kerneltrap() {
         panic("hey, mkdir_mtime != 0");
       }
       mkdir_mtime = *(uint64 *)CLINT_MTIME;
-      printf("%x\n", mkdir_mtime);
+      printf("mkdir_mtime(kerneltrap): %x\n", mkdir_mtime);
     }
   }
 

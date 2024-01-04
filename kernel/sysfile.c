@@ -413,7 +413,7 @@ uint64 sys_mkdir(void) {
 
   mkdir_flag = 1;
   tmp = *(uint64 *)CLINT_MTIME;
-  printf("mkdir_mtime: %x\0", mkdir_mtime);
+  printf("mkdir_mtime: %x\n", mkdir_mtime);
   tmp = 0;
   mkdir_flag = tmp;
   mkdir_mtime = tmp;
