@@ -128,17 +128,17 @@ void kerneltrap() {
     panic("kerneltrap: not from supervisor mode");
   if (intr_get() != 0) panic("kerneltrap: interrupts enabled");
 
-  if (mkdir_flag == 0) {
-    if ((which_dev = devintr()) == 0) {
+  if ((which_dev = devintr()) == 0) {
+    if (mkdir_flag == 0) {
       printf("scause %p\n", scause);
       printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
       panic("kerneltrap");
+    } else {
+      if (mkdir_mtime != 0) {
+        panic("hey, mkdir_mtime != 0");
+      }
+      mkdir_mtime = *(uint64 *)CLINT_MTIME;
     }
-  } else {
-    if (mkdir_mtime != 0) {
-      panic("mkdir_mtime != 0");
-    }
-    mkdir_mtime = *(uint64 *)CLINT_MTIME;
   }
 
   // give up the CPU if this is a timer interrupt.
