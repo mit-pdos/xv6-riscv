@@ -16,6 +16,9 @@
 #include "file.h"
 #include "fcntl.h"
 
+extern int mkdir_flag;
+extern uint64 mkdir_mtime;
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int argfd(int n, int *pfd, struct file **pf) {
@@ -410,6 +413,7 @@ uint64 sys_mkdir(void) {
 
   mkdir_flag = 1;
   tmp = *(uint64 *)CLINT_MTIME;
+  tmp = 0;
   printf("mkdir_mtime: %x", mkdir_mtime);
   mkdir_flag = 0;
   mkdir_mtime = 0;
