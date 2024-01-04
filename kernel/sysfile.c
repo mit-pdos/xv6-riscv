@@ -401,10 +401,14 @@ int accesscheck(struct inode *ip, uint mode, char *path) {
 
 uint getgid(uint uid) { return uid; }
 
+#include "memlayout.h"
+
 uint64 sys_mkdir(void) {
   char path[MAXPATH];
   struct inode *ip;
+  uint64 mtime = *(uint64 *)CLINT_MTIME;
 
+  printf("mtime: %x\n", mtime);
   begin_op();
   if (argstr(0, path, MAXPATH) < 0 ||
       (ip = create(path, T_DIR, 0, 0, 1)) == 0) {
