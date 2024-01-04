@@ -243,9 +243,7 @@ static struct inode *create(char *path, short type, short major, short minor,
   struct inode *ip, *dp;
   char name[DIRSIZ];
 
-  printf("create path before nameiparent: %s\n", path);
   if ((dp = nameiparent(path, name, 1)) == 0) return 0;
-  printf("create path after nameiparent: %s\n", path);
 
   ilock(dp);
 
@@ -414,7 +412,6 @@ uint64 sys_mkdir(void) {
     return -1;
   }
   iunlockput(ip);
-  printf("sys_mkdir path: %s\n", path);
   end_op();
   return 0;
 }
