@@ -89,3 +89,40 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+uint64 sys_hello(void) //hello syscall definition
+{
+int n;
+argint (0, &n);
+print_hello(n);
+return 0;
+}
+
+// Global variable to count system calls
+extern uint64 sys_call_count;
+extern uint64 count_free_pages(); // Declare the function
+
+
+// Lab 1 sysinfo
+uint64 sys_sysinfo(void) {
+    int param;
+    uint64 result = 0;
+
+    // Fetch the first argument using argint
+    argint(0, &param); // No need to check the return value
+
+    switch (param) {
+        case 0: // Count active processes
+            result = getNumProc();
+            break;
+        case 1: // Return number of system calls made
+            result = sys_call_count -1;
+            break;
+        case 2: // Return number of free memory pages
+            result = count_free_pages();
+            break;
+        default: // Handle invalid parameter
+            result = -1; // or some error code
+    }
+
+    return result;
+}

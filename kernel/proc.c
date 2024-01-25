@@ -11,6 +11,10 @@ struct cpu cpus[NCPU];
 struct proc proc[NPROC];
 
 struct proc *initproc;
+struct {
+    struct spinlock lock;
+    
+} ptable;
 
 int nextpid = 1;
 struct spinlock pid_lock;
@@ -57,7 +61,11 @@ procinit(void)
       p->kstack = KSTACK((int) (p - proc));
   }
 }
-
+void
+pinit(void)
+{
+  initlock(&ptable.lock, "ptable");
+}
 // Must be called with interrupts disabled,
 // to prevent race with process being moved
 // to a different CPU.
@@ -145,7 +153,7 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
-
+  p->syscall_count = 0; // Initialize syscall count for procinfo
   return p;
 }
 
@@ -681,3 +689,47 @@ procdump(void)
     printf("\n");
   }
 }
+
+//hello: printing hello message
+void print_hello(int n)
+{
+printf("Hello from the kernel space %d\n", n);
+}
+
+int getNumProc(void) {
+  struct proc *p;
+  acquire(&ptable.lock);
+  int count = 0;
+
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+   if (p->state == RUNNABLE || p->state == RUNNING || p->state == SLEEPING || p->state == ZOMBIE) {
+      count++;
+    }
+  }
+
+  release(&ptable.lock);
+  return count;
+}
+
+uint64 procinfo(void) {
+  uint64 addr;
+  struct proc *p = myproc();
+  struct pinfo pi;
+
+  argaddr(0, &addr); // Retrieve the address of the user-space structure
+  if (addr == 0) {
+    return -1; // Fail if the address is not valid
+  }
+
+  pi.ppid = p->parent->pid;
+  pi.syscall_count = p->syscall_count - 1; // Subtract one for the current call
+  pi.page_usage = p->sz / PGSIZE; // Assuming sz is the size of process memory in bytes
+
+  if (copyout(p->pagetable, addr, (char *)&pi, sizeof(pi)) < 0) {
+    return -1; // Fail if copyout fails
+  }
+
+  return 0;
+}
+
