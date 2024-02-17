@@ -7,6 +7,14 @@
 #include "syscall.h"
 #include "defs.h"
 
+//sum 2 numbers
+uint64
+sys_add(void) {
+    int x, y;
+    argint(0, &x); argint(1, &y);
+    return x + y;
+}
+
 // Fetch the uint64 at addr from the current process.
 int
 fetchaddr(uint64 addr, uint64 *ip)
@@ -126,6 +134,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_sys_add] sys_add,
 };
 
 void
