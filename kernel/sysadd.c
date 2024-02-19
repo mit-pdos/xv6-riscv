@@ -2,37 +2,10 @@
 #include "riscv.h"
 #include "defs.h"
 
-uint64 sys_add(void) {
-    const int BUF_SIZE = 20;
-    char buffer[BUF_SIZE];
+uint64 sys_add(int a, int b) {
+    argint(0, &a);
+    argint(1, &b);
 
-    // Читаем строку в буфер
-    if (!gets(buffer, BUF_SIZE)) {
-        printf("Invalid arguments!\n");
-        return 1;
-    }
-
-    // Бежим по прочитанной строке, ищем пробел-разделитель
-    int space_ind = 0;
-    while (space_ind < BUF_SIZE && buffer[++space_ind] != ' ');
-
-    if (space_ind == BUF_SIZE) {
-        printf("Not enough arguments!\n");
-        return 1;
-    }
-
-    // Заведем наши будущие числа, и будем в них писать
-    char a[space_ind], b[BUF_SIZE - space_ind];
-
-    for (int i = 0; i < space_ind; i++) {
-        a[i] = buffer[i];
-    }
-
-    // Сдвинем метку разделителя направо на 1 и пойдем изучать второе число
-    for (int i = space_ind++; buffer[i] != '\0'; i++) {
-        b[i - space_ind] = buffer[i];
-    }
-
-    printf("%d\n", atoi(a) + atoi(b));
+    printf("%d\n", a + b);
     return 0;
 }
