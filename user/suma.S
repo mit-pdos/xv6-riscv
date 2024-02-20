@@ -1,4 +1,4 @@
-#define BUF_SIZE 20
+#define BUF_SIZE 10
 #define STDERR_D 2
 #define MAX_LEN_OF_FIRST_DIGIT BUF_SIZE-2
 
@@ -9,7 +9,7 @@ a: .space BUF_SIZE
 b: .space BUF_SIZE
 
 sum_result_string: .asciz "%d\n"
-sum_exception_msg: .asciz "Error!\n"
+sum_exception_msg: .asciz "Not enough / invalid arguments!\n"
 
 .text
 .global main
