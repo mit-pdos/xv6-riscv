@@ -133,6 +133,7 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
+	$U/_suma\
 	$U/_sumb\
 	$U/_sumc\
 	$U/_sumd\

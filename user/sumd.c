@@ -1,7 +1,9 @@
 #include "kernel/types.h"
 #include "user/user.h"
 
+// Тест вызова sys_add
 int main(int argc, char *argv[]) {
+    // Копипаста b решения
     const int BUF_SIZE = 20;
     char buffer[BUF_SIZE];
 
@@ -31,6 +33,8 @@ int main(int argc, char *argv[]) {
     for (int i = space_ind++; buffer[i] != '\0'; i++) {
         b[i - space_ind] = buffer[i];
     }
+    // ---------------
+
     add(atoi(a), atoi(b));
     exit(0);
 }

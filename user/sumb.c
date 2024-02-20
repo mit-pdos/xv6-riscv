@@ -2,37 +2,33 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
+const int BUF_SIZE = 20;
+
+
 int main(int argc, char *argv[]) {
-    const int BUF_SIZE = 20;
-    char buffer[BUF_SIZE];
+    char buffer[BUF_SIZE], a[BUF_SIZE], b[BUF_SIZE]; // Так-то можно память оптимизировать, записывая сразу в а, а потом отделить \0
+    gets(buffer, BUF_SIZE);
 
-    // Читаем строку в буфер
-    if (!gets(buffer, BUF_SIZE)) {
-        printf("Invalid arguments!\n");
-        exit(1);
-    }
-
-    // Бежим по прочитанной строке, ищем пробел-разделитель
     int space_ind = 0;
-    while (space_ind < BUF_SIZE && buffer[++space_ind] != ' ');
+    while (buffer[space_ind] != ' ') { // Прочитаем первое число
+        // Т.к. плохой случай может иметь вид: {'a', 'b', 'c', ' ', '\0'}, где BUF_SIZE = 5
+        if (space_ind >= BUF_SIZE - 2) {
+            fprintf(2, "Not enough / invalid arguments!\n");
+            exit(1);
+        }
+        a[space_ind] = buffer[space_ind];
+        space_ind++;
+    }
 
-    if (space_ind == BUF_SIZE) {
-        printf("Not enough arguments!\n");
+    if (space_ind == 0) { // Защита от бабушки
+        fprintf(2, "Why did u do that???\n");
         exit(1);
     }
+    a[space_ind] = '\0';
 
-    // Заведем наши будущие числа, и будем в них писать
-    char a[space_ind], b[BUF_SIZE - space_ind];
-
-    for (int i = 0; i < space_ind; i++) {
-        a[i] = buffer[i];
-    }
-
-    // Сдвинем метку разделителя направо на 1 и пойдем изучать второе число
-    for (int i = space_ind++; buffer[i] != '\0'; i++) {
-        b[i - space_ind] = buffer[i];
-    }
+    // Эта строка будет нуль-терминирована из-за инварианта gets (возможно, обыграю отрезание второй цифры, но в асм точно нет)
+    strcpy(b, buffer + space_ind + 1);
 
     printf("%d\n", atoi(a) + atoi(b));
-    exit(0);
+    return 0;
 }
