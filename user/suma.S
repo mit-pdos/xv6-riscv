@@ -1,12 +1,14 @@
 #define BUF_SIZE 20
-
+#define STDERR_D 2
+#define MAX_LEN_OF_FIRST_DIGIT BUF_SIZE-2
 .data
 
 buffer: .space BUF_SIZE
 a: .space BUF_SIZE
 b: .space BUF_SIZE
 
-format_d_string: .asciz "%d\n"
+sum_result_string: .asciz "%d\n"
+arg_exception_msg: .asciz "Not enough / invalid arguments!\n"
 
 .text
 .global main
@@ -16,7 +18,8 @@ main:
     li a1, BUF_SIZE # int a1 = BUF_SIZE
     call gets # gets(a0, a1) -> buffer в a0
 
-    li s0, ' ' # int my_const = ' '
+    li t4, ' ' # int my_const = ' '
+    li t5, MAX_LEN_OF_FIRST_DIGIT # int max_len_of_first_digit = MAX_LEN_OF_FIRST_DIGIT
 
     addi t0, zero, 0 # int space_ind = 0
     mv t1, a0 # char* t1 = a0 - указывают на одно и то же
@@ -25,7 +28,9 @@ main:
 
 while_body:
     lb t2, 0(t1) # char t2 = *t1 - разыменование указателя (char весит 1 байтик)
-    beq s0, t2, while_done # if buffer[space_ind] == ' ' then goto while_done
+    beq t4, t2, while_done # if buffer[space_ind] == ' ' then goto while_done
+
+    bge t0, t5, arg_exception
 
     sb t2, 0(t3) # t3 = a[space_ind] = buffer[space_ind] = t2
 
@@ -53,10 +58,19 @@ while_done:
     call atoi # a0 = atoi(указатель на начало a)
 
     add a1, t1, a0 # a1 = t1 + a0 = atoi(указатель на начало b) + atoi(указатель на начало a)
-    la a0, format_d_string
+    la a0, sum_result_string
 
     call printf
 
     li a7, 2                  # Exit system call
     li a0, 0                  # Exit status (success)
     ecall
+
+arg_exception:
+    la a0, STDERR_D
+    la a1, arg_exception_msg
+    call fprintf
+
+    li a7, 2                  # Exit system call
+    li a0, 1                  # Exit status (failure)
+    ecall                     # Syscall
