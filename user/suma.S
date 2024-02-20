@@ -1,6 +1,7 @@
 #define BUF_SIZE 20
 #define STDERR_D 2
 #define MAX_LEN_OF_FIRST_DIGIT BUF_SIZE-2
+
 .data
 
 buffer: .space BUF_SIZE
@@ -8,7 +9,7 @@ a: .space BUF_SIZE
 b: .space BUF_SIZE
 
 sum_result_string: .asciz "%d\n"
-arg_exception_msg: .asciz "Not enough / invalid arguments!\n"
+sum_exception_msg: .asciz "Error!\n"
 
 .text
 .global main
@@ -30,7 +31,7 @@ while_body:
     lb t2, 0(t1) # char t2 = *t1 - разыменование указателя (char весит 1 байтик)
     beq t4, t2, while_done # if buffer[space_ind] == ' ' then goto while_done
 
-    bge t0, t5, arg_exception
+    bge t0, t5, sum_exception
 
     sb t2, 0(t3) # t3 = a[space_ind] = buffer[space_ind] = t2
 
@@ -66,9 +67,9 @@ while_done:
     li a0, 0                  # Exit status (success)
     ecall
 
-arg_exception:
+sum_exception:
     la a0, STDERR_D
-    la a1, arg_exception_msg
+    la a1, sum_exception_msg
     call fprintf
 
     li a7, 2                  # Exit system call
