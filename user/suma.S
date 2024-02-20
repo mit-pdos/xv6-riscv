@@ -47,7 +47,7 @@ while_done:
 
     # Обработка второго числа
     la a0, b # char* a0 = b
-    addi a1, t1, 1
+    addi a1, t1, 1 # a1 = t1 + 1
     call strcpy
     # --------------------
 
