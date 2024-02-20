@@ -3,7 +3,7 @@
 #include "user/user.h"
 
 const int BUF_SIZE = 10; // max_int длинной в 10 цифр
-
+const int STDERR_D = 2;
 
 int main(int argc, char *argv[]) {
     char buffer[BUF_SIZE], a[BUF_SIZE], b[BUF_SIZE]; // Так-то можно память оптимизировать, записывая сразу в а, а потом отделить \0
@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
     while (buffer[space_ind] != ' ') { // Прочитаем первое число
         // Т.к. плохой случай может иметь вид: {'a', 'b', 'c', ' ', '\0'}, где BUF_SIZE = 5
         if (space_ind >= BUF_SIZE - 2) {
-            fprintf(2, "Not enough / invalid arguments!\n");
+            fprintf(STDERR_D, "Not enough / invalid arguments.\n");
             exit(1);
         }
         a[space_ind] = buffer[space_ind];

@@ -9,7 +9,7 @@ a: .space BUF_SIZE
 b: .space BUF_SIZE
 
 sum_result_string: .asciz "%d\n"
-sum_exception_msg: .asciz "Not enough / invalid arguments!\n"
+sum_exception_msg: .asciz "Not enough / invalid arguments.\n"
 
 .text
 .global main
