@@ -14,13 +14,14 @@ sum_exception_msg: .asciz "Not enough / invalid arguments.\n"
 .text
 .global main
 
+# Вот прям по минимуму обработку оставил, как и обговаривали
 main:
     la a0, buffer # char* a0 = buffer
     li a1, BUF_SIZE # int a1 = BUF_SIZE
     call gets # gets(a0, a1) -> buffer в a0
 
     li t4, ' ' # int my_const = ' '
-    li t5, MAX_LEN_OF_FIRST_DIGIT # int max_len_of_first_digit = MAX_LEN_OF_FIRST_DIGIT
+    li t5, MAX_LEN_OF_FIRST_DIGIT # int max_len_of_first_digit = MAX_LEN_OF_FIRST_DIGIT - Т.к. плохой случай может иметь вид: {'a', 'b', 'c', ' ', '\0'}, где BUF_SIZE = 5
 
     addi t0, zero, 0 # int space_ind = 0
     mv t1, a0 # char* t1 = a0 - указывают на одно и то же
