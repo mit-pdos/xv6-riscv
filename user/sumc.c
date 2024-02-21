@@ -13,7 +13,7 @@ char *int_scanline(char *buffer, char *c, int *bytes_read_overall, uint8 is_fst_
     while ((read_status = read(0, c, 1)) != 0) {
         check_read_status(read_status);
         check_buffer_overflow(*bytes_read_overall, BUF_SIZE);
-        if (is_fst_num) check_for_space(*bytes_read_overall, BUF_SIZE);
+        if (is_fst_num) check_for_space(*bytes_read_overall, c, BUF_SIZE);
         if (*c == '\n' || *c == '\r' || (is_fst_num && (*c == ' '))) break;
 
         (*bytes_read_overall)++;
@@ -25,9 +25,9 @@ char *int_scanline(char *buffer, char *c, int *bytes_read_overall, uint8 is_fst_
 
 int main() {
     int bytes_read_overall = 0;
-    char buffer[BUF_SIZE], c;
-
-    printf("%d\n", s_atoi(int_scanline(buffer, &c, &bytes_read_overall, 1)) +
-                   s_atoi(int_scanline(buffer, &c, &bytes_read_overall, 0)));
+    char buffer[BUF_SIZE], a[BUF_SIZE], b[BUF_SIZE], c;
+    strcpy(a, int_scanline(buffer, &c, &bytes_read_overall, 1));
+    strcpy(b, int_scanline(buffer, &c, &bytes_read_overall, 0));
+    printf("%d\n", s_atoi(a) + s_atoi(b));
     exit(0);
 }

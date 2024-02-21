@@ -30,8 +30,9 @@ void check_buffer_overflow(int bytes_read, int BUF_SIZE) {
 }
 
 // Останется ли место для второго аргумента
-void check_for_space(int read_first_bytes, int BUF_SIZE) {
-    if (read_first_bytes >= BUF_SIZE - 2) {
+void check_for_space(int read_first_bytes, char* read_char, int BUF_SIZE) {
+    if (read_first_bytes >= BUF_SIZE - 2 || *read_char == '\n' || *read_char == '\r') {
+        read_until_newline();
         fprintf(STDERR_D, "Not enough arguments.\n");
         exit(1);
     }
@@ -45,6 +46,7 @@ int s_atoi(char *str) { // Если данная строка - число, то
     int i = 0;
     do {
         if (!is_digit(str[i]) || strlen(str) == 0) {
+            read_until_newline();
             fprintf(STDERR_D, "Invalid arguments.\n");
             exit(1);
         }

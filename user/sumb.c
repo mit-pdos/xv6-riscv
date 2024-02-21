@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
 
     int space_ind = 0;
     while (buffer[space_ind] != ' ') { // Прочитаем первое число
-        check_for_space(space_ind, BUF_SIZE);
+        check_for_space(space_ind, &buffer[space_ind], BUF_SIZE);
         a[space_ind] = buffer[space_ind];
         space_ind++;
     }
