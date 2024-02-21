@@ -26,8 +26,10 @@ char *int_scanline(char *buffer, char *c, int *bytes_read_overall, uint8 is_fst_
 int main() {
     int bytes_read_overall = 0;
     char buffer[BUF_SIZE], a[BUF_SIZE], b[BUF_SIZE], c;
+
     strcpy(a, int_scanline(buffer, &c, &bytes_read_overall, 1));
     strcpy(b, int_scanline(buffer, &c, &bytes_read_overall, 0));
+
     printf("%d\n", s_atoi(a) + s_atoi(b));
     exit(0);
 }

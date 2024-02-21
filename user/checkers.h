@@ -11,19 +11,8 @@ void check_read_status(int read_status) {
     }
 }
 
-void read_until_newline(void) {
-    int read_status;
-    char c;
-    while ((read_status = read(0, &c, 1)) != 0) {
-        check_read_status(read_status);
-        if (c == '\n' || c == '\r') break;
-    }
-}
-
 void check_buffer_overflow(int bytes_read, int BUF_SIZE) {
     if (bytes_read >= BUF_SIZE) {
-        // Дочитаем до перевода на новую строку, раз уж хочется бЕзОпАсНосТи
-        read_until_newline();
         fprintf(STDERR_D, "Buffer overflow.\n");
         exit(1);
     }
@@ -32,7 +21,6 @@ void check_buffer_overflow(int bytes_read, int BUF_SIZE) {
 // Останется ли место для второго аргумента
 void check_for_space(int read_first_bytes, char* read_char, int BUF_SIZE) {
     if (read_first_bytes >= BUF_SIZE - 2 || *read_char == '\n' || *read_char == '\r') {
-        read_until_newline();
         fprintf(STDERR_D, "Not enough arguments.\n");
         exit(1);
     }
@@ -46,7 +34,6 @@ int s_atoi(char *str) { // Если данная строка - число, то
     int i = 0;
     do {
         if (!is_digit(str[i]) || strlen(str) == 0) {
-            read_until_newline();
             fprintf(STDERR_D, "Invalid arguments.\n");
             exit(1);
         }
