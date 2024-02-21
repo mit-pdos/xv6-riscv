@@ -19,14 +19,15 @@ char *int_scanline(char *buffer, char *c, int *bytes_read_overall, uint8 is_fst_
         (*bytes_read_overall)++;
         buffer[bytes_read++] = *c;
     }
-    buffer[bytes_read++] = '\0';
+    buffer[bytes_read] = '\0';
     return buffer;
 }
 
 int main() {
     int bytes_read_overall = 0;
     char buffer[BUF_SIZE], c;
-    char *a = int_scanline(buffer, &c, &bytes_read_overall, 1), *b = int_scanline(buffer, &c, &bytes_read_overall, 0);
-    printf("%d\n", s_atoi(a) + s_atoi(b));
+
+    printf("%d\n", s_atoi(int_scanline(buffer, &c, &bytes_read_overall, 1)) +
+                   s_atoi(int_scanline(buffer, &c, &bytes_read_overall, 0)));
     exit(0);
 }
