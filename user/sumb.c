@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
     a[space_ind] = '\0';
 
     strcpy(b, buffer + space_ind + 1);
-    printf("%d\n", s_atoi(a) + s_atoi(b));
+
+    add(s_atoi(a), s_atoi(b)); // Все-таки сразу совмещу sys_call с b-решением
     return 0;
 }

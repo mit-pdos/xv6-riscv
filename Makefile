@@ -136,7 +136,6 @@ UPROGS=\
 	$U/_suma\
 	$U/_sumb\
 	$U/_sumc\
-	$U/_sumd\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
