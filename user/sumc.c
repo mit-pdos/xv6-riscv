@@ -15,7 +15,7 @@ char *int_scanline(char *buffer, char *c, int *bytes_read_overall, uint8 is_fst_
         check_buffer_overflow(*bytes_read_overall, BUF_SIZE);
 
         if (is_fst_num) check_for_space(*bytes_read_overall, c, BUF_SIZE);
-        if (*c == '\n' || *c == '\r' || *c == '\0' || (is_fst_num && (*c == ' '))) break;
+        if (*c == '\n' || *c == '\r' || (is_fst_num && (*c == ' '))) break;
 
         (*bytes_read_overall)++;
         buffer[bytes_read++] = *c;
