@@ -6,7 +6,7 @@
 const int BUF_SIZE = 12;
 
 int main(int argc, char *argv[]) {
-    char buffer[BUF_SIZE], a[BUF_SIZE], b[BUF_SIZE];
+    char buffer[BUF_SIZE];
     gets(buffer, BUF_SIZE);
 
     int newline_ind = 0;
@@ -14,18 +14,16 @@ int main(int argc, char *argv[]) {
         check_buffer_overflow(newline_ind, BUF_SIZE);
         newline_ind++;
     }
+
     buffer[newline_ind] = '\0';
 
     int space_ind = 0;
     while (buffer[space_ind] != ' ') { // Прочитаем первое число
         check_for_space(space_ind, &buffer[space_ind], BUF_SIZE);
-        a[space_ind] = buffer[space_ind];
         space_ind++;
     }
-    a[space_ind] = '\0';
+    buffer[space_ind] = '\0';
 
-    strcpy(b, buffer + space_ind + 1);
-
-    printf("%d\n", add(s_atoi(a), s_atoi(b)));
+    printf("%d\n", add(s_atoi(buffer), s_atoi(buffer + space_ind + 1)));
     return 0;
 }
