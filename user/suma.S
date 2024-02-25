@@ -11,6 +11,7 @@ sum_exception_msg: .asciz "Not enough / invalid arguments.\n"
 .text
 .global main
 
+# NOTE: В этом коде срабатывает все без нуль-терминации инпута, т.к. тут юзается обычный атой
 # Вот прям по минимуму обработку оставил, как и обговаривали
 main:
     la a0, buffer # char* a0 = buffer
