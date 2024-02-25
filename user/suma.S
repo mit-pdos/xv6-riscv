@@ -5,9 +5,6 @@
 .data
 
 buffer: .space BUF_SIZE
-a: .space BUF_SIZE
-b: .space BUF_SIZE
-
 sum_result_string: .asciz "%d\n"
 sum_exception_msg: .asciz "Not enough / invalid arguments.\n"
 
@@ -26,40 +23,30 @@ main:
     addi t0, zero, 0 # int space_ind = 0
     mv t1, a0 # char* t1 = a0 - указывают на одно и то же
 
-    la t3, a # char* t3 = a
-
 while_body:
     lb t2, 0(t1) # char t2 = *t1 - разыменование указателя (char весит 1 байтик)
     beq t4, t2, while_done # if buffer[space_ind] == ' ' then goto while_done
 
-    bge t0, t5, sum_exception
-
-    sb t2, 0(t3) # t3 = a[space_ind] = buffer[space_ind] = t2
+    bge t0, t5, sum_exception # Если плохой случай
 
     addi t1, t1, 1 # t1++ - проходим на след элемент buffer (согласно арифметике указателей)
-    addi t3, t3, 1 # t3++ - проходим на след элемент a (согласно арифметике указателей)
-
     addi t0, t0, 1 # space_ind++
+
     j while_body
 
 while_done:
     li t4, 0 # int t4 = '\0'
-    sb t4, 0(t3) # (t3 =) a[space_ind] = '\0' (= t4)
+    sb t4, 0(t1) # (t1 =) buffer[space_ind] = '\0' (= t4)
 
-    # Обработка второго числа
-    la a0, b # char* a0 = b
-    addi a1, t1, 1 # a1 = t1 + 1
-    call strcpy
-    # --------------------
+    sub a0, t1, t0 # t1 = начало buffer
+    call atoi
 
-    call atoi # a0 = atoi(указатель на начало b)
-    mv t1, a0 # t1 = a0
+    mv t2, a0 # t2 = atoi(buffer)
 
-    sub t3, t3, t0 # ушли в начало a (a_pointer - space_ind)
-    mv a0, t3 # a0 = t3
-    call atoi # a0 = atoi(указатель на начало a)
+    addi a0, t1, 1 # a0 = buffer + space_ind + 1
+    call atoi
 
-    add a1, t1, a0 # a1 = t1 + a0 = atoi(указатель на начало b) + atoi(указатель на начало a)
+    add a1, t2, a0 # a1 = atoi(buffer) + atoi(buffer + space_ind + 1)
     la a0, sum_result_string
 
     call printf
