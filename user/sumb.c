@@ -9,12 +9,9 @@ int main(int argc, char *argv[]) {
     char buffer[BUF_SIZE];
     gets(buffer, BUF_SIZE);
 
+    // Нуль-терминируем инпут
     int newline_ind = 0;
-    while (buffer[newline_ind] != '\n' && buffer[newline_ind] != '\r') {
-        check_buffer_overflow(newline_ind, BUF_SIZE);
-        newline_ind++;
-    }
-
+    while (buffer[newline_ind] != '\n' && buffer[newline_ind] != '\r' && buffer[newline_ind] != '\0') { newline_ind++; }
     buffer[newline_ind] = '\0';
 
     int space_ind = 0;
@@ -23,7 +20,6 @@ int main(int argc, char *argv[]) {
         space_ind++;
     }
     buffer[space_ind] = '\0';
-
     printf("%d\n", add(s_atoi(buffer), s_atoi(buffer + space_ind + 1)));
     return 0;
 }

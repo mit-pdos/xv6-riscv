@@ -20,7 +20,7 @@ void check_buffer_overflow(int bytes_read, int BUF_SIZE) {
 
 // Останется ли место для второго аргумента
 void check_for_space(int read_first_bytes, char* read_char, int BUF_SIZE) {
-    if (read_first_bytes >= BUF_SIZE - 2 || *read_char == '\n' || *read_char == '\r') {
+    if (read_first_bytes >= BUF_SIZE - 2 || *read_char == '\n' || *read_char == '\r' || *read_char == '\0') {
         fprintf(STDERR_D, "Not enough arguments.\n");
         exit(1);
     }
