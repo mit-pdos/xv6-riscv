@@ -3,22 +3,22 @@
 #include "user/user.h"
 #include "user/lab2_checkers.c"
 
-int child_proc() {
+void child_proc() {
     sleep(100);
     exit(1);
 }
 
 int main(int argc, char **argv) { // a) part - -a flag, b) part - -b flag
     if (argc != 2) {
-        char* err_msg = "Only 1 argument needed.\n";
-        write(2, err_msg, strlen(err_msg));
-        exit(1);
+        raise_err("Only 1 argument needed.\n");
     }
 
     int pid = fork();
     fork_check(pid);
 
-    if (0 == pid) child_proc();
+    if (0 == pid) {
+        child_proc();
+    }
     printf("===== STARTED =====\nParentID: %d, ChildID: %d\n", getpid(), pid);
 
     if (!strcmp("-a", argv[1])) {
@@ -27,9 +27,7 @@ int main(int argc, char **argv) { // a) part - -a flag, b) part - -b flag
         int kill_status = kill(pid);
         kill_check(kill_status);
     } else {
-        char* err_msg = "Invalid arguments.\n";
-        write(2, err_msg, strlen(err_msg));
-        exit(1);
+        raise_err("Invalid arguments.\n");
     }
 
     int status, ended_pid = wait(&status);

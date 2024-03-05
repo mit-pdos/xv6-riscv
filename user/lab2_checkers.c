@@ -3,20 +3,28 @@
 
 const int STDERR_D = 2;
 
+void raise_err(char *err_msg) {
+    write(STDERR_D, err_msg, strlen(err_msg));
+    exit(1);
+}
+
 void fork_check(int pid) {
-    char *err_msg = "Fork error.\n";
     if (pid < 0) {
-        write(STDERR_D, err_msg, strlen(err_msg));
-        exit(1);
+        raise_err("Fork error.\n");
     }
 }
 
 void kill_check(int kill_status) {
-    char *err_msg = "THIS CHILD IS IMMORTAL!!!\n";
     if (kill_status < 0) {
-        write(STDERR_D, err_msg, strlen(err_msg));
-        exit(1);
+        raise_err("THIS CHILD IS IMMORTAL!!!\n");
     }
 }
+
+void check_read_status(int read_status) {
+    if (read_status == -1) {
+        raise_err("Error occurred while reading input.\n");
+    }
+}
+
 
 #endif
