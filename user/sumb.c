@@ -1,7 +1,7 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
-#include "user/checkers.c"
+#include "user/lab1_checkers.c"
 
 const int BUF_SIZE = 12;
 

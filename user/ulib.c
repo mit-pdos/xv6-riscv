@@ -145,3 +145,19 @@ memcpy(void *dst, const void *src, uint n)
 {
   return memmove(dst, src, n);
 }
+
+int is_digit(const char c) {
+    return c >= '0' && c <= '9';
+}
+
+int s_atoi(const char *str) { // Если данная строка - число, то выведется ее версия в инте
+    int i = 0;
+    do {
+        if (!is_digit(str[i]) || strlen(str) == 0) {
+            write(2, "Invalid arguments.\n", 20);
+            exit(1);
+        }
+        i++;
+    } while (str[i] != '\0');
+    return atoi(str);
+}

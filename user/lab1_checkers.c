@@ -1,5 +1,5 @@
-#ifndef XV6_RISCV_OS_LAB1_CHECKERS_H
-#define XV6_RISCV_OS_LAB1_CHECKERS_H
+#ifndef XV6_RISCV_OS_LAB1_CHECKERS_C
+#define XV6_RISCV_OS_LAB1_CHECKERS_C
 
 
 const int STDERR_D = 2;
@@ -24,22 +24,6 @@ void check_for_space(int read_first_bytes, char* read_char, int BUF_SIZE) {
         fprintf(STDERR_D, "Not enough arguments.\n");
         exit(1);
     }
-}
-
-int is_digit(char c) {
-    return c >= '0' && c <= '9';
-}
-
-int s_atoi(char *str) { // Если данная строка - число, то выведется ее версия в инте
-    int i = 0;
-    do {
-        if (!is_digit(str[i]) || strlen(str) == 0) {
-            fprintf(STDERR_D, "Invalid arguments.\n");
-            exit(1);
-        }
-        i++;
-    } while (str[i] != '\0');
-    return atoi(str);
 }
 
 #endif
