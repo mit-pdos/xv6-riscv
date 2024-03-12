@@ -683,13 +683,31 @@ procdump(void)
   }
 }
 
-uint64 ps_listinfo(procinfo_t *plist, int lim) {
+
+
+// Helper function to copy data to user space
+static int copy_to_user(uint64 addr, void *src, uint64 size) {
+    return copyout(myproc()->pagetable, addr, src, size);
+}
+
+// Helper function to acquire the wait_lock and get the parent PID
+static int get_parent_pid(struct proc *p) {
+    int parent_pid = -1;
+    acquire(&wait_lock);
+    if (p->parent)
+        parent_pid = p->parent->pid;
+    release(&wait_lock);
+    return parent_pid;
+}
+
+uint64 ps_listinfo(struct procinfo *plist, int lim) {
     uint64 addr;
     int countProc = 0;
     argaddr(0, &addr);
 
-    for (struct proc *p = proc; p < &proc[NPROC] && countProc <= lim; p++) {
+    for (struct proc *p = proc; p < &proc[NPROC]; p++) {
         acquire(&p->lock);
+
         if (p->state == UNUSED) {
             release(&p->lock);
             continue;
@@ -697,25 +715,21 @@ uint64 ps_listinfo(procinfo_t *plist, int lim) {
 
         countProc++;
 
+        if (countProc > lim) {
+            release(&p->lock);
+            return countProc;
+        }
+
         if (addr) {
-            if (copyout(myproc()->pagetable, addr, p->name, sizeof(p->name)) < 0 || copyout(myproc()->pagetable, addr + sizeof(p->name), (char *)&p->state, sizeof(p->state)) < 0) {
+            int parent_pid = get_parent_pid(p);
+            if (copy_to_user(addr, p->name, sizeof(p->name)) < 0 ||
+                copy_to_user(addr + sizeof(p->name), (char *)&p->state, sizeof(p->state)) < 0 ||
+                copy_to_user(addr + sizeof(p->name) + sizeof(p->state), (char *)&parent_pid, sizeof(int)) < 0) {
                 release(&p->lock);
                 return -2;
             }
 
-            int parent_pid = -1;
-            acquire(&wait_lock);
-            if (p->parent) {
-                parent_pid = p->parent->pid;
-            }
-            release(&wait_lock);
-
-            if (copyout(myproc()->pagetable, addr + sizeof(p->name) + sizeof(p->state), (char *)&parent_pid, sizeof(parent_pid)) < 0) {
-                release(&p->lock);
-                return -2;
-            }
-
-            addr += sizeof(p->name) + sizeof(p->state) + sizeof(parent_pid);
+            addr += sizeof(p->name) + sizeof(p->state) + sizeof(int);
         }
 
         release(&p->lock);
@@ -724,11 +738,11 @@ uint64 ps_listinfo(procinfo_t *plist, int lim) {
     return countProc;
 }
 
+
 uint64 sys_procinfo(void) {
     uint64 plist;
     int lim;
     argaddr(0, &plist);
     argint(1, &lim);
-    
-    return ps_listinfo((procinfo_t*) plist, lim);
+    return ps_listinfo((struct procinfo *)plist, lim);
 }
