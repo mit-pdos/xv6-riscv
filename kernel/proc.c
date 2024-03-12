@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "procinfo.h"
 
 struct cpu cpus[NCPU];
 
@@ -680,4 +681,54 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+uint64 ps_listinfo(procinfo_t *plist, int lim) {
+    uint64 addr;
+    int countProc = 0;
+    argaddr(0, &addr);
+
+    for (struct proc *p = proc; p < &proc[NPROC] && countProc <= lim; p++) {
+        acquire(&p->lock);
+        if (p->state == UNUSED) {
+            release(&p->lock);
+            continue;
+        }
+
+        countProc++;
+
+        if (addr) {
+            if (copyout(myproc()->pagetable, addr, p->name, sizeof(p->name)) < 0 || copyout(myproc()->pagetable, addr + sizeof(p->name), (char *)&p->state, sizeof(p->state)) < 0) {
+                release(&p->lock);
+                return -2;
+            }
+
+            int parent_pid = -1;
+            acquire(&wait_lock);
+            if (p->parent) {
+                parent_pid = p->parent->pid;
+            }
+            release(&wait_lock);
+
+            if (copyout(myproc()->pagetable, addr + sizeof(p->name) + sizeof(p->state), (char *)&parent_pid, sizeof(parent_pid)) < 0) {
+                release(&p->lock);
+                return -2;
+            }
+
+            addr += sizeof(p->name) + sizeof(p->state) + sizeof(parent_pid);
+        }
+
+        release(&p->lock);
+    }
+
+    return countProc;
+}
+
+uint64 sys_procinfo(void) {
+    uint64 plist;
+    int lim;
+    argaddr(0, &plist);
+    argint(1, &lim);
+    
+    return ps_listinfo((procinfo_t*) plist, lim);
 }
