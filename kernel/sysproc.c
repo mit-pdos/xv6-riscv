@@ -41,15 +41,24 @@ sys_wait(void)
 uint64
 sys_sbrk(void)
 {
-  int addr;
+  uint64 oldsz, newsz;
   int n;
+  struct proc* p;
 
   if(argint(0, &n) < 0)
     return -1;
-  addr = myproc()->sz;
-  if(growproc(n) < 0)
+  p = myproc();
+  oldsz = p->sz;
+  newsz = p->sz + n;
+  if(newsz <=0)
     return -1;
-  return addr;
+  if(PGROUNDUP(newsz) < PGROUNDUP(oldsz)){
+    int npages = (PGROUNDUP(oldsz) - PGROUNDUP(newsz)) / PGSIZE;
+    uvmunmap(p->pagetable, PGROUNDUP(newsz), npages, 1);
+  }
+
+  p->sz = newsz;
+  return oldsz;
 }
 
 uint64
