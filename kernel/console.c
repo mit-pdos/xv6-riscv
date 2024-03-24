@@ -27,7 +27,7 @@
 
 //
 // send one character to the uart.
-// called by printf, and to echo input characters,
+// called by printf(), and to echo input characters,
 // but not from write().
 //
 void
@@ -45,8 +45,8 @@ struct {
   struct spinlock lock;
   
   // input
-#define INPUT_BUF 128
-  char buf[INPUT_BUF];
+#define INPUT_BUF_SIZE 128
+  char buf[INPUT_BUF_SIZE];
   uint r;  // Read index
   uint w;  // Write index
   uint e;  // Edit index
@@ -60,14 +60,12 @@ consolewrite(int user_src, uint64 src, int n)
 {
   int i;
 
-  acquire(&cons.lock);
   for(i = 0; i < n; i++){
     char c;
     if(either_copyin(&c, user_src, src+i, 1) == -1)
       break;
     uartputc(c);
   }
-  release(&cons.lock);
 
   return i;
 }
@@ -91,14 +89,14 @@ consoleread(int user_dst, uint64 dst, int n)
     // wait until interrupt handler has put some
     // input into cons.buffer.
     while(cons.r == cons.w){
-      if(myproc()->killed){
+      if(killed(myproc())){
         release(&cons.lock);
         return -1;
       }
       sleep(&cons.r, &cons.lock);
     }
 
-    c = cons.buf[cons.r++ % INPUT_BUF];
+    c = cons.buf[cons.r++ % INPUT_BUF_SIZE];
 
     if(c == C('D')){  // end-of-file
       if(n < target){
@@ -145,29 +143,29 @@ consoleintr(int c)
     break;
   case C('U'):  // Kill line.
     while(cons.e != cons.w &&
-          cons.buf[(cons.e-1) % INPUT_BUF] != '\n'){
+          cons.buf[(cons.e-1) % INPUT_BUF_SIZE] != '\n'){
       cons.e--;
       consputc(BACKSPACE);
     }
     break;
   case C('H'): // Backspace
-  case '\x7f':
+  case '\x7f': // Delete key
     if(cons.e != cons.w){
       cons.e--;
       consputc(BACKSPACE);
     }
     break;
   default:
-    if(c != 0 && cons.e-cons.r < INPUT_BUF){
+    if(c != 0 && cons.e-cons.r < INPUT_BUF_SIZE){
       c = (c == '\r') ? '\n' : c;
 
       // echo back to the user.
       consputc(c);
 
       // store for consumption by consoleread().
-      cons.buf[cons.e++ % INPUT_BUF] = c;
+      cons.buf[cons.e++ % INPUT_BUF_SIZE] = c;
 
-      if(c == '\n' || c == C('D') || cons.e == cons.r+INPUT_BUF){
+      if(c == '\n' || c == C('D') || cons.e-cons.r == INPUT_BUF_SIZE){
         // wake up consoleread() if a whole line (or end-of-file)
         // has arrived.
         cons.w = cons.e;

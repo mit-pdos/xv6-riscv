@@ -1,17 +1,19 @@
-	#
+        #
         # interrupts and exceptions while in supervisor
         # mode come here.
         #
-        # push all registers, call kerneltrap(), restore, return.
+        # the current stack is a kernel stack.
+        # push all registers, call kerneltrap().
+        # when kerneltrap() returns, restore registers, return.
         #
 .globl kerneltrap
 .globl kernelvec
 .align 4
 kernelvec:
-        // make room to save registers.
+        # make room to save registers.
         addi sp, sp, -256
 
-        // save the registers.
+        # save the registers.
         sd ra, 0(sp)
         sd sp, 8(sp)
         sd gp, 16(sp)
@@ -44,14 +46,14 @@ kernelvec:
         sd t5, 232(sp)
         sd t6, 240(sp)
 
-	// call the C trap handler in trap.c
+        # call the C trap handler in trap.c
         call kerneltrap
 
-        // restore registers.
+        # restore registers.
         ld ra, 0(sp)
         ld sp, 8(sp)
         ld gp, 16(sp)
-        // not this, in case we moved CPUs: ld tp, 24(sp)
+        # not tp (contains hartid), in case we moved CPUs
         ld t0, 32(sp)
         ld t1, 40(sp)
         ld t2, 48(sp)
@@ -82,7 +84,7 @@ kernelvec:
 
         addi sp, sp, 256
 
-        // return to whatever we were doing in the kernel.
+        # return to whatever we were doing in the kernel.
         sret
 
         #
@@ -93,8 +95,8 @@ kernelvec:
 timervec:
         # start.c has set up the memory that mscratch points to:
         # scratch[0,8,16] : register save area.
-        # scratch[32] : address of CLINT's MTIMECMP register.
-        # scratch[40] : desired interval between interrupts.
+        # scratch[24] : address of CLINT's MTIMECMP register.
+        # scratch[32] : desired interval between interrupts.
         
         csrrw a0, mscratch, a0
         sd a1, 0(a0)
@@ -103,14 +105,15 @@ timervec:
 
         # schedule the next timer interrupt
         # by adding interval to mtimecmp.
-        ld a1, 32(a0) # CLINT_MTIMECMP(hart)
-        ld a2, 40(a0) # interval
+        ld a1, 24(a0) # CLINT_MTIMECMP(hart)
+        ld a2, 32(a0) # interval
         ld a3, 0(a1)
         add a3, a3, a2
         sd a3, 0(a1)
 
-        # raise a supervisor software interrupt.
-	li a1, 2
+        # arrange for a supervisor software interrupt
+        # after this handler returns.
+        li a1, 2
         csrw sip, a1
 
         ld a3, 16(a0)
