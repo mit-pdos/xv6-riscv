@@ -10,9 +10,20 @@
 #define PIPE  3
 #define LIST  4
 #define BACK  5
-
+#define NULL 0
 #define MAXARGS 10
-
+char* strstr(const char* haystack, const char* needle) {
+  if (needle[0] == '\0') return (char*)haystack;
+  
+  for (int i = 0; haystack[i] != '\0'; i++) {
+      int j;
+      for (j = 0; needle[j] != '\0'; j++) {
+          if (haystack[i + j] != needle[j]) break;
+      }
+      if (needle[j] == '\0') return (char*)(haystack + i);
+  }
+  return 0;
+}
 struct cmd {
   int type;
 };
@@ -76,6 +87,47 @@ runcmd(struct cmd *cmd)
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
       exit(1);
+    if (ecmd->argv[0] && strcmp(ecmd->argv[0], "!") == 0) {
+        char message[513] = {0};
+        int current_len = 0;
+    
+        for (int i = 1; ecmd->argv[i] != NULL; i++) {
+            const char* arg = ecmd->argv[i];
+            uint arg_len = strlen(arg);
+            int space_needed = (current_len > 0) ? 1 : 0;
+    
+            if (current_len + space_needed + arg_len > 512) {
+                printf("Message too long\n");
+                exit(0);
+            }
+    
+            if (space_needed) {
+                message[current_len++] = ' ';
+            }
+    
+            memcpy(message + current_len, arg, arg_len);
+            current_len += arg_len;
+        }
+    
+        if (current_len > 512) {
+            printf("Message too long\n");
+            exit(0);
+        }
+    
+        printf(">");
+        const char* start = message;
+        const char* match;
+    
+        while ((match = strstr(start, "os")) != NULL) {
+            write(1, start, match - start);
+            
+            printf("\033[0;34mos\033[0m");
+            start = match + 2;
+        }
+        
+        printf("%s<\n", start);
+        exit(0);
+    }
     exec(ecmd->argv[0], ecmd->argv);
     fprintf(2, "exec %s failed\n", ecmd->argv[0]);
     break;
@@ -134,7 +186,7 @@ runcmd(struct cmd *cmd)
 int
 getcmd(char *buf, int nbuf)
 {
-  write(2, "$morteza-zeinab ", 2);
+  write(2, "morteza-zeinab : ", 16);
   memset(buf, 0, nbuf);
   gets(buf, nbuf);
   if(buf[0] == 0) // EOF
