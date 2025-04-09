@@ -114,7 +114,7 @@ runcmd(struct cmd *cmd)
             exit(0);
         }
     
-        printf(">");
+        printf("<");
         const char* start = message;
         const char* match;
     
@@ -125,7 +125,7 @@ runcmd(struct cmd *cmd)
             start = match + 2;
         }
         
-        printf("%s<\n", start);
+        printf("%s>\n", start);
         exit(0);
     }
     exec(ecmd->argv[0], ecmd->argv);
