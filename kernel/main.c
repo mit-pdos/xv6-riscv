@@ -3,7 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
-
+#include "logger.h"
 volatile static int started = 0;
 
 // start() jumps here in supervisor mode on all CPUs.
@@ -31,6 +31,9 @@ main()
     userinit();      // first user process
     __sync_synchronize();
     started = 1;
+    log_message(LOG_INFO, "Welcome to AUT MCS Principles of Operating Systems Course. This message is from student_number_1 and student_number_2");
+    log_message(LOG_WARN, "This is a test warning message for the custom logger");
+    log_message(LOG_ERROR, "This is a test error message for the custom logger");
   } else {
     while(started == 0)
       ;
