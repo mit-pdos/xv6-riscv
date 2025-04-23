@@ -3,6 +3,7 @@
         "param.h": "c",
         "defs.h": "c",
         "stat.h": "c",
-        "memlayout.h": "c"
+        "memlayout.h": "c",
+        "memory": "c"
     }
 }

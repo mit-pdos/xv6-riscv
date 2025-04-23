@@ -12,6 +12,7 @@
 #include "file.h"
 #include "stat.h"
 #include "proc.h"
+#include "proj2/kernel/pipe_rt.h"
 
 struct devsw devsw[NDEV];
 struct {
@@ -75,7 +76,9 @@ fileclose(struct file *f)
 
   if(ff.type == FD_PIPE){
     pipeclose(ff.pipe, ff.writable);
-  } else if(ff.type == FD_INODE || ff.type == FD_DEVICE){
+  }else if(ff.type == FD_PIPE_RT){
+    pipe_rt_close(f->pipe_rt, f->writable);
+  }else if(ff.type == FD_INODE || ff.type == FD_DEVICE){
     begin_op();
     iput(ff.ip);
     end_op();
@@ -106,6 +109,7 @@ filestat(struct file *f, uint64 addr)
 int
 fileread(struct file *f, uint64 addr, int n)
 {
+  // printf("DEBUG: fileread: file->type = %d\n", f->type);
   int r = 0;
 
   if(f->readable == 0)
@@ -113,6 +117,8 @@ fileread(struct file *f, uint64 addr, int n)
 
   if(f->type == FD_PIPE){
     r = piperead(f->pipe, addr, n);
+  } else if(f->type == FD_PIPE_RT){
+    r = pipe_rt_read(f->pipe_rt, addr, n);
   } else if(f->type == FD_DEVICE){
     if(f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
       return -1;
@@ -134,13 +140,28 @@ fileread(struct file *f, uint64 addr, int n)
 int
 filewrite(struct file *f, uint64 addr, int n)
 {
+  //printf("DEBUG: filewrite: file->type = %d\n", f->type);
   int r, ret = 0;
+
+  //printf("file->type = %d\n", f->type);
+
+  //debug
+  if(f->type == FD_PIPE_RT){
+    if (f->pipe_rt == 0) {
+      printf("ERROR: file->pipe_rt is NULL\n");
+      return -1;
+    }
+    //printf("DEBUG: entering pipe_rt_write\n");
+    ret = pipe_rt_write(f->pipe_rt, addr, n);  
+  }
 
   if(f->writable == 0)
     return -1;
 
   if(f->type == FD_PIPE){
     ret = pipewrite(f->pipe, addr, n);
+  } else if(f->type == FD_PIPE_RT){
+    ret = pipe_rt_write(f->pipe_rt, addr, n);  
   } else if(f->type == FD_DEVICE){
     if(f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
       return -1;

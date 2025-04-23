@@ -1,9 +1,13 @@
 #ifndef __PIPE_RT_H__
 #define __PIPE_RT_H__
 
-#include "spinlock.h"
-
 #define PIPE_TASKS 16
+
+
+int pipe_rt_read(struct pipe_rt *p, uint64 addr, int n);
+int pipe_rt_write(struct pipe_rt *p, uint64 addr, int n);
+void pipe_rt_close(struct pipe_rt *p, int writable);
+
 
 typedef struct task_t {
   int priority;

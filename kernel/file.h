@@ -39,3 +39,4 @@ struct devsw {
 extern struct devsw devsw[];
 
 #define CONSOLE 1
+#define FD_PIPE_RT 4
