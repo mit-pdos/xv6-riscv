@@ -1,11 +1,11 @@
 include proj1/kernel/Makefile
 include proj1/user/Makefile
+include proj2/user/Makefile
+include proj2/kernel/Makefile
 
 K=kernel
 U=user
 
-include proj1/kernel/Makefile
-include proj1/user/Makefile
 
 OBJS = \
   $K/entry.o \
@@ -34,7 +34,8 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o \
+  proj2/kernel/pipe_rt.o \
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -76,6 +77,7 @@ CFLAGS += -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf
 CFLAGS += -I.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
+CFLAGS += -Ikernel
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
 CFLAGS += -fno-pie -no-pie
@@ -145,11 +147,11 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
-<<<<<<< HEAD
 	$U/_calc-test\
-=======
-	$U/_calc_test\
->>>>>>> 3d8cc15bd3e487d6b565c410978045389f51f0f2
+	$U/_pipe_test\
+	$U/_pipe_rt_test\
+
+
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
@@ -189,3 +191,5 @@ qemu-gdb: $K/kernel .gdbinit fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
+proj2/kernel/pipe_rt.o: proj2/kernel/pipe_rt.c
+	$(CC) $(CFLAGS) -c -o $@ $<

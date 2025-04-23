@@ -25,6 +25,7 @@ int uptime(void);
 int calculate(int, int, char*, int*);
 
 int calculate(int x, int y, char* op, int* result);
+int pipe_rt(int *fds);
 
 // ulib.c
 int stat(const char*, struct stat*);

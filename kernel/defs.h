@@ -141,6 +141,7 @@ int             fetchstr(uint64, char*, int);
 int             fetchaddr(uint64, uint64*);
 void            syscall();
 
+
 // trap.c
 extern uint     ticks;
 void            trapinit(void);
@@ -187,3 +188,6 @@ void            virtio_disk_intr(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+
+int             pipe_rt(int*);

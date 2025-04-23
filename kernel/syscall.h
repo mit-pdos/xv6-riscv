@@ -20,9 +20,6 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
-<<<<<<< HEAD
-#define SYS_calculate  22
-=======
 
-#define SYS_calculate 22
->>>>>>> 3d8cc15bd3e487d6b565c410978045389f51f0f2
+#define SYS_calculate  22
+#define SYS_pipe_rt  23

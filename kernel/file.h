@@ -1,12 +1,13 @@
 struct file {
-  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
+  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE, FD_PIPE_RT } type;
   int ref; // reference count
   char readable;
   char writable;
   struct pipe *pipe; // FD_PIPE
+  struct pipe_rt *pipe_rt;  
   struct inode *ip;  // FD_INODE and FD_DEVICE
   uint off;          // FD_INODE
-  short major;       // FD_DEVICE
+  short major;       // FD_DEVICE  
 };
 
 #define major(dev)  ((dev) >> 16 & 0xFFFF)
