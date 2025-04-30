@@ -93,3 +93,59 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// TODO: implement freeze
+int sys_freeze(int pid)
+{
+  // struct proc *p;
+  // struct spinlock *lk;
+  // p = myproc();
+  // lk = &p->lock;
+  // acquire(lk);
+  // p->saved_state = p->state;
+  // p->saved_chan = p->chan;
+  // p->saved_parent = p->parent;
+  // p->saved_kstack = p->kstack;
+  // p->saved_sz = p->sz;
+  // p->saved_pagetable = p->pagetable;
+  // p->saved_trapframe = p->trapframe;
+  // p->saved_context = p->context;
+  // for (int i = 0; i < NOFILE; i++)
+  //{
+  //   if (p->ofile[i])
+  //   {
+  //     p->saved_ofile[i] = p->ofile[i];
+  //   }
+  // }
+  // release(lk);
+  return 0;
+}
+
+// TODO: implement unfreeze
+int sys_unfreeze(int pid)
+{
+  // struct proc *p;
+  // struct spinlock *lk;
+  // p = myproc();
+  // lk = &p->lock;
+  // acquire(lk);
+  // p->state = p->saved_state;
+  // p->chan = p->saved_chan;
+  // p->parent = p->saved_parent;
+  // p->kstack = p->saved_kstack;
+  // p->sz = p->saved_sz;
+  // p->pagetable = p->saved_pagetable;
+  // p->trapframe = p->saved_trapframe;
+  // p->context = p->saved_context;
+  //// struct spinlock *lk = &p->lock;
+  // release(lk);
+  // for (int i = 0; i < NOFILE; i++)
+  //{
+  //   if (p->saved_ofile[i])
+  //   {
+  //     p->ofile[i] = p->saved_ofile[i];
+  //   }
+  // }
+  // release(lk);
+  return 0;
+}
