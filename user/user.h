@@ -1,4 +1,5 @@
 struct stat;
+struct proc;
 
 // system calls
 int fork(void);
@@ -24,6 +25,8 @@ int sleep(int);
 int uptime(void);
 int freeze(int);
 int unfreeze(int);
+struct proc *find_proc(int);
+struct proc *getallprocs(void);
 
 // ulib.c
 int stat(const char *, struct stat *);

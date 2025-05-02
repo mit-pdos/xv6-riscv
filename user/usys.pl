@@ -38,3 +38,4 @@ entry("sleep");
 entry("uptime");
 entry("freeze");
 entry("unfreeze");
+entry("getallprocs");

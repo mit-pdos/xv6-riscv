@@ -22,3 +22,4 @@
 #define SYS_close 21
 #define SYS_freeze 22
 #define SYS_unfreeze 23
+#define SYS_getallprocs 24

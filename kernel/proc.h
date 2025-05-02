@@ -89,7 +89,8 @@ enum procstate
   SLEEPING,
   RUNNABLE,
   RUNNING,
-  ZOMBIE
+  ZOMBIE,
+  FROZEN,
 };
 
 // Per-process state
@@ -116,23 +117,4 @@ struct proc
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-
-  // Saved State before freezing
-
-  // p->lock must be held when using these:
-  enum procstate saved_state; // Process state
-  void *saved_chan;           // If non-zero, sleeping on chan
-
-  // wait_lock must be held when using this:
-  struct proc *saved_parent; // Parent process
-
-  // these are private to the process, so p->lock need not be held.
-  uint64 saved_kstack;               // Virtual address of kernel stack
-  uint64 saved_sz;                   // Size of process memory (bytes)
-  pagetable_t saved_pagetable;       // User page table
-  struct trapframe *saved_trapframe; // data page for trampoline.S
-  struct context saved_context;      // swtch() here to run process
-  struct file *saved_ofile[NOFILE];  // Open files
-  struct inode *saved_cwd;           // Current directory
-  char saved_name[16];               // Process name (debugging)
 };
