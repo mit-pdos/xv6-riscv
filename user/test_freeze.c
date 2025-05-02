@@ -15,7 +15,8 @@ int main(int argc, char *argv[])
         // Child process
         while (1)
         {
-            printf("Child process running\n");
+            // printf("[DEBUG] Child process running\n");
+            getallprocs();
             sleep(10);
         }
     }
@@ -23,15 +24,15 @@ int main(int argc, char *argv[])
     {
         // Parent process
         sleep(10); // Let the child run for a while
+        printf("[DEBUG] getallprocs from parent\n");
         getallprocs();
-        printf("Freezing child process with PID: %d\n", pid);
+        printf("[DEBUG] Freezing child process with PID: %d\n", pid);
         freeze(pid);
         sleep(10); // Keep the child frozen for a while
-        printf("Unfreezing child process with PID: %d\n", pid);
+        printf("[DEBUG] Unfreezing child process with PID: %d\n", pid);
         unfreeze(pid);
-        // sleep(100); // Let the child run after unfreezing
-        // unfreeze(pid);
-        printf("Parent process exiting\n");
+
+        printf("[DEBUG] Parent process exiting\n");
 
         exit(0);
     }

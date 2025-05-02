@@ -6,10 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
-#define MAXFROZENPROCS 10
-
 // define array of frozen processes
-struct proc *frozen_procs[MAXFROZENPROCS];
+struct proc *frozen_procs[NPROC];
 
 struct cpu cpus[NCPU];
 
@@ -481,8 +479,7 @@ void scheduler(void)
       acquire(&p->lock);
       if (p->state == FROZEN)
       {
-        // printf("[DEBUG] Process %d is frozen.\n", p->pid);
-        //  skip this process on this iteration
+        // Do nothing in this iteration
       }
       else if (p->state == RUNNABLE)
       {
@@ -725,15 +722,20 @@ void procdump(void)
   }
 }
 
+/**
+ * Freeze a process with the given [pid].
+ * @param pid the process id
+ * @return [0] on success, [-1] if the process is not found, [-2] if no available slot to freeze the process, [-3] if the process is already frozen
+ */
 int freeze(int pid)
 {
-  printf("[DEBUG] We are Freeze function with INT signture\n");
-  printf("[DEBUG] freeze will now call find_proc with pid: %d\n", pid);
+
   struct proc *p = find_proc(pid);
   struct proc *frozen_proc;
 
   // Allocate memory for the saved process
   frozen_proc = (struct proc *)kalloc();
+
   if (!frozen_proc)
   {
     printf("[DEBUG] Error: Memory allocation failed for frozen process.\n");
@@ -741,13 +743,13 @@ int freeze(int pid)
   }
 
   // Find an available slot in the frozen_procs array
-  for (int i = 0; i < MAXFROZENPROCS; i++)
+  for (int i = 0; i < NPROC; i++)
   {
+    // this means that this is an available slot
     if (!frozen_procs[i] || !frozen_procs[i]->pid)
     {
-
       acquire(&p->lock);
-      // Ensure the process is not already frozen
+
       if (p->state == FROZEN)
       {
         printf("[DEBUG] Error: Process %d is already frozen.\n", p->pid);
@@ -756,10 +758,8 @@ int freeze(int pid)
         return -3; // Process already frozen
       }
 
+      // copy the process data to the frozen process
       frozen_proc->state = p->state;
-      // Update the process state
-
-      // Save the process state
       frozen_proc->chan = p->chan;
       frozen_proc->parent = p->parent;
       frozen_proc->kstack = p->kstack;
@@ -769,6 +769,11 @@ int freeze(int pid)
       frozen_proc->context = p->context;
       frozen_proc->xstate = p->xstate;
       frozen_proc->killed = p->killed;
+      frozen_proc->pid = p->pid;
+      frozen_proc->cwd = p->cwd;
+
+      strncpy(frozen_proc->name, p->name, sizeof(frozen_proc->name));
+
       for (int j = 0; j < NOFILE; j++)
       {
         if (p->ofile[j])
@@ -776,12 +781,11 @@ int freeze(int pid)
           frozen_proc->ofile[j] = p->ofile[j];
         }
       }
-      strncpy(frozen_proc->name, p->name, sizeof(p->name));
-      frozen_proc->pid = p->pid;
-      frozen_proc->cwd = p->cwd;
 
       frozen_procs[i] = frozen_proc;
+
       p->state = FROZEN;
+
       release(&p->lock);
 
       printf("[DEBUG] Process %d frozen successfully.\n", frozen_proc->pid);
@@ -789,94 +793,100 @@ int freeze(int pid)
     }
   }
 
-  // No available slot in frozen_procs
+  // if we reach here, it means no available slot was found
+  // which means we want to freeze procs more than NPROC which is not possible
   printf("[ERROR] No available slot to freeze the process.\n");
   kfree((void *)frozen_proc); // Free allocated memory
   return -2;                  // No available slot
 }
 
+/**
+ * Unfreeze a process with the given pid.
+ * @param pid the process id
+ * @return [0] on success, [-1] if the process is not found, [-2] if the process is not frozen
+ */
+
 int unfreeze(int pid)
 {
-  printf("[DEBUG] We are unFreeze function with INT signture\n");
-  printf("[DEBUG] unfreeze will now call find_proc with pid: %d\n", pid);
+
   struct proc *p = find_proc(pid);
   struct proc *frozen_proc;
-  int found = 0;
-  int foundat = 0;
-  // Allocate memory for the saved process
-  for (int i = 0; i < MAXFROZENPROCS; i++)
+
+  // find the frozen process in the frozen_procs array with the given pid
+  for (int i = 0; i < NPROC; i++)
   {
     if (frozen_procs[i] && frozen_procs[i]->pid == pid)
     {
       frozen_proc = frozen_procs[i];
-      found = 1;
-      foundat = i;
-      break;
+
+      acquire(&p->lock);
+      // This should not execute as the process should be frozen before being added to the frozen procs array
+      // but still we need to double check
+      if (p->state != FROZEN)
+      {
+        printf("[ERROR] Process %d is not frozen.\n", p->pid);
+        kfree((void *)frozen_proc);
+        release(&p->lock);
+        return -2; // Process not frozen
+      }
+
+      // restore the process state
+      p->state = frozen_proc->state;
+      p->chan = frozen_proc->chan;
+      p->parent = frozen_proc->parent;
+      p->kstack = frozen_proc->kstack;
+      p->sz = frozen_proc->sz;
+      p->pagetable = frozen_proc->pagetable;
+      p->trapframe = frozen_proc->trapframe;
+      p->context = frozen_proc->context;
+      p->xstate = frozen_proc->xstate;
+      p->killed = frozen_proc->killed;
+      p->pid = frozen_proc->pid;
+      p->cwd = frozen_proc->cwd;
+
+      strncpy(p->name, frozen_proc->name, sizeof(frozen_proc->name));
+
+      // Restore the open files handlers
+      for (int j = 0; j < NOFILE; j++)
+      {
+        if (frozen_proc->ofile[j])
+        {
+          p->ofile[j] = frozen_proc->ofile[j];
+        }
+      }
+
+      release(&p->lock);
+
+      printf("[DEBUG] Process %d unfrozen successfully.\n", p->pid);
+      kfree((void *)frozen_procs[i]);
+
+      return 0; // Success
     }
   }
-  if (!found)
-  {
-    printf("[ERROR] Process %d not found in frozen processes.\n", pid);
-    return -1; // Process not found
-  }
 
-  // Find an available slot in the frozen_procs array
-
-  acquire(&p->lock);
-  // Ensure the process is not already frozen
-  if (p->state != FROZEN)
-  {
-    printf("[ERROR] Process %d is not frozen.\n", p->pid);
-    kfree((void *)frozen_proc);
-    release(&p->lock);
-    return -2; // Process not frozen
-  }
-  // restore the process state
-  p->state = frozen_proc->state;
-  p->chan = frozen_proc->chan;
-  p->parent = frozen_proc->parent;
-  p->kstack = frozen_proc->kstack;
-  p->sz = frozen_proc->sz;
-  p->pagetable = frozen_proc->pagetable;
-  p->trapframe = frozen_proc->trapframe;
-  p->context = frozen_proc->context;
-  p->xstate = frozen_proc->xstate;
-  p->killed = frozen_proc->killed;
-  for (int j = 0; j < NOFILE; j++)
-  {
-    if (frozen_proc->ofile[j])
-    {
-      p->ofile[j] = frozen_proc->ofile[j];
-    }
-  }
-  strncpy(p->name, frozen_proc->name, sizeof(frozen_proc->name));
-  p->pid = frozen_proc->pid;
-  p->cwd = frozen_proc->cwd;
-
-  release(&p->lock);
-  kfree(frozen_procs[foundat]);
-
-  printf("[DEBUG] Process %d unfrozen successfully.\n", p->pid);
-  return 0; // Success
+  printf("[ERROR] Process %d not found in frozen processes.\n", pid);
+  return -1; // Process not found
 }
 
-// find running proc by pid
+/**
+ * returns the process with the given pid
+ * @param pid the process id
+ * @return pointer to the process with the given [pid] or [0] if the process is not found
+ */
 struct proc *find_proc(int pid)
 {
-  printf("[DEBUG] We are in find_proc function with INT signture with pid: %d\n", pid);
   struct proc *p;
   for (p = proc; p < &proc[NPROC]; p++)
   {
-    // printf("[DEBUG] Process %d\n", p->pid);
     if (p->pid == pid)
     {
-      printf("[DEBUG] Process %d found.\n", pid);
       return p;
     }
   }
+
   printf("[DEBUG] Error: Process %d not found.\n", pid);
-  // Process not found
-  return myproc();
+
+  return 0; // Process not found
 }
 
 void getallprocs(void)
@@ -893,12 +903,9 @@ void getallprocs(void)
   printf("[DEBUG] Processes:\n");
   for (int i = 0; i < NPROC; i++)
   {
-    // printf("[DEBUG] Process %d\n", p->pid);
     if (proc[i].state != UNUSED)
     {
       printf(" %d %s %s\n", proc[i].pid, states[proc[i].state], proc[i].name);
     }
   }
-  // return proc;
-  printf("[DEBUG] All processes have been displayed.\n");
 }
