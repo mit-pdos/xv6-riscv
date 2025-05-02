@@ -18,3 +18,4 @@ user/usys.S
 cscope.out
 cscope.*
 ctags.out
+.vscode
