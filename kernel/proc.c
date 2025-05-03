@@ -788,7 +788,6 @@ int freeze(int pid)
 
       release(&p->lock);
 
-      printf("[DEBUG] Process %d frozen successfully.\n", frozen_proc->pid);
       return 0; // Success
     }
   }
@@ -857,7 +856,6 @@ int unfreeze(int pid)
 
       release(&p->lock);
 
-      printf("[DEBUG] Process %d unfrozen successfully.\n", p->pid);
       kfree((void *)frozen_procs[i]);
 
       return 0; // Success
@@ -900,12 +898,14 @@ void getallprocs(void)
       [ZOMBIE] "Zombie",
       [FROZEN] "Frozen"};
 
-  printf("[DEBUG] Processes:\n");
+  printf("Running Processes:\n");
+  printf("PID\tState\t\tName\n");
+  printf("-------------------------------------------------\n");
   for (int i = 0; i < NPROC; i++)
   {
     if (proc[i].state != UNUSED)
     {
-      printf(" %d %s %s\n", proc[i].pid, states[proc[i].state], proc[i].name);
+      printf("-[%d]\t[%s]\t%s\n", proc[i].pid, states[proc[i].state], proc[i].name);
     }
   }
 }

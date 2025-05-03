@@ -141,7 +141,7 @@ UPROGS=\
 	$U/_zombie\
 	$U/_freeze\
 	$U/_unfreeze\
-	$U/_test_freeze\
+	$U/_freezetest\
 	$U/_ps\
 
 fs.img: mkfs/mkfs README $(UPROGS)

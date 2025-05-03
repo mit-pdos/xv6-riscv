@@ -100,7 +100,7 @@ int sys_freeze(void)
   int pid;
 
   argint(0, &pid);
-  printf("[DEBUG] We are in sys_Freeze with pid: %d\n", pid);
+
   return freeze(pid);
 }
 
@@ -110,13 +110,12 @@ int sys_unfreeze(void)
   int pid;
 
   argint(0, &pid);
-  printf("[DEBUG] We are in sys_Unfreeze with pid: %d\n", pid);
+
   return unfreeze(pid);
 }
 
 int sys_getallprocs(void)
 {
-  printf("[DEBUG] We are in sys_getallprocs function\n");
   getallprocs();
   return 0; // Success
 }
