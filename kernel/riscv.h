@@ -1,6 +1,7 @@
 #ifndef __ASSEMBLER__
 
 // which hart (core) is this?
+//Who knows
 static inline uint64
 r_mhartid()
 {
