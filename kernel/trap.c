@@ -81,7 +81,6 @@ void usertrap(void)
   // give up the CPU if this is a timer interrupt.
   if (which_dev == 2)
   {
-    printf("[DEBUG] usertrap: timer interrupt\n");
     yield();
   }
 
@@ -157,7 +156,6 @@ void kerneltrap()
   // give up the CPU if this is a timer interrupt.
   if (which_dev == 2 && myproc() != 0)
   {
-    printf("[DEBUG] kerneltrap: timer interrupt\n");
     yield();
   }
 
@@ -171,7 +169,6 @@ void clockintr()
 {
   if (cpuid() == 0)
   {
-    // printf("[DEBUG] clockintr: ticks=%d\n", ticks);
     acquire(&tickslock);
     ticks++;
     wakeup(&ticks);

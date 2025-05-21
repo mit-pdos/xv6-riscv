@@ -479,7 +479,6 @@ void scheduler(void)
       acquire(&p->lock);
       if (p->state == FROZEN)
       {
-        // printf("[DEBUG] Process %d is frozen.\n", p->pid);
         //  Do nothing in this iteration
       }
       else if (p->state == RUNNABLE)
