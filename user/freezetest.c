@@ -12,28 +12,36 @@ int main(int argc, char *argv[])
     }
     else if (pid == 0)
     {
+        printf("[DEBUG] Child process PID: %d\n", pid);
         // Child process
+        int i = 0;
         while (1)
         {
-            // printf("[DEBUG] Child process running\n");
-            getallprocs();
-            sleep(10);
+            i++;
+            if (i % 100000000 == 0)
+            {
+                printf("[DEBUG] Child process running, i=%d\n", i);
+            }
+            // No syscalls in the loop, so timer interrupt can preempt
         }
     }
     else
     {
+        sleep(10); // Give the child process some time to start
+        printf("[DEBUG] Parent process PID: %d\n", pid);
         // Parent process
-        sleep(10); // Let the child run for a while
-        printf("[DEBUG] getallprocs from parent\n");
-        getallprocs();
+        // sleep(10); // Let the child run for a while
+        // printf("[DEBUG] getallprocs from parent\n");
+        // getallprocs();
         printf("[DEBUG] Freezing child process with PID: %d\n", pid);
         freeze(pid);
-        sleep(10); // Keep the child frozen for a while
+        getallprocs();
+        sleep(100); // Keep the child frozen for a while
         printf("[DEBUG] Unfreezing child process with PID: %d\n", pid);
         unfreeze(pid);
 
         printf("[DEBUG] Parent process exiting\n");
-
+        // wait(0);
         exit(0);
     }
     return 0;

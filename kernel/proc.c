@@ -479,7 +479,8 @@ void scheduler(void)
       acquire(&p->lock);
       if (p->state == FROZEN)
       {
-        // Do nothing in this iteration
+        // printf("[DEBUG] Process %d is frozen.\n", p->pid);
+        //  Do nothing in this iteration
       }
       else if (p->state == RUNNABLE)
       {
@@ -537,7 +538,13 @@ void yield(void)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
-  p->state = RUNNABLE;
+  if (p->state == FROZEN)
+  {
+  }
+  else
+  {
+    p->state = RUNNABLE;
+  }
   sched();
   release(&p->lock);
 }
@@ -785,7 +792,10 @@ int freeze(int pid)
       frozen_procs[i] = frozen_proc;
 
       p->state = FROZEN;
-
+      if (p == myproc())
+      {
+        yield();
+      }
       release(&p->lock);
 
       return 0; // Success
@@ -830,7 +840,7 @@ int unfreeze(int pid)
       }
 
       // restore the process state
-      p->state = frozen_proc->state;
+      p->state = RUNNABLE;
       p->chan = frozen_proc->chan;
       p->parent = frozen_proc->parent;
       p->kstack = frozen_proc->kstack;

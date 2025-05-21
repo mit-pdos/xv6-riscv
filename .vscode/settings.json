@@ -2,6 +2,8 @@
     "files.associations": {
         "cstdlib": "c",
         "proc.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "defs.h": "c",
+        "riscv.h": "c"
     }
 }
