@@ -143,6 +143,7 @@ UPROGS=\
 	$U/_unfreeze\
 	$U/_freezetest\
 	$U/_ps\
+	$U/_bgrun\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
