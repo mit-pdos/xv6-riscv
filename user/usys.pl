@@ -35,4 +35,5 @@ entry("dup");
 entry("getpid");
 entry("sbrk");
 entry("sleep");
+entry("lis_invoke");
 entry("uptime");

@@ -64,6 +64,9 @@ void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
 
+// lis_engines.c
+void            lis_engine_init(void);
+
 // log.c
 void            initlog(int, struct superblock*);
 void            log_write(struct buf*);
@@ -140,6 +143,7 @@ void            argaddr(int, uint64 *);
 int             fetchstr(uint64, char*, int);
 int             fetchaddr(uint64, uint64*);
 void            syscall();
+uint64          sys_lis_invoke(void); // LIS system call
 
 // trap.c
 extern uint     ticks;
