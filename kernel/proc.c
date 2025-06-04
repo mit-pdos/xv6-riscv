@@ -896,6 +896,86 @@ struct proc *find_proc(int pid)
   return 0; // Process not found
 }
 
+struct proc_tree_node
+{
+  int pid;
+  int parent_pid;
+  char state[16];
+  char name[16];
+  struct proc_tree_node *children[NPROC]; // assuming a process can have at most NPROC children
+  int child_count;
+};
+
+int print_process_tree()
+{
+  static char *states[] = {
+      [UNUSED] "Unused",
+      [USED] "Used",
+      [SLEEPING] "Sleeping",
+      [RUNNABLE] "Runnable",
+      [RUNNING] "Running",
+      [ZOMBIE] "Zombie",
+      [FROZEN] "Frozen"};
+
+  printf("Process Tree:\n");
+  printf("PID\tParent PID\tState\t\tName\n");
+  printf("-------------------------------------------------\n");
+
+  // FIX: Make proc_tree static to avoid stack overflow
+  static struct proc_tree_node proc_tree[NPROC];
+
+  // Build nodes
+  for (int i = 0; i < NPROC; i++)
+  {
+    proc_tree[i].pid = proc[i].pid;
+    proc_tree[i].parent_pid = (proc[i].parent) ? proc[i].parent->pid : -1;
+    safestrcpy(proc_tree[i].state,
+               (proc[i].state >= 0 && proc[i].state < NELEM(states) && states[proc[i].state])
+                   ? states[proc[i].state]
+                   : "Unknown",
+               sizeof(proc_tree[i].state));
+    safestrcpy(proc_tree[i].name, proc[i].name, sizeof(proc_tree[i].name));
+    proc_tree[i].child_count = 0;
+    // Initialize children pointers to NULL
+    for (int k = 0; k < NPROC; k++)
+      proc_tree[i].children[k] = 0;
+  }
+
+  // Build tree structure
+  for (int i = 0; i < NPROC; i++)
+  {
+    if (proc_tree[i].pid > 0)
+    {
+      for (int j = 0; j < NPROC; j++)
+      {
+        if (proc_tree[j].parent_pid == proc_tree[i].pid && proc_tree[j].pid > 0)
+        {
+          if (proc_tree[i].child_count < NPROC)
+          {
+            proc_tree[i].children[proc_tree[i].child_count++] = &proc_tree[j];
+          }
+        }
+      }
+    }
+  }
+
+  // Print tree
+  for (int i = 0; i < NPROC; i++)
+  {
+    if (proc_tree[i].pid > 0)
+    {
+      printf("%d\t%d\t\t%s\t%s\n", proc_tree[i].pid, proc_tree[i].parent_pid, proc_tree[i].state, proc_tree[i].name);
+      for (int j = 0; j < proc_tree[i].child_count; j++)
+      {
+        if (proc_tree[i].children[j])
+          printf("  |- Child: %d\n", proc_tree[i].children[j]->pid);
+      }
+    }
+  }
+  printf("-------------------------------------------------\n");
+  printf("Note: PID 1 is the idle process and has no parent.\n");
+  return 0; // Success
+}
 void getallprocs(void)
 {
   static char *states[] = {
@@ -917,4 +997,9 @@ void getallprocs(void)
       printf("-[%d]\t[%s]\t%s\n", proc[i].pid, states[proc[i].state], proc[i].name);
     }
   }
+  printf("-------------------------------------------------\n");
+  // test proc tree
+  printf("Process Tree:\n");
+  print_process_tree();
+  printf("-------------------------------------------------\n");
 }
