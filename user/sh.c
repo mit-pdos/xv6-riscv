@@ -73,9 +73,12 @@ runcmd(struct cmd *cmd)
     panic("runcmd");
 
   case EXEC:
+
+
     ecmd = (struct execcmd*)cmd;
-    if(ecmd->argv[0] == 0)
-      exit(1);
+    if(ecmd->argv[0] == 0){
+      exit(1);}
+
     exec(ecmd->argv[0], ecmd->argv);
     fprintf(2, "exec %s failed\n", ecmd->argv[0]);
     break;
@@ -158,6 +161,20 @@ main(void)
 
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
+    //Assignment 2 - Write commands to sh_history
+    int fd = open("sh_history", O_RDWR | O_CREATE);
+    if(fd>=0){
+      char tmp;
+      while(read(fd, &tmp, 1)==1);//There doesn't seem to be an O_APPEND
+      //  in xv6 so we'll read to the end of the file and add from there.
+      int len = strlen(buf);
+      if(len>0 && buf[len-1] == '\n') buf[len-1] = '\0';//eliminate duplicate new lines
+      write(fd, buf, strlen(buf)); 
+      write(fd, "\n", 1);     
+      close(fd);
+    }    
+
+
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Chdir must be called by the parent, not the child.
       buf[strlen(buf)-1] = 0;  // chop \n
