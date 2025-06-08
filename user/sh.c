@@ -163,11 +163,11 @@ main(void)
       buf[strlen(buf)-1] = 0;  // chop \n
       if(chdir(buf+3) < 0)
         fprintf(2, "cannot cd %s\n", buf+3);
-      continue;
+    } else {
+      if(fork1() == 0)
+        runcmd(parsecmd(buf));
+      wait(0);
     }
-    if(fork1() == 0)
-      runcmd(parsecmd(buf));
-    wait(0);
   }
   exit(0);
 }
