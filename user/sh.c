@@ -168,11 +168,11 @@ main(void)
       cmd[strlen(cmd)-1] = 0;  // chop \n
       if(chdir(cmd+3) < 0)
         fprintf(2, "cannot cd %s\n", cmd+3);
-      continue;
+    } else {
+      if(fork1() == 0)
+        runcmd(parsecmd(cmd));
+      wait(0);
     }
-    if(fork1() == 0)
-      runcmd(parsecmd(cmd));
-    wait(0);
   }
   exit(0);
 }
