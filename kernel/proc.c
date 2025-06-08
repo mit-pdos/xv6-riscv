@@ -215,19 +215,6 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmfree(pagetable, sz);
 }
 
-// a user program that calls exec("/init")
-// assembled from ../user/initcode.S
-// od -t xC ../user/initcode
-uchar initcode[] = {
-  0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02,
-  0x97, 0x05, 0x00, 0x00, 0x93, 0x85, 0x35, 0x02,
-  0x93, 0x08, 0x70, 0x00, 0x73, 0x00, 0x00, 0x00,
-  0x93, 0x08, 0x20, 0x00, 0x73, 0x00, 0x00, 0x00,
-  0xef, 0xf0, 0x9f, 0xff, 0x2f, 0x69, 0x6e, 0x69,
-  0x74, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00
-};
-
 // Set up first user process.
 void
 userinit(void)
@@ -237,16 +224,6 @@ userinit(void)
   p = allocproc();
   initproc = p;
   
-  // allocate one user page and copy initcode's instructions
-  // and data into it.
-  uvmfirst(p->pagetable, initcode, sizeof(initcode));
-  p->sz = PGSIZE;
-
-  // prepare for the very first "return" from kernel to user.
-  p->trapframe->epc = 0;      // user program counter
-  p->trapframe->sp = PGSIZE;  // user stack pointer
-
-  safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
@@ -537,6 +514,13 @@ forkret(void)
     first = 0;
     // ensure other cores see first=0.
     __sync_synchronize();
+
+    // We can involve exec() after file system is initialized.
+    // Put the return value (argc) of exec into a0.
+    myproc()->trapframe->a0 = exec("/init", (char *[]){ "/init", 0 });
+    if (myproc()->trapframe->a0 == -1) {
+      panic("exec");
+    }
   }
 
   usertrapret();
