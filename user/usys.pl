@@ -15,6 +15,7 @@ sub entry {
     print " ret\n";
 }
 	
+entry("trace"); 
 entry("fork");
 entry("exit");
 entry("wait");
@@ -36,4 +37,4 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
-entry("trace"); 
+entry("symlink"); 

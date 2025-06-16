@@ -703,7 +703,7 @@ skipelem(char *path, char *name)
 // path element into name, which must have room for DIRSIZ bytes.
 // Must be called inside a transaction since it calls iput().
 static struct inode*
-namex(char *path, int nameiparent, char *name)
+namex(char *path, int nameiparent, char *name, int depth)
 {
   struct inode *ip, *next;
 
@@ -712,8 +712,29 @@ namex(char *path, int nameiparent, char *name)
   else
     ip = idup(myproc()->cwd);
 
-  while((path = skipelem(path, name)) != 0){
+  if((path = skipelem(path, name)) == 0){
+    if(nameiparent){
+      iput(ip);
+      return 0; 
+    }
+    return ip; 
+  }
+
+  do{
+    if(holdingsleep(&ip->lock)){
+      iput(ip); 
+      return 0; 
+    }
     ilock(ip);
+    if(ip->type == T_SYMLINK){
+      if((next = followlink(ip, name, depth)) == 0){
+        iunlockput(ip); 
+        return 0; 
+      }
+      iunlockput(ip); 
+      ip = next; 
+      continue; 
+    }
     if(ip->type != T_DIR){
       iunlockput(ip);
       return 0;
@@ -729,23 +750,62 @@ namex(char *path, int nameiparent, char *name)
     }
     iunlockput(ip);
     ip = next;
+  } while((path = skipelem(path, name)) != 0); 
+
+  if(holdingsleep(&ip->lock)){
+    iput(ip); 
+    return 0; 
   }
-  if(nameiparent){
-    iput(ip);
-    return 0;
+  ilock(ip); 
+  if(ip->type == T_SYMLINK){
+    if((next = followlink(ip, name, depth)) == 0){
+      iunlockput(ip); 
+      return 0; 
+    }
+    iunlockput(ip); 
+    return next; 
   }
+  iunlock(ip); 
   return ip;
+}
+
+struct inode*
+nameid(char *path, int depth)
+{
+  char name[DIRSIZ];
+  return namex(path, 0, name, depth);
 }
 
 struct inode*
 namei(char *path)
 {
-  char name[DIRSIZ];
-  return namex(path, 0, name);
+  return nameid(path, MAXSYMLINKS); 
 }
 
 struct inode*
 nameiparent(char *path, char *name)
 {
-  return namex(path, 1, name);
+  return namex(path, 1, name, MAXSYMLINKS); 
+}
+
+// Symlinks
+
+// Follow symlink ip at most depth times. 
+// If depth is 0, return ip without following.
+// Assumes that ip is locked by the caller.
+struct inode*
+followlink(struct inode *ip, char *name, int depth)
+{
+  char path[MAXPATH];
+
+  if(ip->type != T_SYMLINK)
+    panic("followlink not SYMLINK");
+  if(depth < 1)
+    return iget(ip->dev, ip->inum);
+
+  if(readi(ip, 0, (uint64)path, 0, MAXPATH) < 0){
+    iunlockput(ip); 
+    return 0; 
+  }
+  return namex(path, 0, name, depth - 1); 
 }

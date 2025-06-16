@@ -15,6 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "buf.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -305,7 +306,7 @@ uint64
 sys_open(void)
 {
   char path[MAXPATH];
-  int fd, omode;
+  int fd, omode, depth;
   struct file *f;
   struct inode *ip;
   int n;
@@ -323,7 +324,8 @@ sys_open(void)
       return -1;
     }
   } else {
-    if((ip = namei(path)) == 0){
+    depth = !(omode & O_NOFOLLOW) ? MAXSYMLINKS : 0;
+    if((ip = nameid(path, depth)) == 0){
       end_op();
       return -1;
     }
@@ -502,4 +504,26 @@ sys_pipe(void)
     return -1;
   }
   return 0;
+}
+
+uint64
+sys_symlink(void)
+{
+  char target[MAXPATH], linkpath[MAXPATH]; 
+  struct inode *ip; 
+  
+  if(argstr(0, target, MAXPATH) < 0 || argstr(1, linkpath, MAXPATH) < 0)
+    return -1;
+
+  begin_op(); 
+
+  if((ip = create(linkpath, T_SYMLINK, 0, 0)) == 0){
+    end_op(); 
+    return -1; 
+  }
+  writei(ip, 0, (uint64)target, 0, MAXPATH); 
+  iunlockput(ip);
+
+  end_op(); 
+  return 0; 
 }
