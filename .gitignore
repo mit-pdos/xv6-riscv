@@ -25,3 +25,4 @@ barrier
 .DS_Store
 *.dSYM
 *.pcap
+.vscode

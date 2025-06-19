@@ -382,7 +382,7 @@ iunlockput(struct inode *ip)
 static uint
 bmap(struct inode *ip, uint bn)
 {
-  uint addr, *a;
+  uint addr, *a, q, r;
   struct buf *bp;
 
   if(bn < NDIRECT){
@@ -416,6 +416,40 @@ bmap(struct inode *ip, uint bn)
     brelse(bp);
     return addr;
   }
+  bn -= NINDIRECT; 
+
+  if(bn < NINDIRECT2){
+    // Load double indirect block, allocating if necessary.
+    if((addr = ip->addrs[NDIRECT+1]) == 0){
+      addr = balloc(ip->dev); 
+      if(addr == 0)
+        return 0;
+      ip->addrs[NDIRECT+1] = addr;
+    }
+    bp = bread(ip->dev, addr); 
+    a = (uint*)bp->data; 
+    q = bn / NINDIRECT; 
+    if((addr = a[q]) == 0){
+      addr = balloc(ip->dev); 
+      if(addr){
+        a[bn/NINDIRECT] = addr; 
+        log_write(bp); 
+      }
+    }
+    brelse(bp); 
+    bp = bread(ip->dev, addr); 
+    a = (uint*)bp->data; 
+    r = bn - q * NINDIRECT;
+    if((addr = a[r]) == 0){
+      addr = balloc(ip->dev); 
+      if(addr){
+        a[r] = addr; 
+        log_write(bp); 
+      }
+    }
+    brelse(bp); 
+    return addr; 
+  }
 
   panic("bmap: out of range");
 }
@@ -425,9 +459,9 @@ bmap(struct inode *ip, uint bn)
 void
 itrunc(struct inode *ip)
 {
-  int i, j;
-  struct buf *bp;
-  uint *a;
+  int i, j, k;
+  struct buf *bp, *bp2;
+  uint *a, *a2;
 
   for(i = 0; i < NDIRECT; i++){
     if(ip->addrs[i]){
@@ -446,6 +480,26 @@ itrunc(struct inode *ip)
     brelse(bp);
     bfree(ip->dev, ip->addrs[NDIRECT]);
     ip->addrs[NDIRECT] = 0;
+  }
+
+  if(ip->addrs[NDIRECT+1]){
+    bp = bread(ip->dev, ip->addrs[NDIRECT+1]); 
+    a = (uint*)bp->data; 
+    for(j = 0; j < NINDIRECT; j++){
+      if(a[j]){
+        bp2 = bread(ip->dev, a[j]); 
+        a2 = (uint*)bp2->data; 
+        for(k = 0; k < NINDIRECT; k++){
+          if(a2[k])
+            bfree(ip->dev, a2[k]);
+        }
+        brelse(bp2);
+        bfree(ip->dev, a[j]); 
+      }
+    }
+    brelse(bp); 
+    bfree(ip->dev, ip->addrs[NDIRECT+1]); 
+    ip->addrs[NDIRECT+1] = 0; 
   }
 
   ip->size = 0;
@@ -649,7 +703,7 @@ skipelem(char *path, char *name)
 // path element into name, which must have room for DIRSIZ bytes.
 // Must be called inside a transaction since it calls iput().
 static struct inode*
-namex(char *path, int nameiparent, char *name)
+namex(char *path, int nameiparent, char *name, int depth)
 {
   struct inode *ip, *next;
 
@@ -658,8 +712,29 @@ namex(char *path, int nameiparent, char *name)
   else
     ip = idup(myproc()->cwd);
 
-  while((path = skipelem(path, name)) != 0){
+  if((path = skipelem(path, name)) == 0){
+    if(nameiparent){
+      iput(ip);
+      return 0; 
+    }
+    return ip; 
+  }
+
+  do{
+    if(holdingsleep(&ip->lock)){
+      iput(ip); 
+      return 0; 
+    }
     ilock(ip);
+    if(ip->type == T_SYMLINK){
+      if((next = followlink(ip, name, depth)) == 0){
+        iunlockput(ip); 
+        return 0; 
+      }
+      iunlockput(ip); 
+      ip = next; 
+      continue; 
+    }
     if(ip->type != T_DIR){
       iunlockput(ip);
       return 0;
@@ -675,23 +750,62 @@ namex(char *path, int nameiparent, char *name)
     }
     iunlockput(ip);
     ip = next;
+  } while((path = skipelem(path, name)) != 0); 
+
+  if(holdingsleep(&ip->lock)){
+    iput(ip); 
+    return 0; 
   }
-  if(nameiparent){
-    iput(ip);
-    return 0;
+  ilock(ip); 
+  if(ip->type == T_SYMLINK){
+    if((next = followlink(ip, name, depth)) == 0){
+      iunlockput(ip); 
+      return 0; 
+    }
+    iunlockput(ip); 
+    return next; 
   }
+  iunlock(ip); 
   return ip;
+}
+
+struct inode*
+nameid(char *path, int depth)
+{
+  char name[DIRSIZ];
+  return namex(path, 0, name, depth);
 }
 
 struct inode*
 namei(char *path)
 {
-  char name[DIRSIZ];
-  return namex(path, 0, name);
+  return nameid(path, MAXSYMLINKS); 
 }
 
 struct inode*
 nameiparent(char *path, char *name)
 {
-  return namex(path, 1, name);
+  return namex(path, 1, name, MAXSYMLINKS); 
+}
+
+// Symlinks
+
+// Follow symlink ip at most depth times. 
+// If depth is 0, return ip without following.
+// Assumes that ip is locked by the caller.
+struct inode*
+followlink(struct inode *ip, char *name, int depth)
+{
+  char path[MAXPATH];
+
+  if(ip->type != T_SYMLINK)
+    panic("followlink not SYMLINK");
+  if(depth < 1)
+    return iget(ip->dev, ip->inum);
+
+  if(readi(ip, 0, (uint64)path, 0, MAXPATH) < 0){
+    iunlockput(ip); 
+    return 0; 
+  }
+  return namex(path, 0, name, depth - 1); 
 }

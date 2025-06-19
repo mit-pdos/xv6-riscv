@@ -51,8 +51,10 @@ void            iunlock(struct inode*);
 void            iunlockput(struct inode*);
 void            iupdate(struct inode*);
 int             namecmp(const char*, const char*);
+struct inode*   nameid(char*, int);
 struct inode*   namei(char*);
 struct inode*   nameiparent(char*, char*);
+struct inode*   followlink(struct inode*, char*, int); 
 int             readi(struct inode*, int, uint64, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
@@ -84,6 +86,7 @@ int             pipewrite(struct pipe*, uint64, int);
 int            printf(char*, ...) __attribute__ ((format (printf, 1, 2)));
 void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
+void            backtrace(void); 
 
 // proc.c
 int             cpuid(void);

@@ -5,6 +5,7 @@ typedef long int off_t;
 struct stat;
 
 // system calls
+int trace(int); 
 int fork(void);
 int exit(int) __attribute__((noreturn));
 int wait(int*);
@@ -26,6 +27,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int symlink(const char*, const char*); 
 #ifdef LAB_NET
 int bind(uint16);
 int unbind(uint16);
