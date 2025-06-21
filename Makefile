@@ -13,6 +13,7 @@ OBJS = \
   $K/main.o \
   $K/vm.o \
   $K/proc.o \
+  $K/sys_pstate.o \
   $K/swtch.o \
   $K/trampoline.o \
   $K/trap.o \
@@ -145,6 +146,9 @@ UPROGS=\
 	$U/_mem\
 	$U/_pingpong\
 	$U/_exectime\
+	$U/_pstate\
+	
+
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

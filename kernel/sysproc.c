@@ -48,6 +48,23 @@ sys_sbrk(void)
   return addr;
 }
 
+
+// uint64
+// sys_pstate(void)
+// {
+//   extern struct proc proc[NPROC];
+//     //Prints out the pricess id, process name, process state, nad parent name.
+//     struct proc *p;
+//     for(p = proc; p < &proc[NPROC]; p++) {
+//         if(p->state == RUNNABLE || p->state == RUNNING || p->state == SLEEPING)
+//         {
+//             printf("pid: %d, state: %d, name: %s\n", p->pid, p->state, p->name);
+//         }
+//     }
+//     return 0;
+// }
+
+
 uint64
 sys_sleep(void)
 {
