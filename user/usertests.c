@@ -517,6 +517,82 @@ openiputtest(char *s)
   exit(xstatus);
 }
 
+void
+forphan(char *s)
+{
+  int rfd = 0, wfd = 0;
+  char buf[16] = { 0 };
+
+  // make an file type orphaned inode
+  if ((rfd = open("file", O_CREATE|O_RDONLY)) < 0) {
+    printf("%s: open failed\n", s);
+    exit(1);
+  }
+  if ((wfd = open("file", O_WRONLY)) < 0) {
+    printf("%s: open failed\n", s);
+    exit(1);
+  }
+  if (write(wfd, "0123456789", 10) != 10) {
+    printf("%s: write failed\n", s);
+    exit(1);
+  }
+  if (unlink("file") < 0) {
+    printf("%s: unlink failed\n", s);
+    exit(1);
+  }
+  if (open("file", O_RDONLY) != -1) {
+    printf("%s: open successed\n", s);
+    exit(1);
+  }
+
+  // read on orphaned inode should succeed
+  if (read(rfd, buf, 10) != 10) {
+    printf("%s: read failed\n", s);
+    exit(1);
+  }
+  if (memcmp(buf, "0123456789", 10) != 0) {
+    printf("%s: unexpected content\n", s);
+    exit(1);
+  }
+  if (read(rfd, buf, sizeof(buf)) != 0) {
+    printf("%s: expected EOF\n", s);
+    exit(1);
+  }
+
+  // write to orphaned inode should succeed
+  if (write(wfd, "9876543210", 10) != 10) {
+    printf("%s: write failed\n", s);
+    exit(1);
+  }
+  if (read(rfd, buf, 10) != 10) {
+    printf("%s: read failed\n", s);
+    exit(1);
+  }
+  if (memcmp(buf, "9876543210", 10) != 0) {
+    printf("%s: unexpected content\n", s);
+    exit(1);
+  }
+  if (read(rfd, buf, sizeof(buf)) != 0) {
+    printf("%s: expected EOF\n", s);
+    exit(1);
+  }
+
+  // orphaned inode should be freed
+  if (close(wfd) < 0) {
+    printf("%s: close failed\n", s);
+    exit(1);
+  }
+  if (close(rfd) < 0) {
+    printf("%s: close failed\n", s);
+    exit(1);
+  }
+  if (open("file", O_WRONLY) != -1) {
+    printf("%s: open successed\n", s);
+    exit(1);
+  }
+}
+
+
 // simple file system tests
 
 void
@@ -2602,6 +2678,7 @@ struct test {
   {openiputtest, "openiput"},
   {exitiputtest, "exitiput"},
   {iputtest, "iput"},
+  {forphan, "forphan"},
   {opentest, "opentest"},
   {writetest, "writetest"},
   {writebig, "writebig"},
