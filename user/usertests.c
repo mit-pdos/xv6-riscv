@@ -518,6 +518,48 @@ openiputtest(char *s)
 }
 
 void
+dorphan(char *s)
+{
+  // make an directory type orphaned inode
+  if (mkdir("dir") < 0) {
+    printf("%s: mkdir failed\n", s);
+    exit(1);
+  }
+  if (chdir("dir") < 0) {
+    printf("%s: chdir failed\n", s);
+    exit(1);
+  }
+  if (unlink("../dir") < 0) {
+    printf("%s: unlink failed\n", s);
+    exit(1);
+  }
+
+  // adding any new directory entries should fail
+  if (mkdir("newdir") != -1) {
+    printf("%s: mkdir succeeded\n", s);
+    exit(1);
+  }
+  if (open("newfile", O_CREATE) != -1) {
+    printf("%s: open succeeded\n", s);
+    exit(1);
+  }
+  if (link("../README", "newlink") != -1) {
+    printf("%s: link succeeded\n", s);
+    exit(1);
+  }
+
+  // orphaned inode should be freed
+  if (chdir("..") < 0) {
+    printf("%s: chdir failed\n", s);
+    exit(1);
+  }
+  if (chdir("dir") != -1) {
+    printf("%s: chdir succeeded\n", s);
+    exit(1);
+  }
+}
+
+void
 forphan(char *s)
 {
   int rfd = 0, wfd = 0;
@@ -2678,6 +2720,7 @@ struct test {
   {openiputtest, "openiput"},
   {exitiputtest, "exitiput"},
   {iputtest, "iput"},
+  {dorphan, "dorphan"},
   {forphan, "forphan"},
   {opentest, "opentest"},
   {writetest, "writetest"},
