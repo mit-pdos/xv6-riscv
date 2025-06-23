@@ -44,6 +44,7 @@ fsinit(int dev) {
   if(sb.magic != FSMAGIC)
     panic("invalid file system");
   initlog(dev, &sb);
+  ireclaim(dev);
 }
 
 // Zero a block.
@@ -190,6 +191,53 @@ iinit()
 }
 
 static struct inode* iget(uint dev, uint inum);
+
+// RECLAIM ORPHANED INODES AT BOOT
+//
+// Orphaned inodes may be generated in the following situations
+//
+// (*) directory
+//
+//     mkdir("d");             $ mkdir d
+//     chdir("d");             $ cd d
+//     unlink("../d");         $ /rm ../d
+//     chdir("..");      or    $ cd ..
+//
+// (*) regular file
+//
+//     fd = open("f", O_CREATE);
+//     unlink("f");
+//     close(fd);
+//
+// Because ip->ref > 0, even if ip->nlink == 0, the inode will
+// not be reclaimed until chdir(".."), cd .., or close(fd) is
+// executed. If a power failure occurs before that, the inode
+// will be lost.
+//
+// Our logging protocol only guarantees the atomicity of file
+// system related calls. Unexecuted system call (but it should
+// be executed) are not covered by the protocol, so simply re-
+// doing system call won't help.
+void
+ireclaim(uint dev)
+{
+  for (int inum = 1; inum < sb.ninodes; inum++) {
+    struct inode *ip = 0;
+    struct buf *bp = bread(dev, IBLOCK(inum, sb));
+    struct dinode *dip = (struct dinode *)bp->data + inum % IPB;
+    if (dip->type != 0 && dip->nlink == 0) {  // is an orphaned inode
+      ip = iget(dev, inum);
+    }
+    brelse(bp);
+    if (ip) {
+      begin_op();
+      ilock(ip);
+      iunlock(ip);
+      iput(ip);
+      end_op();
+    }
+  }
+}
 
 // Allocate an inode on device dev.
 // Mark it as allocated by  giving it type type.
