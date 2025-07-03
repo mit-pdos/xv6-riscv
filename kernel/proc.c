@@ -215,7 +215,7 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmfree(pagetable, sz);
 }
 
-// a user program that calls exec("/init")
+// a user program that calls exec("/init") Like BIOS
 // assembled from ../user/initcode.S
 // od -t xC ../user/initcode
 uchar initcode[] = {
