@@ -114,4 +114,10 @@ uint64 sys_jointhread(void) {
     int id; 
     argint(0, &id); 
     return jointhread(id); 
-} 
+}
+uint64
+sys_gettid(void) {
+  struct proc *p = myproc();
+  struct thread *t = p->current_thread;
+  return t ? t->id : p->pid;
+}

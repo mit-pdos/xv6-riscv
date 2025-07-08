@@ -44,3 +44,4 @@ void* malloc(uint);
 void free(void*);
 int thread(void *start_thread, int *stack_address, void *arg); 
 int jointhread(int id);
+int gettid(void);

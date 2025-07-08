@@ -23,3 +23,4 @@
 #define SYS_trigger 22
 #define SYS_thread       23
 #define SYS_jointhread   24
+#define SYS_gettid      25
