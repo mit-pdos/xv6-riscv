@@ -52,9 +52,30 @@ argraw(int n)
   return -1;
 }
 
-// Fetch the nth 32-bit system call argument.
+// Fetch the nth 32-bit signed system call argument.
 void
 argint(int n, int *ip)
+{
+  *ip = argraw(n);
+}
+
+// Fetch the nth 32-bit unsigned system call argument.
+void
+arguint(int n, uint *ip)
+{
+  *ip = argraw(n);
+}
+
+// Fetch the nth 64-bit signed system call argument.
+void
+arglong(int n, long *ip)
+{
+  *ip = argraw(n); 
+}
+
+// Fetch the nth 64-bit unsigned system call argument. 
+void
+argulong(int n, uint64 *ip)
 {
   *ip = argraw(n);
 }
@@ -103,6 +124,8 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_symlink(void); 
+extern uint64 sys_mmap(void); 
+extern uint64 sys_munmap(void); 
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -130,6 +153,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_symlink] sys_symlink,
+[SYS_mmap]    sys_mmap,
+[SYS_munmap]  sys_munmap,
 };
 
 static char *syscall_names[] = {
@@ -156,6 +181,8 @@ static char *syscall_names[] = {
 [SYS_mkdir]   "mkdir",
 [SYS_close]   "close",
 [SYS_symlink] "symlink",
+[SYS_mmap]    "mmap",
+[SYS_munmap]  "munmap",
 }; 
 
 void

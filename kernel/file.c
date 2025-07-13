@@ -6,6 +6,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "param.h"
+#include "memlayout.h"
 #include "fs.h"
 #include "spinlock.h"
 #include "sleeplock.h"
@@ -101,6 +102,33 @@ filestat(struct file *f, uint64 addr)
   return -1;
 }
 
+// Read from file f at offset off.
+// addr is a user virtual address.
+int
+fileread_at(struct file *f, uint64 addr, uint off, int n)
+{
+  int r = 0;
+
+  if(f->readable == 0)
+    return -1;
+
+  if(f->type == FD_PIPE){
+    return -1; 
+  } else if(f->type == FD_DEVICE){
+    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].read_at)
+      return -1;
+    r = devsw[f->major].read_at(1, addr, off, n); 
+  } else if(f->type == FD_INODE){
+    ilock(f->ip);
+    r = readi(f->ip, 1, addr, off, n); 
+    iunlock(f->ip);
+  } else {
+    panic("fileread_at");
+  }
+
+  return r;
+}
+
 // Read from file f.
 // addr is a user virtual address.
 int
@@ -118,10 +146,8 @@ fileread(struct file *f, uint64 addr, int n)
       return -1;
     r = devsw[f->major].read(1, addr, n);
   } else if(f->type == FD_INODE){
-    ilock(f->ip);
-    if((r = readi(f->ip, 1, addr, f->off, n)) > 0)
-      f->off += r;
-    iunlock(f->ip);
+    if((r = fileread_at(f, addr, f->off, n)) > 0)
+      f->off += r; 
   } else {
     panic("fileread");
   }
@@ -129,10 +155,10 @@ fileread(struct file *f, uint64 addr, int n)
   return r;
 }
 
-// Write to file f.
+// Write to file f at offset off.
 // addr is a user virtual address.
 int
-filewrite(struct file *f, uint64 addr, int n)
+filewrite_at(struct file *f, uint64 addr, uint off, int n)
 {
   int r, ret = 0;
 
@@ -140,11 +166,11 @@ filewrite(struct file *f, uint64 addr, int n)
     return -1;
 
   if(f->type == FD_PIPE){
-    ret = pipewrite(f->pipe, addr, n);
+    return -1; 
   } else if(f->type == FD_DEVICE){
-    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
+    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].write_at)
       return -1;
-    ret = devsw[f->major].write(1, addr, n);
+    r = devsw[f->major].write_at(1, addr, off, n);  
   } else if(f->type == FD_INODE){
     // write a few blocks at a time to avoid exceeding
     // the maximum log transaction size, including
@@ -161,8 +187,8 @@ filewrite(struct file *f, uint64 addr, int n)
 
       begin_op();
       ilock(f->ip);
-      if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)
-        f->off += r;
+      if ((r = writei(f->ip, 1, addr + i, off, n1)) > 0)
+        off += r; 
       iunlock(f->ip);
       end_op();
 
@@ -174,9 +200,35 @@ filewrite(struct file *f, uint64 addr, int n)
     }
     ret = (i == n ? n : -1);
   } else {
+    panic("filewrite_at");
+  }
+
+  return ret; 
+}
+
+// Write to file f.
+// addr is a user virtual address.
+int
+filewrite(struct file *f, uint64 addr, int n)
+{
+  int r = 0;
+
+  if(f->writable == 0)
+    return -1;
+
+  if(f->type == FD_PIPE){
+    r = pipewrite(f->pipe, addr, n);
+  } else if(f->type == FD_DEVICE){
+    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
+      return -1;
+    r = devsw[f->major].write(1, addr, n);
+  } else if(f->type == FD_INODE){
+    if((r = filewrite_at(f, addr, f->off, n)) > 0)
+      f->off += r; 
+  } else {
     panic("filewrite");
   }
 
-  return ret;
+  return r; 
 }
 

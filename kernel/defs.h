@@ -35,8 +35,10 @@ void            fileclose(struct file*);
 struct file*    filedup(struct file*);
 void            fileinit(void);
 int             fileread(struct file*, uint64, int n);
+int             fileread_at(struct file*, uint64, uint, int n);
 int             filestat(struct file*, uint64 addr);
 int             filewrite(struct file*, uint64, int n);
+int             filewrite_at(struct file*, uint64, uint, int n);
 
 // fs.c
 void            fsinit(int);
@@ -59,6 +61,13 @@ int             readi(struct inode*, int, uint64, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
 void            itrunc(struct inode*);
+
+// mmap.c
+uint64          mmapalloc(struct proc*, uint64, size_t);
+void            mmapfree(struct proc*, uint64, size_t);
+uint64          do_mmap(struct proc*, uint64, size_t, int, int, struct file*, off_t);
+int             do_munmap(struct proc*, uint64, size_t);
+int             vmacopy(struct proc*, struct proc*);
 
 // ramdisk.c
 void            ramdiskinit(void);
@@ -146,6 +155,9 @@ char*           strncpy(char*, const char*, int);
 
 // syscall.c
 void            argint(int, int*);
+void            arguint(int, uint*);
+void            arglong(int, long*);
+void            argulong(int, uint64*);
 int             argstr(int, char*, int);
 void            argaddr(int, uint64 *);
 int             fetchstr(uint64, char*, int);

@@ -8,6 +8,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "param.h"
+#include "memlayout.h"
 #include "stat.h"
 #include "spinlock.h"
 #include "proc.h"
@@ -526,4 +527,36 @@ sys_symlink(void)
 
   end_op(); 
   return 0; 
+}
+
+uint64
+sys_mmap(void)
+{
+  uint64 addr; 
+  size_t length; 
+  int prot, flags, fd; 
+  off_t offset; 
+  struct file *f; 
+
+  argaddr(0, &addr); 
+  argulong(1, &length); 
+  argint(2, &prot); 
+  argint(3, &flags); 
+  if(argfd(4, &fd, &f) < 0)
+    return -1;
+  arglong(5, &offset); 
+
+  return do_mmap(myproc(), addr, length, prot, flags, f, offset);
+}
+
+uint64
+sys_munmap(void)
+{
+  uint64 addr; 
+  size_t length; 
+
+  argaddr(0, &addr); 
+  argulong(1, &length); 
+
+  return do_munmap(myproc(), addr, length); 
 }

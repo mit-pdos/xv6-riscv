@@ -47,6 +47,10 @@
 // each surrounded by invalid guard pages.
 #define KSTACK(p) (TRAMPOLINE - ((p)+1)* 2*PGSIZE)
 
+// map mmap pages below the trapframe page,
+// this is the maximum number of mmap pages.
+#define MMAPPAGES 1024
+
 // User memory layout.
 // Address zero first:
 //   text
@@ -54,6 +58,7 @@
 //   fixed-size stack
 //   expandable heap
 //   ...
+//   mmap pages (up to MMAPPAGES)
 //   TRAPFRAME (p->trapframe, used by the trampoline)
 //   TRAMPOLINE (the same page as in the kernel)
 #define TRAPFRAME (TRAMPOLINE - PGSIZE)

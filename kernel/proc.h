@@ -81,6 +81,16 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+struct vma {
+  uint64 addr;                // Start address of the memory region 
+  size_t length;              // Length of the memory region  
+  int prot;                   // Permission flags (e.g., read, write, execute)
+  int flags;                  // If updates to memory mapped region are visible to other processes     
+  off_t offset;               // Offset in the file for memory mapping
+  struct file *file;          // File associated with the memory region (if any) 
+  uint isize;                 // Size of underlying inode at the time of mapping 
+};
+
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -103,6 +113,8 @@ struct proc {
   struct context context;      // swtch() here to run process
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
+  struct vma vma[NVMA];        // Virtual memory areas
+  uchar bmap[MMAPPAGES / 8];   // Bitmap for mmap pages
   char name[16];               // Process name (debugging)
   int tracemask;               // Trace mask for syscall tracing
 };

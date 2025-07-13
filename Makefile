@@ -13,6 +13,7 @@ OBJS = \
   $K/kalloc.o \
   $K/string.o \
   $K/main.o \
+  $K/mmap.o \
   $K/vm.o \
   $K/proc.o \
   $K/swtch.o \

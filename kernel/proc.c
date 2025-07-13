@@ -296,6 +296,15 @@ fork(void)
   }
   np->sz = p->sz;
 
+  // copy vma regions and vma allocation bitmap. 
+  if(vmacopy(p, np) < 0){
+    uvmfree(np->pagetable, np->sz);
+    freeproc(np);
+    release(&np->lock);
+    return -1;
+  }
+  memmove(np->bmap, p->bmap, MMAPPAGES / 8); 
+  
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
@@ -360,6 +369,12 @@ exit(int status)
       fileclose(f);
       p->ofile[fd] = 0;
     }
+  }
+
+  // Unmap all vma regions.
+  for(struct vma *vma = p->vma; vma < p->vma + NVMA; vma++){
+    if(vma->addr != 0)
+      do_munmap(p, vma->addr, vma->length); 
   }
 
   begin_op();

@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "fcntl.h"
 
 struct spinlock tickslock;
 uint ticks;
@@ -176,9 +177,50 @@ clockintr()
   w_stimecmp(r_time() + 1000000);
 }
 
+void
+pgfaulthandler()
+{
+  uint64 stval = r_stval(); 
+  struct proc *p = myproc();  
+  struct vma *vma; 
+  pte_t *pte; 
+  uint64 va, pa; 
+
+  for(vma = p->vma; vma < p->vma + NVMA; vma++){
+    if(vma->addr <= stval && stval < vma->addr + vma->length){
+      va = PGROUNDDOWN(stval); 
+      if((pte = walk(p->pagetable, va, 0)) == 0 || (*pte & PTE_V) != 0)
+        goto bad; 
+      if((pa = (uint64)kalloc()) == 0)
+        goto bad;
+      memset((void *)pa, 0, PGSIZE); // zero page, in case of partial read
+      if(mappages(p->pagetable, va, PGSIZE, pa, PTE_U | PTE_W) != 0){
+        // only free page if we failed to map it,
+        // otherwise the page will be a dangling reference.
+        kfree((void *)pa); 
+        goto bad;  
+      }
+      if(fileread_at(vma->file, va, vma->offset + (va - vma->addr), PGSIZE) < 0){
+        // we need to unmap the page here if read fails,
+        // to avoid overwriting the file when the process exits. 
+        uvmunmap(p->pagetable, va, 1, 1); 
+        goto bad; 
+      }
+      *pte = PA2PTE(pa) | (vma->prot << 1) | PTE_V | PTE_U;
+      sfence_vma(); 
+      return; 
+    }
+  }
+
+bad:
+  // if all else fails, kill the process.
+  setkilled(p);
+}
+
 // check if it's an external interrupt or software interrupt,
 // and handle it.
-// returns 2 if timer interrupt,
+// returns 3 if page fault,
+// 2 if timer interrupt,
 // 1 if other device,
 // 0 if not recognized.
 int
@@ -211,6 +253,10 @@ devintr()
     // timer interrupt.
     clockintr();
     return 2;
+  } else if(scause == 12 || scause == 13 || scause == 15){
+    // page fault. 
+    pgfaulthandler(); 
+    return 3; 
   } else {
     return 0;
   }
