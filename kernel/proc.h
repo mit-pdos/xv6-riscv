@@ -78,6 +78,22 @@ struct trapframe {
   /* 272 */ uint64 t5;
   /* 280 */ uint64 t6;
 };
+enum threadstate {
+  THREAD_UNUSED,
+  THREAD_RUNNABLE,
+  THREAD_RUNNING,
+  THREAD_JOINED,
+  THREAD_SLEEPING
+};
+
+struct thread {
+  enum threadstate state;        // وضعیت ترد
+  struct trapframe *trapframe;  // وضعیت رجیسترها برای context switch
+  uint id;                      // شناسه یکتا برای ترد
+  uint join;                    // منتظر بودن thread دیگر
+  int sleep_n;                  // مدت خواب
+  uint sleep_tick0;             // زمان شروع خواب
+};
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
@@ -104,4 +120,7 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  
+  struct thread threads[NTHREAD];     // آرایه‌ای از تردها
+  struct thread *current_thread; 
 };
