@@ -1,3 +1,5 @@
+### GLOBAL ###
+
 *~
 _*
 *.o
@@ -15,3 +17,9 @@ mkfs
 kernel/kernel
 user/usys.S
 .gdbinit
+.cache/
+
+### EDITOR ##
+
+.clangd
+compile_commands.json
