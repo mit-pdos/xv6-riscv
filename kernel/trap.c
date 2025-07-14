@@ -54,6 +54,7 @@ usertrap(void)
     // system call
 
     if(killed(p))
+
       exit(-1);
 
     // sepc points to the ecall instruction,
@@ -67,6 +68,12 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  } else if (p->current_thread && p->current_thread->id != p->pid) {
+    if (r_sepc() != r_stval() || r_scause() != 0xc) {
+      printf("usertrap(): thread unexpected scause 0x%lx pid=%d tid=%d\n", r_scause(), p->pid, p->current_thread->id);
+      printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
+    }
+    exitthread();
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
