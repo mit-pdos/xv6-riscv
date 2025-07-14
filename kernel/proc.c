@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "logger_costume.h"
 
 struct cpu cpus[NCPU];
 
@@ -25,6 +26,9 @@ extern char trampoline[]; // trampoline.S
 // memory model when using p->parent.
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
+
+struct thread *initthread(struct proc *p);
+int thread_schd(struct proc *p);
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -55,6 +59,7 @@ procinit(void)
       initlock(&p->lock, "proc");
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
+      p->current_thread = 0; //Initialize current_thread to indicate no active thread
   }
 }
 
@@ -169,6 +174,10 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->current_thread = 0; 
+  for (int i = 0; i < NTHREAD; ++i) {
+    freethread(&p->threads[i]);  // Free all threads associated with the process
+  }
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -339,6 +348,13 @@ reparent(struct proc *p)
     }
   }
 }
+int trigger(void)
+{
+  log_message(LOG_INFO,
+      "This is a log to test a new xv6 system call");
+  return 0;
+}
+
 
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
@@ -461,14 +477,16 @@ scheduler(void)
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+        if (thread_schd(p)) {
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+          found = 1;
+        }
       }
       release(&p->lock);
     }
@@ -506,7 +524,6 @@ sched(void)
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
 }
-
 // Give up the CPU for one scheduling round.
 void
 yield(void)
@@ -692,4 +709,167 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+struct thread *allocthread(uint64 start_thread, uint64 stack_address, uint64 arg) {
+  struct proc *p = myproc();
+  if (!initthread(p))
+    return 0;
+
+  for (struct thread *t = p->threads; t < p->threads + NTHREAD; t++) {
+    if (t->state == THREAD_UNUSED) {
+      t->id = allocpid();
+      if ((t->trapframe = (struct trapframe *)kalloc()) == 0) {
+        freethread(t);
+        break;
+      }
+
+      t->state = THREAD_RUNNABLE;
+      *t->trapframe = *p->trapframe;
+      t->trapframe->sp = stack_address;
+      t->trapframe->a0 = arg;
+      t->trapframe->ra = -1;
+      t->trapframe->epc = (uint64) start_thread;
+      return t;
+    }
+  }
+  return 0;
+}
+void
+freethread(struct thread *t)
+{
+ t->state = THREAD_UNUSED;
+ if (t->trapframe)
+    kfree((void*)t->trapframe);
+ t->trapframe = 0;
+ t->id = 0;
+ t->join = 0;
+}
+
+void
+exitthread()
+{
+  struct proc *p = myproc();
+  uint id = p->current_thread->id;
+
+  for (struct thread *t = p->threads; t < p->threads + NTHREAD; t++) {
+    if (t->state == THREAD_JOINED && t->join == id) {
+      t->join = 0;
+      t->state = THREAD_RUNNABLE;
+    }
+  }
+
+  freethread(p->current_thread);
+  if (!thread_schd(p))
+    setkilled(p);
+}
+int
+jointhread(uint join_id)
+{
+  struct proc *p = myproc();
+  struct thread *t = p->current_thread;
+  if (!t)
+    return -3;
+
+  int found = 0;
+  uint current_id = join_id;
+  while (current_id != 0) {
+    if (current_id == t->id)
+      return -1;   // deadlock
+
+    uint target_id = current_id;
+    current_id = 0;
+    for (int i = 0; i < NTHREAD; i++) {
+      if (p->threads[i].id == target_id) {
+        current_id = p->threads[i].join;
+        found = 1;
+        break;
+      }
+    }
+  }
+
+  if (!found)
+    return -2;
+
+  t->join = join_id;
+  t->state = THREAD_JOINED;
+  yield();
+  return 0;
+}
+void
+sleepthread(int n, uint ticks0)
+{
+  struct thread *t = myproc()->current_thread;
+  t->sleep_n = n;
+  t->sleep_tick0 = ticks0;
+  t->state = THREAD_SLEEPING;
+  thread_schd(myproc());
+}
+struct thread *
+initthread(struct proc *p)
+{
+  if (!p->current_thread) {
+    for (int i = 0; i < NTHREAD; ++i) {
+      p->threads[i].trapframe = 0;
+      freethread(&p->threads[i]);
+    }
+
+    struct thread *t = &p->threads[0];
+    t->id = p->pid;
+
+    if ((t->trapframe = (struct trapframe *)kalloc()) == 0) {
+      freethread(t);
+      return 0;
+    }
+
+    t->state = THREAD_RUNNING;
+    p->current_thread = t;
+  }
+
+  return p->current_thread;
+}
+int
+thread_schd(struct proc *p)
+{
+  if (!p->current_thread)
+    return 1;
+
+  if (p->current_thread->state == THREAD_RUNNING)
+    p->current_thread->state = THREAD_RUNNABLE;
+
+  acquire(&tickslock);
+  uint ticks0 = ticks;
+  release(&tickslock);
+
+  struct thread *next = 0;
+  struct thread *t = p->current_thread + 1;
+
+  for (int i = 0; i < NTHREAD; i++, t++) {
+    if (t >= p->threads + NTHREAD)
+      t = p->threads;
+
+    if (t->state == THREAD_RUNNABLE) {
+      next = t;
+      break;
+    } else if (t->state == THREAD_SLEEPING &&
+               ticks0 - t->sleep_tick0 >= t->sleep_n) {
+      next = t;
+      break;
+               }
+  }
+
+  if (next == 0)
+    return 0;
+
+  if (p->current_thread != next) {
+    next->state = THREAD_RUNNING;
+    struct thread *old = p->current_thread;
+    p->current_thread = next;
+
+    if (old->trapframe)
+      *old->trapframe = *p->trapframe;
+
+    *p->trapframe = *next->trapframe;
+  }
+
+  return 1;
 }
