@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/kernel/kernel",
+            "cwd": "${workspaceFolder}",
+            "miDebuggerPath": "/opt/riscv/bin/riscv64-unknown-elf-gdb",
+            "miDebuggerServerAddress": "127.0.0.1:26000",
+            "MIMode": "gdb",
+            "stopAtEntry": true,
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": false
+                }
+            ]
+        }
+    ]
+}
