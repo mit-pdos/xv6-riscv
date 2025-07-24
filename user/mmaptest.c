@@ -13,6 +13,8 @@ char buf[PGSIZE];
 
 #define MAP_FAILED ((char *) -1)
 
+#define min(a, b) ((a) < (b) ? (a) : (b))
+
 int
 main(int argc, char *argv[])
 {
@@ -60,7 +62,7 @@ void
 makefile(const char *f)
 {
   int i;
-  int n = PGSIZE/BSIZE;
+  int n = PGSIZE + (PGSIZE/2);  
 
   unlink(f);
   int fd = open(f, O_WRONLY | O_CREATE);
@@ -68,9 +70,10 @@ makefile(const char *f)
     err("open");
   memset(buf, 'A', BSIZE);
   // write 1.5 page
-  for (i = 0; i < n + n/2; i++) {
-    if (write(fd, buf, BSIZE) != BSIZE)
-      err("write 0 makefile");
+  for(i = 0; i < n; i += PGSIZE) {
+    int n1 = min(BSIZE, n - i); 
+    if (write(fd, buf, n1) != n1)
+      err("write 0 makefile"); 
   }
   if (close(fd) == -1)
     err("close");

@@ -189,24 +189,16 @@ pgfaulthandler()
   for(vma = p->vma; vma < p->vma + NVMA; vma++){
     if(vma->addr <= stval && stval < vma->addr + vma->length){
       va = PGROUNDDOWN(stval); 
-      if((pte = walk(p->pagetable, va, 0)) == 0 || (*pte & PTE_V) != 0)
-        goto bad; 
-      if((pa = (uint64)kalloc()) == 0)
+      if((pte = walk(p->pagetable, va, 0)) != 0 && (*pte & PTE_V) != 0)
+        goto bad; // remap
+      if((pa = (uint64)vmaread(vma, va)) == 0)
         goto bad;
-      memset((void *)pa, 0, PGSIZE); // zero page, in case of partial read
-      if(mappages(p->pagetable, va, PGSIZE, pa, PTE_U | PTE_W) != 0){
-        // only free page if we failed to map it,
-        // otherwise the page will be a dangling reference.
-        kfree((void *)pa); 
+      if(mappages(p->pagetable, va, PGSIZE, pa, (vma->prot<<1) | PTE_U) != 0){
+        // flush vma if we failed to map it,
+        // this is ok since we have not modified it.
+        vmaflush(vma, va, pa); 
         goto bad;  
       }
-      if(fileread_at(vma->file, va, vma->offset + (va - vma->addr), PGSIZE) < 0){
-        // we need to unmap the page here if read fails,
-        // to avoid overwriting the file when the process exits. 
-        uvmunmap(p->pagetable, va, 1, 1); 
-        goto bad; 
-      }
-      *pte = PA2PTE(pa) | (vma->prot << 1) | PTE_V | PTE_U;
       sfence_vma(); 
       return; 
     }

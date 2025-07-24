@@ -5,6 +5,7 @@
 #define NINODE       50  // maximum number of active i-nodes
 #define NDEV         10  // maximum major device number
 #define NVMA         16  // maximum number of virtual memory areas per process
+#define MMAPPAGES   1024  // maximum number of mmap pages per process
 #define ROOTDEV       1  // device number of file system root disk
 #define MAXARG       32  // max exec arguments
 #define MAXOPBLOCKS  10  // max # of blocks any FS op writes

@@ -12,6 +12,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct vma; 
 
 // bio.c
 void            binit(void);
@@ -56,7 +57,8 @@ int             namecmp(const char*, const char*);
 struct inode*   nameid(char*, int);
 struct inode*   namei(char*);
 struct inode*   nameiparent(char*, char*);
-struct inode*   followlink(struct inode*, char*, int); 
+struct inode*   followlink(struct inode*, char*, int);
+uint            bmap(struct inode*, uint);
 int             readi(struct inode*, int, uint64, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
@@ -67,7 +69,6 @@ uint64          mmapalloc(struct proc*, uint64, size_t);
 void            mmapfree(struct proc*, uint64, size_t);
 uint64          do_mmap(struct proc*, uint64, size_t, int, int, struct file*, off_t);
 int             do_munmap(struct proc*, uint64, size_t);
-int             vmacopy(struct proc*, struct proc*);
 
 // ramdisk.c
 void            ramdiskinit(void);
@@ -105,6 +106,8 @@ int             growproc(int);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
+int             proc_freevma(struct proc *, struct vma *, uint64, size_t);  
+int             proc_copyvma(struct proc *, struct proc *);
 int             kill(int);
 int             killed(struct proc*);
 void            setkilled(struct proc*);
@@ -213,6 +216,13 @@ void            plic_complete(int);
 void            virtio_disk_init(void);
 void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
+
+// vma.c
+struct vma*     vmaalloc(struct proc*, uint64, size_t, int, int, struct inode*, off_t);
+struct vma*     vmaget(struct proc*, uint64, size_t);
+void *          vmaread(struct vma*, uint64);
+int             vmaflush(struct vma*, uint64, uint64);
+void            vmafree(struct vma*, uint64, size_t);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

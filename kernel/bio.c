@@ -44,6 +44,9 @@ binit(void)
   bcache.head.prev = &bcache.head;
   bcache.head.next = &bcache.head;
   for(b = bcache.buf; b < bcache.buf+NBUF; b++){
+    if((b->data = (uchar*)kalloc()) == 0){
+      panic("binit: kalloc");
+    }
     b->next = bcache.head.next;
     b->prev = &bcache.head;
     initsleeplock(&b->lock, "buffer");

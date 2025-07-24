@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "fcntl.h"
 
 struct cpu cpus[NCPU];
 
@@ -215,6 +216,80 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmfree(pagetable, sz);
 }
 
+int
+proc_freevma(struct proc *p, struct vma *vma, uint64 addr, size_t length)
+{
+  uint64 a; 
+  pte_t *pte; 
+  int ret = 0; 
+
+  for(a = addr; a < addr + length; a += PGSIZE){
+    if((pte = walk(p->pagetable, a, 0)) != 0 && (*pte & PTE_V) != 0){
+      uint64 pa = PTE2PA(*pte);
+      uvmunmap(p->pagetable, a, 1, 0);
+      if(vmaflush(vma, a, pa) < 0)
+        ret = -1; 
+    }
+  }
+  vmafree(vma, addr, length); 
+  return ret; 
+}
+
+int
+proc_copyvma(struct proc *old, struct proc *new)
+{
+  pte_t *pte; 
+  uint64 a, pa; 
+  uint flags; 
+  char *mem; 
+  int i; 
+  
+  for(i = 0; i < NVMA; i++){
+    if(old->vma[i].addr != 0){
+      new->vma[i].addr = old->vma[i].addr;
+      new->vma[i].length = old->vma[i].length;
+      new->vma[i].prot = old->vma[i].prot;
+      new->vma[i].flags = old->vma[i].flags;
+      new->vma[i].ip = idup(old->vma[i].ip); 
+      new->vma[i].offset = old->vma[i].offset;
+
+      for(a = old->vma[i].addr; a < old->vma[i].addr + old->vma[i].length; a += PGSIZE){
+        if((pte = walk(old->pagetable, a, 0)) != 0 && (*pte & PTE_V) != 0){
+          pa = PTE2PA(*pte); 
+          flags = PTE_FLAGS(*pte);
+          if((old->vma[i].flags & MAP_PRIVATE)){
+            // private mapping, copy on write 
+            if((mem = kalloc()) == 0)
+              goto err; 
+            memmove(mem, (void *)pa, PGSIZE);
+            if(mappages(new->pagetable, a, PGSIZE, (uint64)mem, flags) != 0){
+              vmaflush(&new->vma[i], a, (uint64)mem); 
+              goto err;
+            }
+          }
+        }
+      }
+    }
+  }
+  return 0; 
+
+  err:
+    for(i = 0; i < NVMA; i++){
+      if(new->vma[i].addr != 0){
+        for(a = old->vma[i].addr; a < old->vma[i].addr + old->vma[i].length; a += PGSIZE){
+          if((pte = walk(new->pagetable, a, 0)) != 0 && (*pte & PTE_V) != 0){
+            pa = PTE2PA(*pte); 
+            uvmunmap(new->pagetable, a, 1, 0); 
+            vmaflush(&new->vma[i], a, pa); 
+          }
+        }
+        iput(new->vma[i].ip);  
+        memset(&new->vma[i], 0, sizeof(struct vma)); 
+      }
+    }
+    return -1;
+}
+
 // a user program that calls exec("/init")
 // assembled from ../user/initcode.S
 // od -t xC ../user/initcode
@@ -297,7 +372,7 @@ fork(void)
   np->sz = p->sz;
 
   // copy vma regions and vma allocation bitmap. 
-  if(vmacopy(p, np) < 0){
+  if(proc_copyvma(p, np) < 0){
     uvmfree(np->pagetable, np->sz);
     freeproc(np);
     release(&np->lock);
@@ -374,7 +449,7 @@ exit(int status)
   // Unmap all vma regions.
   for(struct vma *vma = p->vma; vma < p->vma + NVMA; vma++){
     if(vma->addr != 0)
-      do_munmap(p, vma->addr, vma->length); 
+      proc_freevma(p, vma, vma->addr, vma->length); 
   }
 
   begin_op();

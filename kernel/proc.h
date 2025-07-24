@@ -86,9 +86,8 @@ struct vma {
   size_t length;              // Length of the memory region  
   int prot;                   // Permission flags (e.g., read, write, execute)
   int flags;                  // If updates to memory mapped region are visible to other processes     
+  struct inode *ip;         // Inode associated with the memory region (if any)
   off_t offset;               // Offset in the file for memory mapping
-  struct file *file;          // File associated with the memory region (if any) 
-  uint isize;                 // Size of underlying inode at the time of mapping 
 };
 
 // Per-process state

@@ -115,9 +115,9 @@ fileread_at(struct file *f, uint64 addr, uint off, int n)
   if(f->type == FD_PIPE){
     return -1; 
   } else if(f->type == FD_DEVICE){
-    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].read_at)
+    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
       return -1;
-    r = devsw[f->major].read_at(1, addr, off, n); 
+    r = devsw[f->major].read(1, addr, off, n); 
   } else if(f->type == FD_INODE){
     ilock(f->ip);
     r = readi(f->ip, 1, addr, off, n); 
@@ -141,11 +141,7 @@ fileread(struct file *f, uint64 addr, int n)
 
   if(f->type == FD_PIPE){
     r = piperead(f->pipe, addr, n);
-  } else if(f->type == FD_DEVICE){
-    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
-      return -1;
-    r = devsw[f->major].read(1, addr, n);
-  } else if(f->type == FD_INODE){
+  } else if(f->type == FD_DEVICE || f->type == FD_INODE){
     if((r = fileread_at(f, addr, f->off, n)) > 0)
       f->off += r; 
   } else {
@@ -168,9 +164,9 @@ filewrite_at(struct file *f, uint64 addr, uint off, int n)
   if(f->type == FD_PIPE){
     return -1; 
   } else if(f->type == FD_DEVICE){
-    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].write_at)
+    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
       return -1;
-    r = devsw[f->major].write_at(1, addr, off, n);  
+    r = devsw[f->major].write(1, addr, off, n);  
   } else if(f->type == FD_INODE){
     // write a few blocks at a time to avoid exceeding
     // the maximum log transaction size, including
@@ -218,11 +214,7 @@ filewrite(struct file *f, uint64 addr, int n)
 
   if(f->type == FD_PIPE){
     r = pipewrite(f->pipe, addr, n);
-  } else if(f->type == FD_DEVICE){
-    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
-      return -1;
-    r = devsw[f->major].write(1, addr, n);
-  } else if(f->type == FD_INODE){
+  } else if(f->type == FD_DEVICE || f->type == FD_INODE){
     if((r = filewrite_at(f, addr, f->off, n)) > 0)
       f->off += r; 
   } else {
