@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "types.h": "c"
+        "types.h": "c",
+        "proc.h": "c"
     }
 }

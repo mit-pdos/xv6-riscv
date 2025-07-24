@@ -1,0 +1,1 @@
+cd src; ../../tester/run-xv6-command.exp CPUS=2 Makefile.test test_2 | grep XV6_TEST_OUTPUT; cd ..

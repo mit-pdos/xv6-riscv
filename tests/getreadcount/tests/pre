@@ -1,0 +1,8 @@
+bash ../../tester/xv6-edit-makefile.sh ../../Makefile test_1,test_2 > ../../Makefile.test
+cp -f tests/test_1.c ../../test_1.c
+cp -f tests/test_2.c ../../test_2.c
+cd ../../
+make -f Makefile.test clean
+make -f Makefile.test xv6.img
+make -f Makefile.test fs.img
+cd tests/getreadcount
