@@ -19,10 +19,16 @@ struct {
   struct file file[NFILE];
 } ftable;
 
+struct {
+  struct spinlock lock;
+  int reads;
+} reads_cnt;
+
 void
 fileinit(void)
 {
   initlock(&ftable.lock, "ftable");
+  initlock(&reads_cnt.lock, "reads_cnt");
 }
 
 // Allocate a file structure.
@@ -126,7 +132,21 @@ fileread(struct file *f, uint64 addr, int n)
     panic("fileread");
   }
 
+  acquire(&reads_cnt.lock);
+  reads_cnt.reads++;
+  release(&reads_cnt.lock);
+
   return r;
+}
+
+int
+readscnt(void)
+{
+  acquire(&reads_cnt.lock);
+  int cnt = reads_cnt.reads;
+  release(&reads_cnt.lock);
+
+  return cnt;
 }
 
 // Write to file f.
