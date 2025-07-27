@@ -15,5 +15,5 @@ mkfs
 kernel/kernel
 user/usys.S
 .gdbinit
-/test_*.c
+/user/test_*.c
 Makefile.test

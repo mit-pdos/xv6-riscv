@@ -1,4 +1,4 @@
-#! /usr/bin/env expect
+#! /usr/bin/expect
 
 proc shutdown {} {
     # send command to halt qemu (ctrl-a x)

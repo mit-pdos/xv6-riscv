@@ -7,7 +7,7 @@ gawk -vtestnames=$testnames '
 ($1 == "$U/_zombie\\") {
   n = split(testnames, x, ",");
   for (i = 1; i <= n; i++) {
-    printf("\t_%s\\\n", x[i]);
+    printf("\t$U/_%s\\\n", x[i]);
   }
 } 
 
