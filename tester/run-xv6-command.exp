@@ -13,7 +13,7 @@ proc shutdown {} {
 set timeout -1
 
 # build and launch xv6 on qemu
-spawn make [lindex $argv 0] -f [lindex $argv 1] qemu-nox
+spawn make [lindex $argv 0] -f [lindex $argv 1] qemu
 
 trap {
     shutdown

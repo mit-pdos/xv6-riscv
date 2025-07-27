@@ -13,28 +13,30 @@ run_test () {
     # pre: execute this after before the test is done, to set up
     local prefile=$testdir/$testnum.pre
     if [[ -f $prefile ]]; then
-	eval $(cat $prefile)
-	if (( $verbose == 1 )); then
-	    echo -n "pre-test:  "
-	    cat $prefile
-	fi
+	    eval $(cat $prefile)
+	    if (( $verbose == 1 )); then
+	        echo -n "pre-test:  "
+	        cat $prefile
+	    fi
     fi
+
     local testfile=$testdir/$testnum.run
     if (( $verbose == 1 )); then
-	echo -n "test:      "
-	cat $testfile
+	    echo -n "test:      "
+	    cat $testfile
     fi
+    
     eval $(cat $testfile) > tests-out/$testnum.out 2> tests-out/$testnum.err
     echo $? > tests-out/$testnum.rc
 
     # post: execute this after the test is done, to clean up
     local postfile=$testdir/$testnum.post
     if [[ -f $postfile ]]; then
-	eval $(cat $postfile)
-	if (( $verbose == 1 )); then
-	    echo -n "post-test: "
-	    cat $postfile
-	fi
+	    eval $(cat $postfile)
+	    if (( $verbose == 1 )); then
+	        echo -n "post-test: "
+	        cat $postfile
+	    fi
     fi
     return 
 }

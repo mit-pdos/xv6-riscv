@@ -2,6 +2,10 @@
     "files.associations": {
         "types.h": "c",
         "proc.h": "c",
-        "cstdio": "c"
+        "cstdio": "c",
+        "stat.h": "c",
+        "user.h": "c",
+        "file.h": "c",
+        "sleeplock.h": "c"
     }
 }
