@@ -2586,6 +2586,169 @@ badarg(char *s)
   exit(0);
 }
 
+// allocate more than half of physical memory,
+// then fork. this will fail in the default
+// kernel, which does not support copy-on-write.
+void
+cowsimple(char *s)
+{
+  uint64 phys_size = PHYSTOP - KERNBASE;
+  int sz = (phys_size / 3) * 2;
+
+  char *p = sbrk(sz);
+  if(p == (char*)0xffffffffffffffffL){
+    printf("%s: sbrk(%d) failed\n", s, sz);
+    exit(1);
+  }
+
+  for(char *q = p; q < p + sz; q += 4096){
+    *(int*)q = getpid();
+  }
+
+  int pid = fork();
+  if(pid < 0){
+    printf("%s: fork() failed\n", s);
+    exit(1);
+  }
+
+  if(pid == 0)
+    exit(0);
+
+  wait(0);
+
+  if(sbrk(-sz) == (char*)0xffffffffffffffffL){
+    printf("%s: sbrk(-%d) failed\n", s, sz);
+    exit(1);
+  }
+
+  exit(0);
+}
+
+// three processes all write COW memory.
+// this causes more than half of physical memory
+// to be allocated, so it also checks whether
+// copied pages are freed.
+void
+cowthree(char *s)
+{
+  uint64 phys_size = PHYSTOP - KERNBASE;
+  int sz = phys_size / 4;
+  int pid1, pid2;
+
+  char *p = sbrk(sz);
+  if(p == (char*)0xffffffffffffffffL){
+    printf("%s: sbrk(%d) failed\n", s, sz);
+    exit(1);
+  }
+
+  pid1 = fork();
+  if(pid1 < 0){
+    printf("%s: fork failed\n", s);
+    exit(1);
+  }
+  if(pid1 == 0){
+    pid2 = fork();
+    if(pid2 < 0){
+      printf("%s: fork failed\n", s);
+      exit(1);
+    }
+    if(pid2 == 0){
+      for(char *q = p; q < p + (sz/5)*4; q += 4096){
+        *(int*)q = getpid();
+      }
+      for(char *q = p; q < p + (sz/5)*4; q += 4096){
+        if(*(int*)q != getpid()){
+          printf("%s: wrong content\n", s);
+          exit(1);
+        }
+      }
+      exit(1);
+    }
+    for(char *q = p; q < p + (sz/2); q += 4096){
+      *(int*)q = 9999;
+    }
+    exit(0);
+  }
+
+  for(char *q = p; q < p + sz; q += 4096){
+    *(int*)q = getpid();
+  }
+
+  wait(0);
+
+  sleep(1);
+
+  for(char *q = p; q < p + sz; q += 4096){
+    if(*(int*)q != getpid()){
+      printf("%s: wrong content\n", s);
+      exit(1);
+    }
+  }
+
+  if(sbrk(-sz) == (char*)0xffffffffffffffffL){
+    printf("%s: sbrk(-%d) failed\n", s, sz);
+    exit(1);
+  }
+
+  exit(0);
+}
+
+char cowfilebuf[4096];
+
+// test whether copyout() simulates COW faults.
+void
+cowfile(char *s)
+{
+  int fds[2];
+
+  cowfilebuf[0] = 99;
+
+  for(int i = 0; i < 4; i++){
+    if(pipe(fds) != 0){
+      printf("%s: pipe() failed\n", s);
+      exit(1);
+    }
+    int pid = fork();
+    if(pid < 0){
+      printf("%s: fork failed\n", s);
+      exit(1);
+    }
+    if(pid == 0){
+      sleep(1);
+      if(read(fds[0], cowfilebuf, sizeof(i)) != sizeof(i)){
+        printf("%s: error: read failed\n", s);
+        exit(1);
+      }
+      sleep(1);
+      int j = *(int*)cowfilebuf;
+      if(j != i){
+        printf("%s: error: read the wrong value\n", s);
+        exit(1);
+      }
+      exit(0);
+    }
+    if(write(fds[1], &i, sizeof(i)) != sizeof(i)){
+      printf("%s: error: write failed\n", s);
+      exit(1);
+    }
+  }
+
+  int xstatus = 0;
+  for(int i = 0; i < 4; i++) {
+    wait(&xstatus);
+    if(xstatus != 0) {
+      exit(1);
+    }
+  }
+
+  if(cowfilebuf[0] != 99){
+    printf("%s: error: child overwrote parent\n", s);
+    exit(1);
+  }
+
+  exit(0);
+}
+
 struct test {
   void (*f)(char *);
   char *s;
@@ -2650,6 +2813,9 @@ struct test {
   {sbrklast, "sbrklast"},
   {sbrk8000, "sbrk8000"},
   {badarg, "badarg" },
+  {cowsimple, "cowsimple"},
+  {cowthree, "cowthree"},
+  {cowfile, "cowfile"},
 
   { 0, 0},
 };

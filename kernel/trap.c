@@ -50,7 +50,9 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
-  if(r_scause() == 8){
+  uint64 scause = r_scause();
+
+  if(scause == 8){
     // system call
 
     if(killed(p))
@@ -65,6 +67,18 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if (scause == 15) {
+    // store/amo page fault
+
+    uint64 va = r_stval();
+
+    intr_on();
+
+    if (cow(p->pagetable, va) == 0) {
+      printf("usertrap(): store/amo page fault and cow failed\n");
+      printf("            sepc=0x%lx stval=0x%lx\n", p->trapframe->epc, va);
+      setkilled(p);
+    }
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {

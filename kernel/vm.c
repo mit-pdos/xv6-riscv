@@ -278,8 +278,7 @@ uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 void
 freewalk(pagetable_t pagetable)
 {
-  // there are 2^9 = 512 PTEs in a page table.
-  for(int i = 0; i < 512; i++){
+  for(int i = 0; i < PGTABLESIZE; i++){
     pte_t pte = pagetable[i];
     if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
       // this PTE points to a lower-level page table.
@@ -303,40 +302,72 @@ uvmfree(pagetable_t pagetable, uint64 sz)
   freewalk(pagetable);
 }
 
+// If some pte is marked as COW, copies the physical memory
+// and updates the pte.
+// returns the address of the new pte if successful, and 0
+// otherwise.
+pte_t *cow(pagetable_t pgt, uint64 va) {
+  va = PGROUNDDOWN(va);
+  if (va >= MAXVA) {
+    return 0;
+  }
+
+  pte_t *pte = walk(pgt, va, 0);
+  if (pte == 0) {
+    return 0;
+  }
+
+  if ((*pte & PTE_COW) == 0) {
+    return 0;
+  }
+
+  uint64 pa = PTE2PA(*pte);
+  uint flags = PTE_FLAGS(*pte);
+
+  void *np = kalloc();
+  if (np == 0) {
+    return 0;
+  }
+
+  memmove(np, (char *)pa, PGSIZE);
+  uvmunmap(pgt, va, 1, 1);
+
+  flags &= ~PTE_COW;
+  flags |= PTE_W;
+  if(mappages(pgt, va, PGSIZE, (uint64)np, flags) != 0) {
+    kfree(np);
+    return 0;
+  }
+  
+  return walk(pgt, va, 0);
+}
+
 // Given a parent process's page table, copy
 // its memory into a child's page table.
-// Copies both the page table and the
-// physical memory.
+// Copies only the page table.
 // returns 0 on success, -1 on failure.
-// frees any allocated pages on failure.
 int
-uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
+uvmcopy(pagetable_t src, pagetable_t dst, uint64 sz)
 {
-  pte_t *pte;
-  uint64 pa, i;
-  uint flags;
-  char *mem;
+  pte_t *src_pte;
+  pte_t *dst_pte;
 
-  for(i = 0; i < sz; i += PGSIZE){
-    if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
-    pa = PTE2PA(*pte);
-    flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
-      goto err;
+  for (uint64 i = 0; i < sz; i += PGSIZE) {
+    if ((src_pte = walk(src, i, 0)) == 0) panic("uvmshallowcopy: pte should exist");
+    if((*src_pte & PTE_V) == 0) panic("uvmshallowcopy: page not present");
+
+    dst_pte = walk(dst, i, 1);
+    if (*dst_pte & PTE_V) panic("uvmshallowcopy: override dst");
+
+    if (*src_pte & PTE_W) {
+      *src_pte &= ~PTE_W;
+      *src_pte |= PTE_COW;
     }
+    *dst_pte = *src_pte;
+    kaddref((void *)PTE2PA(*src_pte));
   }
-  return 0;
 
- err:
-  uvmunmap(new, 0, i / PGSIZE, 1);
-  return -1;
+  return 0;
 }
 
 // mark a PTE invalid for user access.
@@ -366,9 +397,8 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     if(va0 >= MAXVA)
       return -1;
     pte = walk(pagetable, va0, 0);
-    if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 ||
-       (*pte & PTE_W) == 0)
-      return -1;
+    if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0) return -1;
+    if((*pte & PTE_W) == 0 && (pte = cow(pagetable, va0)) == 0) return -1;
     pa0 = PTE2PA(*pte);
     n = PGSIZE - (dstva - va0);
     if(n > len)
