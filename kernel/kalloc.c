@@ -14,6 +14,8 @@ void freerange(void *pa_start, void *pa_end);
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
 
+static uint8 *refcount;
+
 struct run {
   struct run *next;
 };
@@ -27,7 +29,25 @@ void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
-  freerange(end, (void*)PHYSTOP);
+
+  uint refcountsize = PGROUNDUP((PHYSTOP - KERNBASE) / PGSIZE);
+  refcount = (uint8 *)end;
+  memset(refcount, 1, refcountsize);
+
+  freerange(end + refcountsize, (void*)PHYSTOP);
+}
+
+uint8 *krefcount(void *pa) {
+  if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
+    panic("krefcount");
+
+  int idx = ((uint64)pa - KERNBASE) / PGSIZE;
+  return &refcount[idx];
+}
+
+void kaddref(void *pa) {
+  uint8 *rc = krefcount(pa);
+  (*rc)++;
 }
 
 void
@@ -39,19 +59,24 @@ freerange(void *pa_start, void *pa_end)
     kfree(p);
 }
 
-// Free the page of physical memory pointed at by pa,
-// which normally should have been returned by a
-// call to kalloc().  (The exception is when
-// initializing the allocator; see kinit above.)
+// Decrement the ref count of physical page and 
+// if possible, free the page of physical memory 
+// pointed at by pa, which normally should have 
+// been returned by a call to kalloc().  
+// (The exception is when initializing the allocator; 
+// see kinit above.)
 void
 kfree(void *pa)
 {
+  uint8 *rc = krefcount(pa);
+  (*rc)--;
+
+  if (*rc < 0) panic("kremref: invalid rc");
+  if (*rc > 0) return;
+  
   struct run *r;
 
-  if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
-    panic("kfree");
-
-  // Fill with junk to catch dangling refs.
+  // Fill with junk.
   memset(pa, 1, PGSIZE);
 
   r = (struct run*)pa;
@@ -76,7 +101,10 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
+  if(r) {
+    kaddref((char *)r);
     memset((char*)r, 5, PGSIZE); // fill with junk
+  }
+
   return (void*)r;
 }
