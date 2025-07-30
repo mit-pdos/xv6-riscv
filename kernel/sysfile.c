@@ -18,7 +18,7 @@
 
 #include <stdatomic.h>
 
-static atomic_uint read_count=0;
+static atomic_ulong read_count=0;
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -511,9 +511,9 @@ sys_pipe(void)
   return 0;
 }
 
-int
+uint64
 sys_getreadcount(void)
 {
-  int _count = read_count;
+  uint64 _count = read_count;
   return _count;
 }
