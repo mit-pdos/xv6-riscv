@@ -25,6 +25,16 @@ main(void)
 
   for(;;){
     printf("init: starting sh\n");
+	printf("###########\n");
+	printf("####   ####\n");
+	printf("###     ###\n");
+	printf("##  \\ /  ##\n");
+	printf("#   ---   #\n");
+	printf("##  / \\  ##\n");
+	printf("###     ###\n");
+	printf("####   ####\n");
+	printf("###########\n");
+	printf("modified by LIGHTSOUND\n");
     pid = fork();
     if(pid < 0){
       printf("init: fork failed\n");
