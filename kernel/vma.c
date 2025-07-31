@@ -15,19 +15,23 @@
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
 struct vma*
-vmaalloc(struct proc *p, uint64 addr, size_t length, int prot, int flags, 
+vmaalloc(struct vma *vmastart, uint64 addr, size_t length, int prot, int flags, 
          struct inode *ip, off_t offset)
 {
   struct vma *vma;  
 
-  for(vma = p->vma; vma < p->vma + NVMA; vma++){
-    if(vma->addr == 0){
+  if((addr % PGSIZE) != 0 || (offset % PGSIZE) != 0)
+    panic("vmaalloc: not aligned");
+
+  for(vma = vmastart; vma < vmastart + NVMA; vma++){
+    if(!vma->valid){
       vma->addr = addr; 
       vma->length = length; 
       vma->prot = prot; 
       vma->flags = flags; 
       vma->ip = idup(ip); 
       vma->offset = offset; 
+      vma->valid = 1; 
       return vma; 
     }
   }
@@ -35,11 +39,11 @@ vmaalloc(struct proc *p, uint64 addr, size_t length, int prot, int flags,
 }
 
 struct vma*
-vmaget(struct proc *p, uint64 addr, size_t length)
+vmaget(struct vma *vmastart, uint64 addr, size_t length)
 {
-  struct vma *vma; 
- 
-  for(vma = p->vma; vma < p->vma + NVMA; vma++){
+  struct vma *vma;
+
+  for(vma = vmastart; vma < vmastart + NVMA; vma++){
     if(vma->addr <= addr && addr + length <= vma->addr + vma->length)
       return vma; 
   }
@@ -47,15 +51,16 @@ vmaget(struct proc *p, uint64 addr, size_t length)
 }
 
 void *
-vmaread(struct vma *vma, uint64 addr)
+vmaread(struct vma *vmastart, uint64 addr)
 {
   uint64 pa; 
   off_t off; 
+  struct vma *vma; 
   struct buf *bp; 
   int n; 
 
-  if(addr < vma->addr || addr >= vma->addr + vma->length)
-    panic("vmaread: address out of bounds");
+  if((vma = vmaget(vmastart, addr, 0)) == 0)
+    return 0; 
 
   off = vma->offset + (off_t)(PGROUNDDOWN(addr) - vma->addr);
   if(vma->ip->type == T_DEVICE){
@@ -73,6 +78,7 @@ vmaread(struct vma *vma, uint64 addr)
   } else if(vma->ip->type == T_FILE){
     if(vma->flags & MAP_SHARED){
       // directly map buffer for shared files
+      begin_op(); 
       ilock(vma->ip); 
       uint a = bmap(vma->ip, off/BSIZE);  
       if(a == 0){
@@ -83,6 +89,7 @@ vmaread(struct vma *vma, uint64 addr)
       bpin(bp); // pin buffer to prevent eviction 
       brelse(bp);   
       iunlock(vma->ip); 
+      end_op(); 
       return bp->data; 
     } else if(vma->flags & MAP_PRIVATE){
       if((pa = (uint64)kalloc()) == 0)
@@ -103,14 +110,15 @@ vmaread(struct vma *vma, uint64 addr)
 }
 
 int
-vmaflush(struct vma *vma, uint64 addr, uint64 pa)
+vmaflush(struct vma *vmastart, uint64 addr, uint64 pa)
 {
   off_t off; 
+  struct vma *vma; 
   struct buf *bp; 
   int n; 
 
-  if(addr < vma->addr || addr >= vma->addr + vma->length)
-    panic("vmaflush: address out of bounds");
+  if((vma = vmaget(vmastart, addr, 0)) == 0)
+    return -1; 
 
   off = vma->offset + (off_t)(PGROUNDDOWN(addr) - vma->addr);
   if(vma->ip->type == T_DEVICE){
@@ -126,13 +134,14 @@ vmaflush(struct vma *vma, uint64 addr, uint64 pa)
     return ret; 
   } else if(vma->ip->type == T_FILE){
     if(vma->flags & MAP_SHARED){
+      begin_op(); 
       ilock(vma->ip); 
       uint a = bmap(vma->ip, off/BSIZE); 
       if(a == 0){
         iunlock(vma->ip); 
+        end_op(); 
         return -1; 
       }
-      begin_op(); 
       bp = bread(vma->ip->dev, a); 
       n = min(BSIZE, vma->ip->size - off); 
       memset(bp->data + n, 0, BSIZE - n); // zero out overflow
@@ -140,8 +149,8 @@ vmaflush(struct vma *vma, uint64 addr, uint64 pa)
         log_write(bp); 
       bunpin(bp); // unpin buffer so it can be written to disk  
       brelse(bp); 
-      end_op(); 
       iunlock(vma->ip); 
+      end_op(); 
       return 0; 
     } else if(vma->flags & MAP_PRIVATE){
       kfree((void *)pa);
@@ -152,25 +161,35 @@ vmaflush(struct vma *vma, uint64 addr, uint64 pa)
 }
 
 void
-vmafree(struct vma *vma, uint64 addr, size_t length)
+vmafree(struct vma *vmastart, uint64 addr, size_t length)
 {
-  uint64 npages = PGROUNDUP(length) / PGSIZE;
+  uint64 a, end, npages;  
+  struct vma *vma;
 
-  if(vma->addr == addr){
-    vma->addr += npages * PGSIZE; 
-    vma->offset += npages * PGSIZE;
-  }
-  if(vma->length >= npages * PGSIZE)
-    vma->length -= npages * PGSIZE; 
-  else
-    vma->length = 0; 
-  if(vma->length == 0){
-    // free the vma, if length is zero
-    begin_op(); 
-    ilock(vma->ip);  
-    iupdate(vma->ip); // inode size may have changed or addrs allocated
-    iunlockput(vma->ip); 
-    end_op(); 
-    memset(vma, 0, sizeof(*vma)); 
+  if((addr % PGSIZE) != 0)
+    panic("vmafree: not aligned");
+
+  for(a = addr; a < addr + length; a += PGSIZE){
+    if((vma = vmaget(vmastart, a, PGSIZE)) != 0){
+      end = min(vma->addr + vma->length, addr + length); 
+      npages = PGROUNDUP(end - vma->addr) / PGSIZE; 
+      if(vma->addr == addr){
+        vma->addr += npages * PGSIZE; 
+        vma->offset += npages * PGSIZE;
+      }
+      if(vma->length >= npages * PGSIZE)
+        vma->length -= npages * PGSIZE; 
+      else
+        vma->length = 0; 
+      if(vma->length == 0){
+        // free the vma, if length is zero
+        begin_op(); 
+        ilock(vma->ip);  
+        iupdate(vma->ip); // inode blocks may have been allocated 
+        iunlockput(vma->ip); 
+        end_op(); 
+        vma->valid = 0; 
+      }
+    }
   }
 }

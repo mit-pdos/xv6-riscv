@@ -1,7 +1,3 @@
-#ifdef LAB_MMAP
-typedef unsigned long size_t;
-typedef long int off_t;
-#endif
 struct buf;
 struct context;
 struct file;
@@ -65,8 +61,6 @@ int             writei(struct inode*, int, uint64, uint, uint);
 void            itrunc(struct inode*);
 
 // mmap.c
-uint64          mmapalloc(struct proc*, uint64, size_t);
-void            mmapfree(struct proc*, uint64, size_t);
 uint64          do_mmap(struct proc*, uint64, size_t, int, int, struct file*, off_t);
 int             do_munmap(struct proc*, uint64, size_t);
 
@@ -106,8 +100,9 @@ int             growproc(int);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
-int             proc_freevma(struct proc *, struct vma *, uint64, size_t);  
-int             proc_copyvma(struct proc *, struct proc *);
+int             proc_mapvma(pagetable_t, struct vma *, uint64, size_t);
+int             proc_unmapvma(pagetable_t, struct vma *, uint64, size_t);  
+int             proc_copyvma(pagetable_t, struct vma *, pagetable_t, struct vma *);
 int             kill(int);
 int             killed(struct proc*);
 void            setkilled(struct proc*);
@@ -218,8 +213,8 @@ void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
 
 // vma.c
-struct vma*     vmaalloc(struct proc*, uint64, size_t, int, int, struct inode*, off_t);
-struct vma*     vmaget(struct proc*, uint64, size_t);
+struct vma*     vmaalloc(struct vma*, uint64, size_t, int, int, struct inode*, off_t);
+struct vma*     vmaget(struct vma*, uint64, size_t);
 void *          vmaread(struct vma*, uint64);
 int             vmaflush(struct vma*, uint64, uint64);
 void            vmafree(struct vma*, uint64, size_t);
