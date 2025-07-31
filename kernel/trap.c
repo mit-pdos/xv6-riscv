@@ -180,26 +180,17 @@ clockintr()
 void
 pgfaulthandler()
 {
-  uint64 stval = r_stval(); 
+  uint64 stval = r_stval(), va = PGROUNDDOWN(stval); 
   struct proc *p = myproc();  
   struct vma *vma; 
-  pte_t *pte; 
-  uint64 va, pa; 
 
   for(vma = p->vma; vma < p->vma + NVMA; vma++){
-    if(vma->addr <= stval && stval < vma->addr + vma->length){
-      va = PGROUNDDOWN(stval); 
-      if((pte = walk(p->pagetable, va, 0)) != 0 && (*pte & PTE_V) != 0)
+    if(vma->valid && vma->addr <= stval && stval < vma->addr + vma->length){
+      if(walkaddr(p->pagetable, va) != 0)
         goto bad; // remap
-      if((pa = (uint64)vmaread(vma, va)) == 0)
+      if(proc_mapvma(p->pagetable, vma, va, PGSIZE) != 0)
         goto bad;
-      if(mappages(p->pagetable, va, PGSIZE, pa, (vma->prot<<1) | PTE_U) != 0){
-        // flush vma if we failed to map it,
-        // this is ok since we have not modified it.
-        vmaflush(vma, va, pa); 
-        goto bad;  
-      }
-      sfence_vma(); 
+      sfence_vma(); // flush TLB 
       return; 
     }
   }

@@ -13,8 +13,8 @@
 
 // allocate mmap pages for a process
 // returns the address of the first page allocated, or ((void *) -1) on failure
-uint64
-mmapalloc(struct proc *p, uint64 addr, size_t length)
+static uint64
+mmapalloc(uchar *bmap, uint64 addr, size_t length)
 {
   uint64 npages = PGROUNDUP(length) / PGSIZE; 
   size_t i, j; 
@@ -24,13 +24,13 @@ mmapalloc(struct proc *p, uint64 addr, size_t length)
 
   for(i = 0; i < MMAPPAGES;){
     for(j = 0; i + j < MMAPPAGES && j < npages; j++){
-      if((p->bmap[(i + j) / 8] & (1 << ((i + j) % 8))) != 0)
+      if((bmap[(i + j) / 8] & (1 << ((i + j) % 8))) != 0)
         break; // this page is already allocated
     }
     if(j == npages){
       for(j = 0; j < npages; j++)
-        p->bmap[(i + j) / 8] |= (1 << ((i + j) % 8)); // mark pages as allocated
-      return MMAPADDR(i+j-1);  
+        bmap[(i + j) / 8] |= (1 << ((i + j) % 8)); // mark pages as allocated
+      return MMAPADDR(i);  
     } 
     i += j + 1; 
   }
@@ -38,8 +38,8 @@ mmapalloc(struct proc *p, uint64 addr, size_t length)
 }
 
 // free mmap pages for a process
-void
-mmapfree(struct proc *p, uint64 addr, size_t length)
+static void
+mmapfree(uchar *bmap, uint64 addr, size_t length)
 {
   uint64 npages = PGROUNDUP(length) / PGSIZE; 
   size_t start = MMAPPAGE(addr), end = start + npages, i; 
@@ -47,11 +47,11 @@ mmapfree(struct proc *p, uint64 addr, size_t length)
   if((addr % PGSIZE) != 0)
     panic("mmapfree: not aligned");
 
-  if(addr < MMAPADDR(MMAPPAGES-1) || addr + length > TRAPFRAME)
+  if(addr < MMAPADDR(0) || addr + length > TRAPFRAME)
     panic("mmapfree: out of bounds");
 
   for(i = start; i <= end; i++)
-    p->bmap[i / 8] &= ~(1 << (i % 8)); // mark page as free 
+    bmap[i / 8] &= ~(1 << (i % 8)); // mark page as free 
 }
 
 uint64
@@ -73,23 +73,18 @@ do_mmap(struct proc *p, uint64 addr, size_t length, int prot, int flags,
   if((prot & PROT_WRITE) && (flags & MAP_SHARED) && f->writable == 0)
     return -1;
 
-  a = mmapalloc(p, addr, length); 
-  vmaalloc(p, a, length, prot, flags, f->ip, offset);  
+  a = mmapalloc(p->bmap, addr, length); 
+  vmaalloc(p->vma, a, length, prot, flags, f->ip, offset);  
   return a; 
 }
 
 int
 do_munmap(struct proc *p, uint64 addr, size_t length)
 {
-  struct vma *vma; 
-  int ret; 
-
   // addr must be page-aligned
   if((addr % PGSIZE) != 0)
     return -1; 
   
-  vma = vmaget(p, addr, length); 
-  ret = proc_freevma(p, vma, addr, length); 
-  mmapfree(p, addr, length); 
-  return ret; 
+  mmapfree(p->bmap, addr, length); 
+  return proc_unmapvma(p->pagetable, p->vma, addr, length);
 }

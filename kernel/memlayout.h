@@ -60,7 +60,8 @@
 #define TRAPFRAME (TRAMPOLINE - PGSIZE)
 
 // virtual address of the i-th mmap page
-#define MMAPADDR(i) (TRAPFRAME - PGSIZE - ((uint64)(i)) * PGSIZE)
+// the zero-th page has the lowest address
+#define MMAPADDR(i) (TRAPFRAME - ((uint64)(MMAPPAGES-i)) * PGSIZE)
 
 // index of mmap page given by the virtual address
-#define MMAPPAGE(a) ((TRAPFRAME - ((uint64)(a)) - 1) / PGSIZE)
+#define MMAPPAGE(a) (MMAPPAGES - ((TRAPFRAME-((uint64)(a))+PGSIZE-1) / PGSIZE))
