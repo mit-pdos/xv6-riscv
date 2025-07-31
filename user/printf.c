@@ -13,9 +13,9 @@ putc(int fd, char c)
 }
 
 static void
-printint(int fd, int xx, int base, int sgn)
+printint(int fd, long long xx, int base, int sgn)
 {
-  char buf[16];
+  char buf[20];
   int i, neg;
   uint x;
 
