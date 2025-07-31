@@ -471,8 +471,11 @@ exit(int status)
   }
 
   // Unmap all vma regions.
+<<<<<<< HEAD
   // Must unmap in exit to avoid potential deadlock with
   // the log when flushing buffers in freeproc.
+=======
+>>>>>>> ade244806a7a85bfc19bfb050e45b3217ea9b049
   proc_unmapvma(p->pagetable, p->vma, MMAPADDR(0), MMAPPAGES * PGSIZE); 
 
   begin_op();
