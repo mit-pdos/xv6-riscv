@@ -275,7 +275,7 @@ rwsbrk(char *s)
 
   fd = open("README", O_RDONLY);
   if(fd < 0){
-    printf("open(rwsbrk) failed\n");
+    printf("open(README) failed\n");
     exit(1);
   }
   n = read(fd, (void*)(a+4096), 10);
