@@ -14,7 +14,6 @@ int kstrcmp(const char *s1, const char *s2) {
   }
   return *(unsigned char *)s1 - *(unsigned char *)s2;
 }
-#include <string.h>
 
 struct cpu cpus[NCPU];
 
@@ -456,6 +455,7 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  int found = 0;
 
   c->proc = 0;
   for(;;){
@@ -464,7 +464,6 @@ scheduler(void)
     // processes are waiting.
     intr_on();
 
-    int found = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
@@ -486,7 +485,6 @@ scheduler(void)
         }
         c->proc = 0;
         found = 1;
-      }
       }
       release(&p->lock);
     }

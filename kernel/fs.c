@@ -54,6 +54,7 @@ bzero(int dev, int bno)
 
   bp = bread(dev, bno);
   memset(bp->data, 0, BSIZE);
+  printf("fs: zeroing block %d on device %d\n", bno, dev);
   log_write(bp);
   brelse(bp);
 }
@@ -75,6 +76,7 @@ balloc(uint dev)
       m = 1 << (bi % 8);
       if((bp->data[bi/8] & m) == 0){  // Is block free?
         bp->data[bi/8] |= m;  // Mark block in use.
+        printf("fs: allocating bitmap block %d for data block %d on device %d\n", BBLOCK(b + bi, sb), b + bi, dev);
         log_write(bp);
         brelse(bp);
         bzero(dev, b + bi);
@@ -100,6 +102,7 @@ bfree(int dev, uint b)
   if((bp->data[bi/8] & m) == 0)
     panic("freeing free block");
   bp->data[bi/8] &= ~m;
+  printf("fs: freeing bitmap block %d for data block %d on device %d\n", BBLOCK(b, sb), b, dev);
   log_write(bp);
   brelse(bp);
 }
@@ -208,6 +211,7 @@ ialloc(uint dev, short type)
     if(dip->type == 0){  // a free inode
       memset(dip, 0, sizeof(*dip));
       dip->type = type;
+      printf("fs: allocating inode %d in block %lu on device %d\n", inum, IBLOCK(inum, sb), dev);
       log_write(bp);   // mark it allocated on the disk
       brelse(bp);
       return iget(dev, inum);
@@ -236,6 +240,7 @@ iupdate(struct inode *ip)
   dip->nlink = ip->nlink;
   dip->size = ip->size;
   memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
+  printf("fs: updating inode %d in block %lu on device %d\n", ip->inum, IBLOCK(ip->inum, sb), ip->dev);
   log_write(bp);
   brelse(bp);
 }
@@ -522,6 +527,13 @@ writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
     if(either_copyin(bp->data + (off % BSIZE), user_src, src, m) == -1) {
       brelse(bp);
       break;
+    }
+    if(ip->type == T_DIR) {
+      printf("fs: writing directory data block %d for inode %d on device %d\n", addr, ip->inum, ip->dev);
+    } else if(ip->type == T_FILE) {
+      printf("fs: writing file data block %d for inode %d on device %d\n", addr, ip->inum, ip->dev);
+    } else {
+      printf("fs: writing data block %d for inode %d on device %d\n", addr, ip->inum, ip->dev);
     }
     log_write(bp);
     brelse(bp);
