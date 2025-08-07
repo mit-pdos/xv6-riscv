@@ -6,6 +6,7 @@
         "stat.h": "c",
         "user.h": "c",
         "file.h": "c",
-        "sleeplock.h": "c"
+        "sleeplock.h": "c",
+        "param.h": "c"
     }
 }

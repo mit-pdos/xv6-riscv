@@ -1,0 +1,9 @@
+services:
+  os:
+    build:
+      dockerfile: ./docker/Dockerfile
+    command: ["sh", "-c", "while true; do echo 'Running...'; sleep 3600; done"]
+    working_dir: /project
+    user: "0" 
+    volumes:
+      - ./:/project
