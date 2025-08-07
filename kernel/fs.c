@@ -26,6 +26,9 @@
 // only one device
 struct superblock sb; 
 
+// Forward declaration
+void print_disk_map(int dev);
+
 // Read the super block.
 static void
 readsb(int dev, struct superblock *sb)
@@ -44,6 +47,33 @@ fsinit(int dev) {
   if(sb.magic != FSMAGIC)
     panic("invalid file system");
   initlog(dev, &sb);
+  print_disk_map(dev);
+}
+
+void print_disk_map(int dev) {
+  int b, bi, used = 0, free = 0;
+  struct buf *bp;
+  printf("Block map: Block numbers with status (U=Used, F=Free)\n");
+  for(b = 0; b < sb.size; b += BPB){
+    bp = bread(dev, BBLOCK(b, sb));
+    for(bi = 0; bi < BPB && b + bi < sb.size; bi++){
+      int m = 1 << (bi % 8);
+      int status = (bp->data[bi/8] & m) ? 1 : 0;
+      // Print block number
+      printf("%d:", b + bi);
+      // Print status character directly without %c
+      if(status) {
+        printf("U ");
+        used++;
+      } else {
+        printf("F ");
+        free++;
+      }
+      if((b + bi) % 16 == 15) printf("\n");
+    }
+    brelse(bp);
+  }
+  printf("\nUsed blocks: %d, Free blocks: %d\n", used, free);
 }
 
 // Zero a block.
