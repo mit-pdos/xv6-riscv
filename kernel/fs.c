@@ -33,6 +33,8 @@ readsb(int dev, struct superblock *sb)
   struct buf *bp;
 
   bp = bread(dev, 1);
+  // Both mkfs and RISC-V are little-endian.
+  // This means we can directly copy the superblock structure.
   memmove(sb, bp->data, sizeof(*sb));
   brelse(bp);
 }
