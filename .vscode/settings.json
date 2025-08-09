@@ -7,6 +7,7 @@
         "user.h": "c",
         "file.h": "c",
         "sleeplock.h": "c",
-        "param.h": "c"
+        "param.h": "c",
+        "defs.h": "c"
     }
 }
