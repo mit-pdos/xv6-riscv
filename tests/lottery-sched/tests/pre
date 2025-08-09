@@ -1,0 +1,7 @@
+bash ../../tester/xv6-edit-makefile.sh ../../Makefile test_1 > ../../Makefile.test
+cp -f tests/test_1.c ../../user/test_1.c
+cd ../../
+make -f Makefile.test clean
+make -f Makefile.test xv6.img
+make -f Makefile.test fs.img
+cd tests/lottery-sched

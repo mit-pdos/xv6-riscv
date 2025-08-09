@@ -1,0 +1,1 @@
+cd ../../; tester/run-xv6-command.exp CPUS=1 Makefile.test test_1 | grep XV6_TEST_OUTPUT; cd tests/lottery-sched
