@@ -105,3 +105,11 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 };
+
+struct pstat {
+  struct spinlock lock;
+  int inuse[NPROC];   // whether this slot of the process table is in use (1 or 0)
+  int tickets[NPROC]; // the number of tickets this process has
+  int pid[NPROC];     // the PID of each process 
+  int ticks[NPROC];   // the number of ticks each process has accumulated 
+};

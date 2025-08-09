@@ -12,6 +12,8 @@ struct proc proc[NPROC];
 
 struct proc *initproc;
 
+struct pstat pstat_tbl;
+
 int nextpid = 1;
 struct spinlock pid_lock;
 
@@ -51,6 +53,7 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  initlock(&pstat_tbl.lock, "pstat");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
@@ -323,6 +326,22 @@ fork(void)
   release(&np->lock);
 
   return pid;
+}
+
+int
+settickets(int tcks) {
+  if (tcks <= 0)
+    return -1;
+
+  acquire(&pstat_tbl.lock);
+
+  struct proc *p = myproc();
+  int idx = p - proc;
+  pstat_tbl.tickets[idx] = tcks;
+  
+  release(&pstat_tbl.lock);
+
+  return 0;
 }
 
 // Pass p's abandoned children to init.
