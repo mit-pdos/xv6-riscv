@@ -28,6 +28,25 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+// Simple random number generator without libraries
+unsigned int seed = 23197712;
+
+// Generates next pseudo-random number
+unsigned int rand() {
+    seed = (1103515245 * seed + 12345) & 0x7fffffff; // LCG formula
+    return seed;
+}
+
+// Random number in range [from, to]
+int rand_in_range(int from, int to) {
+    if (from > to) {
+        int tmp = from;
+        from = to;
+        to = tmp;
+    }
+    return from + (rand() % (to - from + 1));
+}
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -149,6 +168,21 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  acquire(&pstat_tbl.lock);
+  
+  int idx = p - proc;
+  if (pstat_tbl.inuse[idx] == 1) {
+    printf("pid: %d\n", p->pid);
+    panic("allocproc() - tckts slot are already 'in_use'");
+  }
+
+  pstat_tbl.inuse[idx] = 1;
+  pstat_tbl.tickets[idx] = 1;
+  pstat_tbl.pid[idx] = p->pid;
+  pstat_tbl.ticks[idx] = 0;
+
+  release(&pstat_tbl.lock);
+
   return p;
 }
 
@@ -172,6 +206,12 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+
+  acquire(&pstat_tbl.lock);
+
+  pstat_tbl.inuse[p - proc] = 0;
+  
+  release(&pstat_tbl.lock);
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -322,7 +362,21 @@ fork(void)
   release(&wait_lock);
 
   acquire(&np->lock);
+
+  acquire(&pstat_tbl.lock);
+  
+  int chld_idx = np - proc;
+  if (pstat_tbl.inuse[chld_idx] == 0) {
+    panic("fork() - child tckts slot or not 'in_use'");
+  }
+  
+  int parent_tckts = pstat_tbl.tickets[p - proc];
+  pstat_tbl.tickets[chld_idx] = parent_tckts;
+
   np->state = RUNNABLE;
+
+  release(&pstat_tbl.lock);
+
   release(&np->lock);
 
   return pid;
@@ -333,13 +387,24 @@ settickets(int tcks) {
   if (tcks <= 0)
     return -1;
 
-  acquire(&pstat_tbl.lock);
+  if (tcks > 1000)
+    return -1;
 
   struct proc *p = myproc();
+
+  acquire(&p->lock);
+
+  acquire(&pstat_tbl.lock);
+
   int idx = p - proc;
+  if (pstat_tbl.inuse[idx] == 1) {
+    panic("settickets() - proc are not in 'in_use' state");
+  }
+
   pstat_tbl.tickets[idx] = tcks;
-  
+
   release(&pstat_tbl.lock);
+  release(&p->lock);
 
   return 0;
 }
@@ -472,22 +537,43 @@ scheduler(void)
     // turned off; enable them to avoid a deadlock if all
     // processes are waiting.
     intr_on();
+    
+    acquire(&pstat_tbl.lock);
 
+    int total_tickets = 0;
+    // copy tickets to work with own copy of array without lock of `pstat_tbl` 
+    // in per process loop with also holding of process lock (because can cause deadlock)
+    int tickets[NPROC];
+    for (int i = 0; i < NPROC; i++) {
+      total_tickets = total_tickets + pstat_tbl.tickets[i]; 
+      tickets[i] = pstat_tbl.tickets[i];
+    }
+
+    release(&pstat_tbl.lock);
+
+    int winner = rand_in_range(0, total_tickets);
+    int counter = 0;
     int found = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+      if(p->state == RUNNABLE) {
+        int idx = p - proc;
+        counter = counter + tickets[idx];
+
+        if (counter >= winner) {
+          // Switch to chosen process. It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+          found = 1;
+        }
       }
       release(&p->lock);
     }
