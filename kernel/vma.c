@@ -56,44 +56,63 @@ vmaread(struct vma *vmastart, uint64 addr)
   uint64 pa; 
   off_t off; 
   struct vma *vma; 
+  struct buf *bp; 
   int n; 
 
   if((vma = vmaget(vmastart, addr, 1)) == 0)
     return 0; 
 
-  if((pa = (uint64)kalloc()) == 0)
-    return 0;
-  memset((void *)pa, 0, PGSIZE); // zero page, in case of partial read
-
   off = vma->offset + (off_t)(PGROUNDDOWN(addr) - vma->addr);
 
-  ilock(vma->ip); 
   if(vma->ip->type == T_DEVICE){
-    if(vma->ip->major < 0 || vma->ip->major >= NDEV || !devsw[vma->ip->major].read)
+    if((pa = (uint64)kalloc()) == 0)
+      return 0;
+    memset((void *)pa, 0, PGSIZE); // zero page, in case of partial read
+    if(vma->ip->major < 0 || vma->ip->major >= NDEV || !devsw[vma->ip->major].read){
+      kfree((void *)pa); 
       return 0; 
+    }
     n = min(PGSIZE, (vma->offset + vma->length) - off);
     if(devsw[vma->ip->major].read(0, pa, off, n) < 0){
-      iunlock(vma->ip); 
       kfree((void *)pa);
       return 0;   
     }
+    return (void *)pa; 
   } else if(vma->ip->type == T_FILE){
-    begin_op(); 
-    n = min(BSIZE, vma->ip->size - off); 
-    if(readi(vma->ip, 0, pa, off, n) != n){
-      end_op(); 
+    if(vma->flags & MAP_SHARED){
+      begin_op();  
+      ilock(vma->ip); 
+      uint a = bmap(vma->ip, off/BSIZE);  
+      if(a == 0){
+        iunlock(vma->ip); 
+        end_op(); 
+        return 0;
+      }
+      bp = bread(vma->ip->dev, a); 
+      bpin(bp); // pin buffer to prevent eviction 
+      brelse(bp);   
       iunlock(vma->ip); 
-      kfree((void *)pa); 
-      return 0;
+      end_op(); 
+      return bp->data; 
+    } else if(vma->flags & MAP_PRIVATE){
+      if((pa = (uint64)kalloc()) == 0)
+        return 0;
+      memset((void *)pa, 0, PGSIZE); // zero page, in case of partial read
+      begin_op(); 
+      ilock(vma->ip); 
+      n = min(BSIZE, vma->ip->size - off); 
+      if(readi(vma->ip, 0, pa, off, n) != n){
+        iunlock(vma->ip); 
+        end_op(); 
+        kfree((void *)pa); 
+        return 0;
+      }
+      iunlock(vma->ip);  
+      end_op(); 
+      return (void *)pa; 
     }
-    end_op(); 
-  } else {
-    iunlock(vma->ip); 
-    kfree((void *)pa); 
-    return 0;
   }
-  iunlock(vma->ip); 
-  return (void *)pa;  
+  return 0; 
 }
 
 int
@@ -101,34 +120,56 @@ vmarelse(struct vma *vmastart, uint64 addr, uint64 pa)
 {
   off_t off; 
   struct vma *vma; 
-  int n, ret = 0; 
+  struct buf *bp; 
+  int n; 
 
   if((vma = vmaget(vmastart, addr, 1)) == 0)
     return -1; 
 
   off = vma->offset + (off_t)(PGROUNDDOWN(addr) - vma->addr);
 
-  if(vma->flags & MAP_SHARED){
-    if(vma->prot & PROT_WRITE){
-      ilock(vma->ip); 
-      if(vma->ip->type == T_DEVICE){
+  if(vma->ip->type == T_DEVICE){
+    if(vma->flags & MAP_SHARED){
+      int ret = 0; 
+      if(vma->prot & PROT_WRITE){
         if(vma->ip->major < 0 || vma->ip->major >= NDEV || !devsw[vma->ip->major].write)
           ret = -1; 
         n = min(PGSIZE, (vma->offset + vma->length) - off); 
         if(devsw[vma->ip->major].write(0, pa, off, n) < 0)
           ret = -1; 
-      } else if(vma->ip->type == T_FILE){
-        begin_op(); 
-        n = min(BSIZE, vma->ip->size - off); 
-        if(writei(vma->ip, 0, pa, off, n) != n)
-          ret = -1; 
-        end_op(); 
       }
+      kfree((void *)pa); 
+      return ret;  
+    } else if(vma->flags & MAP_PRIVATE){
+      kfree((void *)pa); 
+      return 0; 
+    }
+  } else if(vma->ip->type == T_FILE){
+    if(vma->flags & MAP_SHARED){
+      begin_op(); 
+      ilock(vma->ip); 
+      uint a = bmap(vma->ip, off/BSIZE); 
+      if(a == 0){
+        iunlock(vma->ip); 
+        end_op(); 
+        return -1; 
+      }
+      bp = bread(vma->ip->dev, a); 
+      n = min(BSIZE, vma->ip->size - off); 
+      memset(bp->data + n, 0, BSIZE - n); // zero out overflow
+      if(vma->prot & PROT_WRITE)
+        log_write(bp); 
+      bunpin(bp); // unpin buffer so it can be written to disk  
+      brelse(bp); 
       iunlock(vma->ip); 
+      end_op(); 
+      return 0;
+    } else if(vma->flags & MAP_PRIVATE){
+      kfree((void *)pa);
+      return 0;
     }
   }
-  kfree((void *)pa); 
-  return ret; 
+  return -1;  
 }
 
 void

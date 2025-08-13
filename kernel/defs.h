@@ -54,6 +54,7 @@ struct inode*   nameid(char*, int);
 struct inode*   namei(char*);
 struct inode*   nameiparent(char*, char*);
 struct inode*   followlink(struct inode*, char*, int);
+uint            bmap(struct inode*, uint);  
 int             readi(struct inode*, int, uint64, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
