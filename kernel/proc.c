@@ -216,6 +216,8 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmfree(pagetable, sz);
 }
 
+// Load vma region by reading it into memory
+// and mapping it to the process's page table.
 int
 proc_loadvma(pagetable_t pagetable, struct vma *vmastart, uint64 addr, size_t length)
 {
@@ -242,14 +244,15 @@ proc_loadvma(pagetable_t pagetable, struct vma *vmastart, uint64 addr, size_t le
         vmarelse(vmastart, a, pa); // ok to release, unmodified vma
       }
     }
-    return -1; 
+    return -1;
 }
 
+// Unload a vma region by unmapping it from the 
+// process's page table and freeing it from memory.
 void
 proc_unloadvma(pagetable_t pagetable, struct vma *vmastart, uint64 addr, size_t length)
 {
   uint64 a, pa; 
-  struct vma *vma; 
 
   if((addr % PGSIZE) != 0)
     panic("proc_unloadvma: not aligned");
@@ -257,15 +260,14 @@ proc_unloadvma(pagetable_t pagetable, struct vma *vmastart, uint64 addr, size_t 
   for(a = addr; a < addr + length; a += PGSIZE){
     if((pa = walkaddr(pagetable, a)) != 0){
       uvmunmap(pagetable, a, 1, 0);
-      if((vma = vmaget(vmastart, a, 1)) == 0)
-        panic("proc_unloadvma: failed to get vma");
-      if(vmarelse(vma, a, pa) < 0)
-        panic("proc_unloadvma: failed to flush vma");
+      if(vmarelse(vmastart, a, pa) < 0)
+        panic("proc_unloadvma: failed to release vma");
     }
   }
   vmafree(vmastart, addr, length); 
 }
 
+// Copy all vma regions from one process to another.
 int
 proc_copyvma(pagetable_t oldpagetable, struct vma *old, pagetable_t newpagetable, struct vma *new)
 {
@@ -469,7 +471,7 @@ exit(int status)
 
   // Unload all vma regions.
   // Must unmap in exit to avoid potential deadlock with
-  // the log when flushing buffers in freeproc.
+  // the log when releasing buffers in freeproc.
   for(struct vma *vma = p->vma; vma < p->vma + NVMA; vma++){
     if(vma->valid)
       proc_unloadvma(p->pagetable, vma, vma->addr, vma->length);

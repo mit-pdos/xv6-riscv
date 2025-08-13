@@ -448,4 +448,39 @@ more_test()
     err("child wrote read-only mapping");
 
   printf("test writes to read-only mapped memory: OK\n");
+
+  printf("test shared mappings\n"); 
+  
+  makefile(f); 
+  if ((fd = open(f, O_RDWR)) == -1)
+    err("open"); 
+  p = mmap(0, PGSIZE*2, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  if (p == MAP_FAILED)
+    err("mmap"); 
+  close(fd); 
+
+  *p = 'B'; 
+
+  pid = fork(); 
+  if(pid < 0) err("fork"); 
+  if(pid == 0){
+    if ((fd = open(f, O_RDWR)) == -1)
+      err("open"); 
+    p = mmap(0, PGSIZE*2, PROT_READ, MAP_SHARED, fd, 0); 
+    if (p == MAP_FAILED)
+      err("mmap"); 
+    close(fd); 
+    if (*p != 'B')
+      err("child mapping does not contain modifications"); 
+    exit(0); 
+  }
+
+  st = 0; 
+  wait(&st); 
+  if(st != 0){
+    printf("shared mapping test failed\n"); 
+    exit(1); 
+  }
+
+  printf("test shared mappings: OK\n");
 }

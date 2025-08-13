@@ -14,6 +14,8 @@
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
+// Allocate a vma region.
+// Returns the allocated vma region on success, otherwise 0.
 struct vma*
 vmaalloc(struct vma *vmastart, uint64 addr, size_t length, int prot, int flags, 
          struct inode *ip, off_t offset)
@@ -38,6 +40,8 @@ vmaalloc(struct vma *vmastart, uint64 addr, size_t length, int prot, int flags,
   return 0; 
 }
 
+// Get the vma region associated with memory region.
+// Returns the vma region if it exists, otherwise 0.
 struct vma*
 vmaget(struct vma *vmastart, uint64 addr, size_t length)
 {
@@ -50,6 +54,8 @@ vmaget(struct vma *vmastart, uint64 addr, size_t length)
   return 0; 
 }
 
+// Read virtual address in vma into memory.
+// Returns the physical address.
 void *
 vmaread(struct vma *vmastart, uint64 addr)
 {
@@ -115,6 +121,9 @@ vmaread(struct vma *vmastart, uint64 addr)
   return 0; 
 }
 
+// Releases virtual address in vma from memory.
+// Physical address must be read from vmaread.
+// Returns 0 on success and -1 on failure.
 int
 vmarelse(struct vma *vmastart, uint64 addr, uint64 pa)
 {
@@ -172,6 +181,7 @@ vmarelse(struct vma *vmastart, uint64 addr, uint64 pa)
   return -1;  
 }
 
+// Free memory region from vma regions.
 void
 vmafree(struct vma *vmastart, uint64 addr, size_t length)
 {

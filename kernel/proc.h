@@ -82,13 +82,13 @@ struct trapframe {
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 struct vma {
+  int valid;                  // Is the vma currently valid 
   uint64 addr;                // Start address of the memory region 
   size_t length;              // Length of the memory region  
   int prot;                   // Permission flags (e.g., read, write, execute)
   int flags;                  // If updates to memory mapped region are visible to other processes     
   struct inode *ip;           // Inode associated with the memory region (if any)
   off_t offset;               // Offset in the file for memory mapping
-  int valid;                  // Is the vma currently valid 
 };
 
 // Per-process state
