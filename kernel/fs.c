@@ -380,7 +380,7 @@ iunlockput(struct inode *ip)
 // Return the disk block address of the nth block in inode ip.
 // If there is no such block, bmap allocates one.
 // returns 0 if out of disk space.
-uint
+static uint
 bmap(struct inode *ip, uint bn)
 {
   uint addr, *a, q, r;

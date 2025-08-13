@@ -7,6 +7,8 @@
 #include "defs.h"
 #include "fcntl.h"
 
+#define min(a, b) ((a) < (b) ? (a) : (b))
+
 struct spinlock tickslock;
 uint ticks;
 
@@ -184,15 +186,15 @@ pgfaulthandler()
   struct proc *p = myproc();  
   struct vma *vma; 
 
-  for(vma = p->vma; vma < p->vma + NVMA; vma++){
-    if(vma->valid && vma->addr <= stval && stval < vma->addr + vma->length){
-      if(walkaddr(p->pagetable, va) != 0)
-        goto bad; // remap
-      if(proc_mapvma(p->pagetable, vma, va, PGSIZE) != 0)
-        goto bad;
-      sfence_vma(); // flush TLB 
-      return; 
-    }
+  if(walkaddr(p->pagetable, stval) != 0)
+    goto bad; // remap
+
+  if((vma = vmaget(p->vma, stval, 1)) != 0){
+    uint64 n = min(PGSIZE, vma->addr + vma->length - va);
+    if(proc_loadvma(p->pagetable, vma, va, n) != 0)
+      goto bad; 
+    sfence_vma(); // flush TLB
+    return; 
   }
 
 bad:

@@ -217,13 +217,16 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 }
 
 int
-proc_mapvma(pagetable_t pagetable, struct vma *vmastart, uint64 addr, size_t length)
+proc_loadvma(pagetable_t pagetable, struct vma *vmastart, uint64 addr, size_t length)
 {
   uint64 a, pa; 
   struct vma *vma; 
 
+  if((addr % PGSIZE) != 0)
+    panic("proc_loadvma: not aligned");
+
   for(a = addr; a < addr + length; a += PGSIZE){
-    if((vma = vmaget(vmastart, a, PGSIZE)) == 0)
+    if((vma = vmaget(vmastart, a, 1)) == 0)
       goto bad; 
     if((pa = (uint64)vmaread(vma, a)) == 0)
       goto bad;
@@ -236,61 +239,55 @@ proc_mapvma(pagetable_t pagetable, struct vma *vmastart, uint64 addr, size_t len
     for(a = addr; a < addr + length; a += PGSIZE){
       if((pa = walkaddr(pagetable, a)) != 0){
         uvmunmap(pagetable, a, 1, 0);
-        vmaflush(vmastart, a, pa); // ok to flush, unmodified vma
+        vmarelse(vmastart, a, pa); // ok to release, unmodified vma
       }
     }
     return -1; 
 }
 
-int
-proc_unmapvma(pagetable_t pagetable, struct vma *vmastart, uint64 addr, size_t length)
+void
+proc_unloadvma(pagetable_t pagetable, struct vma *vmastart, uint64 addr, size_t length)
 {
   uint64 a, pa; 
   struct vma *vma; 
-  int ret = 0; 
+
+  if((addr % PGSIZE) != 0)
+    panic("proc_unloadvma: not aligned");
 
   for(a = addr; a < addr + length; a += PGSIZE){
     if((pa = walkaddr(pagetable, a)) != 0){
       uvmunmap(pagetable, a, 1, 0);
-      if((vma = vmaget(vmastart, a, PGSIZE)) == 0 || vmaflush(vma, a, pa) < 0)
-        ret = -1; 
+      if((vma = vmaget(vmastart, a, 1)) == 0)
+        panic("proc_unloadvma: failed to get vma");
+      if(vmarelse(vma, a, pa) < 0)
+        panic("proc_unloadvma: failed to flush vma");
     }
   }
   vmafree(vmastart, addr, length); 
-  return ret; 
 }
 
 int
 proc_copyvma(pagetable_t oldpagetable, struct vma *old, pagetable_t newpagetable, struct vma *new)
 {
   uint64 a, pa; 
-  uint flags; 
-  pte_t *pte; 
   char *mem; 
-  int i; 
+  struct vma *vma; 
   
-  for(i = 0; i < NVMA; i++){
-    if(old[i].valid){
-      new[i].addr = old[i].addr;
-      new[i].length = old[i].length;
-      new[i].prot = old[i].prot;
-      new[i].flags = old[i].flags;
-      new[i].ip = idup(old[i].ip); 
-      new[i].offset = old[i].offset;
-      new[i].valid = 1; 
+  for(vma = old; vma < old + NVMA; vma++){
+    if(vma->valid){
+      if(vmaalloc(new, vma->addr, vma->length, vma->prot, vma->flags, vma->ip, vma->offset) == 0)
+        goto err; 
 
-      for(a = old[i].addr; a < old[i].addr + old[i].length; a += PGSIZE){
-        if((pte = walk(oldpagetable, a, 0)) != 0 && (*pte & PTE_V) != 0 && (*pte & PTE_U) != 0){
-          pa = PTE2PA(*pte); 
-          flags = PTE_FLAGS(*pte);
-          if((old[i].flags & MAP_PRIVATE)){
-            // private mapping, copy on write 
+      for(a = vma->addr; a < vma->addr + vma->length; a += PGSIZE){
+        if((pa = walkaddr(oldpagetable, a)) != 0){
+          if(vma->flags & MAP_PRIVATE){
+            // only eagerly copy private pages
             if((mem = kalloc()) == 0)
               goto err; 
-            memmove(mem, (void *)pa, PGSIZE);
-            if(mappages(newpagetable, a, PGSIZE, (uint64)mem, flags) != 0){
-              vmaflush(&new[i], a, (uint64)mem); 
-              goto err;
+            memmove(mem, (void *)pa, PGSIZE); 
+            if(mappages(newpagetable, a, PGSIZE, (uint64)mem, (vma->prot<<1) | PTE_U) != 0){
+              kfree(mem); 
+              goto err; 
             }
           }
         }
@@ -300,16 +297,16 @@ proc_copyvma(pagetable_t oldpagetable, struct vma *old, pagetable_t newpagetable
   return 0; 
 
   err:
-    for(i = 0; i < NVMA; i++){
-      if(new[i].valid){
-        for(a = new[i].addr; a < new[i].addr + new[i].length; a += PGSIZE){
+    for(vma = new; vma < new + NVMA; vma++){
+      if(vma->valid){
+        for(a = vma->addr; a < vma->addr + vma->length; a += PGSIZE){
           if((pa = walkaddr(newpagetable, a)) != 0){
-            uvmunmap(newpagetable, a, 1, 0); 
-            vmaflush(&new[i], a, pa); 
+            if(vma->flags & MAP_PRIVATE)
+              uvmunmap(newpagetable, a, 1, 1); 
           }
         }
-        iput(new[i].ip);  
-        new[i].valid = 0; 
+        iput(vma->ip);  
+        vma->valid = 0; 
       }
     }
     return -1;
@@ -470,10 +467,13 @@ exit(int status)
     }
   }
 
-  // Unmap all vma regions.
+  // Unload all vma regions.
   // Must unmap in exit to avoid potential deadlock with
   // the log when flushing buffers in freeproc.
-  proc_unmapvma(p->pagetable, p->vma, MMAPADDR(0), MMAPPAGES * PGSIZE); 
+  for(struct vma *vma = p->vma; vma < p->vma + NVMA; vma++){
+    if(vma->valid)
+      proc_unloadvma(p->pagetable, vma, vma->addr, vma->length);
+  }
 
   begin_op();
   iput(p->cwd);

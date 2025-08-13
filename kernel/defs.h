@@ -54,7 +54,6 @@ struct inode*   nameid(char*, int);
 struct inode*   namei(char*);
 struct inode*   nameiparent(char*, char*);
 struct inode*   followlink(struct inode*, char*, int);
-uint            bmap(struct inode*, uint);
 int             readi(struct inode*, int, uint64, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
@@ -100,8 +99,8 @@ int             growproc(int);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
-int             proc_mapvma(pagetable_t, struct vma *, uint64, size_t);
-int             proc_unmapvma(pagetable_t, struct vma *, uint64, size_t);  
+int             proc_loadvma(pagetable_t, struct vma *, uint64, size_t);
+void            proc_unloadvma(pagetable_t, struct vma *, uint64, size_t);  
 int             proc_copyvma(pagetable_t, struct vma *, pagetable_t, struct vma *);
 int             kill(int);
 int             killed(struct proc*);
@@ -216,7 +215,7 @@ void            virtio_disk_intr(void);
 struct vma*     vmaalloc(struct vma*, uint64, size_t, int, int, struct inode*, off_t);
 struct vma*     vmaget(struct vma*, uint64, size_t);
 void *          vmaread(struct vma*, uint64);
-int             vmaflush(struct vma*, uint64, uint64);
+int             vmarelse(struct vma*, uint64, uint64);
 void            vmafree(struct vma*, uint64, size_t);
 
 // number of elements in fixed-size array

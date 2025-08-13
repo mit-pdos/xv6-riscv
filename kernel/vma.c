@@ -44,7 +44,7 @@ vmaget(struct vma *vmastart, uint64 addr, size_t length)
   struct vma *vma;
 
   for(vma = vmastart; vma < vmastart + NVMA; vma++){
-    if(vma->addr <= addr && addr + length <= vma->addr + vma->length)
+    if(vma->valid && vma->addr <= addr && addr + length <= vma->addr + vma->length)
       return vma; 
   }
   return 0; 
@@ -56,108 +56,79 @@ vmaread(struct vma *vmastart, uint64 addr)
   uint64 pa; 
   off_t off; 
   struct vma *vma; 
-  struct buf *bp; 
   int n; 
 
-  if((vma = vmaget(vmastart, addr, 0)) == 0)
+  if((vma = vmaget(vmastart, addr, 1)) == 0)
     return 0; 
 
+  if((pa = (uint64)kalloc()) == 0)
+    return 0;
+  memset((void *)pa, 0, PGSIZE); // zero page, in case of partial read
+
   off = vma->offset + (off_t)(PGROUNDDOWN(addr) - vma->addr);
+
+  ilock(vma->ip); 
   if(vma->ip->type == T_DEVICE){
     if(vma->ip->major < 0 || vma->ip->major >= NDEV || !devsw[vma->ip->major].read)
       return 0; 
-    if((pa = (uint64)kalloc()) == 0)
-      return 0;
-    memset((void *)pa, 0, PGSIZE); // zero page, in case of partial read
     n = min(PGSIZE, (vma->offset + vma->length) - off);
     if(devsw[vma->ip->major].read(0, pa, off, n) < 0){
+      iunlock(vma->ip); 
       kfree((void *)pa);
       return 0;   
     }
-    return (void *)pa;
   } else if(vma->ip->type == T_FILE){
-    if(vma->flags & MAP_SHARED){
-      // directly map buffer for shared files
-      begin_op(); 
-      ilock(vma->ip); 
-      uint a = bmap(vma->ip, off/BSIZE);  
-      if(a == 0){
-        iunlock(vma->ip); 
-        return 0;
-      }
-      bp = bread(vma->ip->dev, a); 
-      bpin(bp); // pin buffer to prevent eviction 
-      brelse(bp);   
-      iunlock(vma->ip); 
+    begin_op(); 
+    n = min(BSIZE, vma->ip->size - off); 
+    if(readi(vma->ip, 0, pa, off, n) != n){
       end_op(); 
-      return bp->data; 
-    } else if(vma->flags & MAP_PRIVATE){
-      if((pa = (uint64)kalloc()) == 0)
-        return 0;  
-      memset((void *)pa, 0, PGSIZE); // zero page, in case of partial read
-      ilock(vma->ip); 
-      n = min(BSIZE, vma->ip->size - off); 
-      if(readi(vma->ip, 0, pa, off, n) != n){
-        iunlock(vma->ip); 
-        kfree((void *)pa); 
-        return 0;
-      }
       iunlock(vma->ip); 
-      return (void *)pa; 
+      kfree((void *)pa); 
+      return 0;
     }
+    end_op(); 
+  } else {
+    iunlock(vma->ip); 
+    kfree((void *)pa); 
+    return 0;
   }
-  return 0;
+  iunlock(vma->ip); 
+  return (void *)pa;  
 }
 
 int
-vmaflush(struct vma *vmastart, uint64 addr, uint64 pa)
+vmarelse(struct vma *vmastart, uint64 addr, uint64 pa)
 {
   off_t off; 
   struct vma *vma; 
-  struct buf *bp; 
-  int n; 
+  int n, ret = 0; 
 
-  if((vma = vmaget(vmastart, addr, 0)) == 0)
+  if((vma = vmaget(vmastart, addr, 1)) == 0)
     return -1; 
 
   off = vma->offset + (off_t)(PGROUNDDOWN(addr) - vma->addr);
-  if(vma->ip->type == T_DEVICE){
-    int ret = 0; 
-    if((vma->flags & MAP_SHARED) && (vma->prot & PROT_WRITE)){
-      if(vma->ip->major < 0 || vma->ip->major >= NDEV || !devsw[vma->ip->major].write)
-        ret = -1; 
-      n = min(PGSIZE, (vma->offset + vma->length) - off); 
-      if(devsw[vma->ip->major].write(0, pa, off, n) < 0)
-        ret = -1; 
-    }
-    kfree((void *)pa); 
-    return ret; 
-  } else if(vma->ip->type == T_FILE){
-    if(vma->flags & MAP_SHARED){
-      begin_op(); 
+
+  if(vma->flags & MAP_SHARED){
+    if(vma->prot & PROT_WRITE){
       ilock(vma->ip); 
-      uint a = bmap(vma->ip, off/BSIZE); 
-      if(a == 0){
-        iunlock(vma->ip); 
+      if(vma->ip->type == T_DEVICE){
+        if(vma->ip->major < 0 || vma->ip->major >= NDEV || !devsw[vma->ip->major].write)
+          ret = -1; 
+        n = min(PGSIZE, (vma->offset + vma->length) - off); 
+        if(devsw[vma->ip->major].write(0, pa, off, n) < 0)
+          ret = -1; 
+      } else if(vma->ip->type == T_FILE){
+        begin_op(); 
+        n = min(BSIZE, vma->ip->size - off); 
+        if(writei(vma->ip, 0, pa, off, n) != n)
+          ret = -1; 
         end_op(); 
-        return -1; 
       }
-      bp = bread(vma->ip->dev, a); 
-      n = min(BSIZE, vma->ip->size - off); 
-      memset(bp->data + n, 0, BSIZE - n); // zero out overflow
-      if(vma->prot & PROT_WRITE)
-        log_write(bp); 
-      bunpin(bp); // unpin buffer so it can be written to disk  
-      brelse(bp); 
       iunlock(vma->ip); 
-      end_op(); 
-      return 0; 
-    } else if(vma->flags & MAP_PRIVATE){
-      kfree((void *)pa);
-      return 0;
     }
   }
-  return -1;  
+  kfree((void *)pa); 
+  return ret; 
 }
 
 void
@@ -169,10 +140,10 @@ vmafree(struct vma *vmastart, uint64 addr, size_t length)
   if((addr % PGSIZE) != 0)
     panic("vmafree: not aligned");
 
-  for(a = addr; a < addr + length; a += PGSIZE){
-    if((vma = vmaget(vmastart, a, PGSIZE)) != 0){
+  for(a = addr; a < addr + length;){
+    if((vma = vmaget(vmastart, a, 1)) != 0){
       end = min(vma->addr + vma->length, addr + length); 
-      npages = PGROUNDUP(end - vma->addr) / PGSIZE; 
+      npages = PGROUNDUP(end - a) / PGSIZE; 
       if(vma->addr == addr){
         vma->addr += npages * PGSIZE; 
         vma->offset += npages * PGSIZE;
@@ -190,6 +161,9 @@ vmafree(struct vma *vmastart, uint64 addr, size_t length)
         end_op(); 
         vma->valid = 0; 
       }
+      a += npages * PGSIZE; 
+    } else {
+      a += PGSIZE;
     }
   }
 }

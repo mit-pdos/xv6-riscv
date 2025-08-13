@@ -59,6 +59,7 @@ do_mmap(struct proc *p, uint64 addr, size_t length, int prot, int flags,
         struct file *f, off_t offset)
 {
   uint64 a;  
+  struct vma *vma; 
 
   // only map inode files and devices 
   if(f->type != FD_INODE && f->type != FD_DEVICE &&
@@ -74,17 +75,28 @@ do_mmap(struct proc *p, uint64 addr, size_t length, int prot, int flags,
     return -1;
 
   a = mmapalloc(p->bmap, addr, length); 
-  vmaalloc(p->vma, a, length, prot, flags, f->ip, offset);  
-  return a; 
+  vma = vmaalloc(p->vma, a, length, prot, flags, f->ip, offset);  
+  return vma->addr; 
 }
 
 int
 do_munmap(struct proc *p, uint64 addr, size_t length)
 {
+  struct vma *vma; 
+
   // addr must be page-aligned
   if((addr % PGSIZE) != 0)
     return -1; 
-  
+
+  // must be within valid mmap address range
+  if(addr < MMAPADDR(0) || addr + length > TRAPFRAME)
+    return -1;
+
+  // must be a mapped region
+  if((vma = vmaget(p->vma, addr, length)) == 0)
+    return -1; 
+
   mmapfree(p->bmap, addr, length); 
-  return proc_unmapvma(p->pagetable, p->vma, addr, length);
+  proc_unloadvma(p->pagetable, vma, addr, length);
+  return 0;  
 }
