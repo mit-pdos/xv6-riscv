@@ -274,6 +274,17 @@ growproc(int n)
   return 0;
 }
 
+// Grow user memory by n byte, without page allocation.
+// Returns the virtual address of memory in user process.
+uint64 growproclazy(int n) {
+  struct proc *p = myproc();
+
+  uint64 mem = PGROUNDUP(p->sz);
+  p->sz = PGROUNDUP(p->sz + n);
+
+  return mem;
+}
+
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int

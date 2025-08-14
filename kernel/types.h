@@ -1,3 +1,6 @@
+#ifndef xv6_types_h
+#define xv6_types_h
+
 typedef unsigned int   uint;
 typedef unsigned short ushort;
 typedef unsigned char  uchar;
@@ -8,3 +11,9 @@ typedef unsigned int  uint32;
 typedef unsigned long uint64;
 
 typedef uint64 pde_t;
+
+typedef unsigned long size_t;
+typedef long long int off_t;
+
+#endif // !xv6_types_h
+

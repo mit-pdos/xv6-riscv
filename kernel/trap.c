@@ -14,7 +14,7 @@ extern char trampoline[], uservec[], userret[];
 // in kernelvec.S, calls kerneltrap().
 void kernelvec();
 
-extern int devintr();
+extern int devintr(uint64 scause);
 
 void
 trapinit(void)
@@ -47,44 +47,53 @@ usertrap(void)
 
   struct proc *p = myproc();
   
-  // save user program counter.
-  p->trapframe->epc = r_sepc();
-  
   uint64 scause = r_scause();
+  uint64 stval = r_stval();
+  uint64 sepc = r_sepc();
 
-  if(scause == 8){
-    // system call
+  // an interrupt will change sepc, scause, and sstatus,
+  // so enable only now that we're done with those registers.
+  intr_on();
 
-    if(killed(p))
-      exit(-1);
+  // save user program counter to trapframe.
+  p->trapframe->epc = sepc;
+  
+  switch (scause) {
+    case 8: {
+      // system call
 
-    // sepc points to the ecall instruction,
-    // but we want to return to the next instruction.
-    p->trapframe->epc += 4;
+      if(killed(p))
+        exit(-1);
 
-    // an interrupt will change sepc, scause, and sstatus,
-    // so enable only now that we're done with those registers.
-    intr_on();
+      // sepc points to the ecall instruction,
+      // but we want to return to the next instruction.
+      p->trapframe->epc += 4;
 
-    syscall();
-  } else if (scause == 15) {
-    // store/amo page fault
-
-    uint64 va = r_stval();
-
-    intr_on();
-
-    if (cow(p->pagetable, va) == 0) {
-      printf("usertrap(): store/amo page fault and cow failed\n");
-      printf("            sepc=0x%lx stval=0x%lx\n", p->trapframe->epc, va);
-      setkilled(p);
+      syscall();
+      
+      break;
     }
-  } else if((which_dev = devintr()) != 0){
-    // ok
-  } else {
-    printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
-    setkilled(p);
+    case 15: 
+      // store/amo page fault
+      // we should try fixing it, and then let the user try again.
+      
+      if (cow(p->pagetable, stval) != 0) {
+        // cow was successfull
+        break;
+      }
+    case 13: 
+      // load/store/amo page fault
+      
+      if (fillMappedPage(stval) == 0) {
+        // successfully fetched the mapped page from file
+        break;
+      }
+    default:
+      if ((which_dev = devintr(scause)) == 0) {
+        printf("usertrap(): error scause 0x%lx pid=%d\n", scause, p->pid);
+        printf("            sepc=0x%lx stval=0x%lx\n", sepc, stval);
+        setkilled(p);
+      }
   }
 
   if(killed(p))
@@ -158,7 +167,7 @@ kerneltrap()
   if(intr_get() != 0)
     panic("kerneltrap: interrupts enabled");
 
-  if((which_dev = devintr()) == 0){
+  if((which_dev = devintr(scause)) == 0){
     // interrupt or trap from an unknown source
     printf("scause=0x%lx sepc=0x%lx stval=0x%lx\n", scause, r_sepc(), r_stval());
     panic("kerneltrap");
@@ -196,10 +205,8 @@ clockintr()
 // 1 if other device,
 // 0 if not recognized.
 int
-devintr()
+devintr(uint64 scause)
 {
-  uint64 scause = r_scause();
-
   if(scause == 0x8000000000000009L){
     // this is a supervisor external interrupt, via PLIC.
 

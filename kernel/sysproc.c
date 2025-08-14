@@ -91,3 +91,22 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64 sys_mmap(void) {
+  uint64 addr;
+  uint64 len;
+  int prot;
+  int flags;
+  int fd;
+  uint offset;
+
+  argaddr(0, &addr);
+  argaddr(1, &len); // I know len is not an address! But they're bot 64 bit integers! 
+  argint(2, &prot);
+  argint(3, &flags);
+  argint(4, &fd);
+  // We're gonna pretend that offset is int. it shouldn't be anything other than 0 anyways.
+  argint(5, (int *)&offset); 
+
+  return (uint64)mmap((void *)addr, (size_t)len, prot, flags, fd, (off_t)offset);
+}

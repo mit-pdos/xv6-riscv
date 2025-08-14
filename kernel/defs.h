@@ -71,6 +71,10 @@ void            log_write(struct buf*);
 void            begin_op(void);
 void            end_op(void);
 
+// mmap.c
+void*           mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset);
+int             fillMappedPage(uint64 va);
+
 // pipe.c
 int             pipealloc(struct file**, struct file**);
 void            pipeclose(struct pipe*, int);
@@ -87,6 +91,7 @@ int             cpuid(void);
 void            exit(int);
 int             fork(void);
 int             growproc(int);
+uint64          growproclazy(int n);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
