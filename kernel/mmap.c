@@ -47,29 +47,18 @@ int fillMappedPage(uint64 va) {
   if (mm->prot & PROT_READ) perm |= PTE_R;
   if (mm->prot & PROT_WRITE) perm |= PTE_W;
 
-  // for now, we grant RW access to this page so that we can write to it.
-  // we will revoke these later;
-  if (mappages(p->pagetable, PGROUNDDOWN(va), PGSIZE, pa, PTE_R | PTE_W | PTE_U) == -1) {
+  if (mappages(p->pagetable, PGROUNDDOWN(va), PGSIZE, pa, perm | PTE_U) == -1) {
     goto failed;
   }
   
   int r = 0;
   ilock(mm->file->ip);
-  if ((r = readi(mm->file->ip, 1, PGROUNDDOWN(va), offset, size)) != size) {
+  if ((r = readi(mm->file->ip, 0, pa, offset, size)) != size) {
     uvmunmap(p->pagetable, PGROUNDDOWN(va), 1, 0);
     iunlock(mm->file->ip);
     goto failed;
   }
   iunlock(mm->file->ip);
-
-  // now that we have written to this page, we can set the permissions.
-  pte_t *pte = walk(p->pagetable, va, 0);
-  if (pte == 0) {
-    // we should be here! something went horribly wrong.
-    panic("fillMappedPage: walk");
-  }
-  *pte &= ~(PTE_W | PTE_R);
-  *pte |= perm;
 
   return 0;
 
