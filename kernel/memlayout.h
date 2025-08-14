@@ -8,8 +8,8 @@
 // 0C000000 -- PLIC
 // 10000000 -- uart0 
 // 10001000 -- virtio disk 
-// 80000000 -- boot ROM jumps here in machine mode
-//             -kernel loads the kernel here
+// 80000000 -- qemu's boot ROM loads the kernel here,
+//             then jumps here.
 // unused RAM after 80000000.
 
 // the kernel uses physical memory thus:

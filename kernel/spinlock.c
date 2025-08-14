@@ -90,9 +90,10 @@ push_off(void)
 {
   int old = intr_get();
 
-  intr_off();
-  if(mycpu()->noff == 0)
+  if(mycpu()->noff == 0){
+    intr_off();
     mycpu()->intena = old;
+  }
   mycpu()->noff += 1;
 }
 

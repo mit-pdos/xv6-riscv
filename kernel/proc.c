@@ -568,8 +568,11 @@ scheduler(void)
   for(;;){
     // The most recent process to run may have had interrupts
     // turned off; enable them to avoid a deadlock if all
-    // processes are waiting.
+    // processes are waiting. Then turn them back off
+    // to avoid a possible race between an interrupt
+    // and wfi.
     intr_on();
+    intr_off();
 
     int found = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
@@ -591,7 +594,6 @@ scheduler(void)
     }
     if(found == 0) {
       // nothing to run; stop running on this core until an interrupt.
-      intr_on();
       asm volatile("wfi");
     }
   }
@@ -615,7 +617,7 @@ sched(void)
   if(mycpu()->noff != 1)
     panic("sched locks");
   if(p->state == RUNNING)
-    panic("sched running");
+    panic("sched RUNNING");
   if(intr_get())
     panic("sched interruptible");
 
@@ -659,8 +661,8 @@ forkret(void)
   usertrapret();
 }
 
-// Atomically release lock and sleep on chan.
-// Reacquires lock when awakened.
+// Sleep on wait channel chan, releasing condition lock lk.
+// Re-acquires lk when awakened.
 void
 sleep(void *chan, struct spinlock *lk)
 {
@@ -690,8 +692,8 @@ sleep(void *chan, struct spinlock *lk)
   acquire(lk);
 }
 
-// Wake up all processes sleeping on chan.
-// Must be called without any p->lock.
+// Wake up all processes sleeping on wait channel chan.
+// Caller should hold the condition lock.
 void
 wakeup(void *chan)
 {

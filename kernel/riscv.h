@@ -15,7 +15,6 @@ r_mhartid()
 #define MSTATUS_MPP_M (3L << 11)
 #define MSTATUS_MPP_S (1L << 11)
 #define MSTATUS_MPP_U (0L << 11)
-#define MSTATUS_MIE (1L << 3)    // machine-mode interrupt enable.
 
 static inline uint64
 r_mstatus()
@@ -80,7 +79,6 @@ w_sip(uint64 x)
 // Supervisor Interrupt Enable
 #define SIE_SEIE (1L << 9) // external
 #define SIE_STIE (1L << 5) // timer
-#define SIE_SSIE (1L << 1) // software
 static inline uint64
 r_sie()
 {
