@@ -17,6 +17,8 @@
 
 typedef struct {
   uint64 addr;
+  // a copy of the initial address for mapped memory, since addr can change in munmap
+  uint64 orgAddr; 
   size_t len;
   int flags;
   int prot;

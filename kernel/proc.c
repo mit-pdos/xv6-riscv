@@ -319,6 +319,14 @@ fork(void)
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
+  // copy mapped memory
+  for (i = 0; i < NMAPPEDMEM; i++) {
+    np->mappedMem[i] = p->mappedMem[i];
+    if (p->mappedMem[i].addr != 0) {
+      filedup(p->mappedMem[i].file);
+    }
+  }
+
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
@@ -368,6 +376,14 @@ exit(int status)
       struct file *f = p->ofile[fd];
       fileclose(f);
       p->ofile[fd] = 0;
+    }
+  }
+
+  // Close mapped files.
+  for (int i = 0; i < NMAPPEDMEM; i++) {
+    MappedMem *mm = &p->mappedMem[i];
+    if (mm->addr != 0) {
+      munmap(mm->addr, mm->len);
     }
   }
 

@@ -354,7 +354,6 @@ uvmcopy(pagetable_t src, pagetable_t dst, uint64 sz)
 
   for (uint64 i = 0; i < sz; i += PGSIZE) {
     if ((src_pte = walk(src, i, 0)) == 0) panic("uvmshallowcopy: pte should exist");
-    if((*src_pte & PTE_V) == 0) panic("uvmshallowcopy: page not present");
 
     dst_pte = walk(dst, i, 1);
     if (*dst_pte & PTE_V) panic("uvmshallowcopy: override dst");
@@ -364,7 +363,7 @@ uvmcopy(pagetable_t src, pagetable_t dst, uint64 sz)
       *src_pte |= PTE_COW;
     }
     *dst_pte = *src_pte;
-    kaddref((void *)PTE2PA(*src_pte));
+    if (*src_pte & PTE_V) kaddref((void *)PTE2PA(*src_pte));
   }
 
   return 0;

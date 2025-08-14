@@ -74,6 +74,7 @@ void            end_op(void);
 // mmap.c
 void*           mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset);
 int             fillMappedPage(uint64 va);
+int             munmap(uint64 addr, size_t len);
 
 // pipe.c
 int             pipealloc(struct file**, struct file**);
