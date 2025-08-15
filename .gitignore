@@ -26,4 +26,3 @@ barrier
 *.dSYM
 *.pcap
 .vscode
-*.el
