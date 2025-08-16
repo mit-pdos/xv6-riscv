@@ -11,9 +11,9 @@ OBJS = \
   $K/spinlock.o \
   $K/string.o \
   $K/main.o \
-	$K/mmap.o \
+  $K/mmap.o \
   $K/vm.o \
-	$K/vma.o \
+  $K/vma.o \
   $K/proc.o \
   $K/swtch.o \
   $K/trampoline.o \
