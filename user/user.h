@@ -26,17 +26,6 @@ int uptime(void);
 int symlink(const char*, const char*); 
 char* mmap(void*, size_t, int, int, int, off_t);
 int munmap(void*, size_t); 
-#ifdef LAB_NET
-int bind(uint16);
-int unbind(uint16);
-int send(uint16, uint32, uint16, char *, uint32);
-int recv(uint16, uint32*, uint16*, char *, uint32);
-#endif
-#ifdef LAB_PGTBL
-int ugetpid(void);
-uint64 pgpte(void*);
-void kpgtbl(void);
-#endif
 
 // ulib.c
 int stat(const char*, struct stat*);
@@ -52,9 +41,6 @@ void* memset(void*, int, uint);
 int atoi(const char*);
 int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
-#ifdef LAB_LOCK
-int statistics(void*, int);
-#endif
 
 // umalloc.c
 void* malloc(uint);
