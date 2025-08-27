@@ -36,3 +36,11 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
+
+
+# ..    
+entry("sem_init");
+entry("sem_down");
+entry("sem_up");
+entry("shm_get");
+entry("shm_close");

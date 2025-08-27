@@ -41,3 +41,10 @@ void *memcpy(void *, const void *, uint);
 // umalloc.c
 void* malloc(uint);
 void free(void*);
+
+// ...
+int sem_init(int sem_id, int value);
+int sem_down(int sem_id);
+int sem_up(int sem_id);
+void* shm_get(int key); // Use void* for user-space, which matches uint64 size
+int shm_close(int key);

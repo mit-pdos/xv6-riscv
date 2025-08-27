@@ -91,3 +91,48 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// ... at the end of kernel/sysproc.c
+
+uint64
+sys_sem_init(void)
+{
+  int sem_id, value;
+  argint(0, &sem_id);
+  argint(1, &value);
+  return sem_init(sem_id, value);
+}
+
+uint64
+sys_sem_down(void)
+{
+  int sem_id;
+  argint(0, &sem_id);
+  return sem_down(sem_id);
+}
+
+uint64
+sys_sem_up(void)
+{
+  int sem_id;
+  argint(0, &sem_id);
+  return sem_up(sem_id);
+}
+
+uint64
+sys_shm_get(void)
+{
+  int key;
+  argint(0, &key);
+  return shm_get(key);
+}
+
+
+
+uint64
+sys_shm_close(void)
+{
+  int key;
+  argint(0, &key);
+  return shm_close(key);
+}
