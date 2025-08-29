@@ -2,7 +2,7 @@
 // formatted console output -- printf, panic.
 //
 
-#include <stdarg.h>
+#include "printf.h"
 
 #include "types.h"
 #include "param.h"

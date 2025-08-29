@@ -9,7 +9,7 @@
 //   control-p -- print process list
 //
 
-#include <stdarg.h>
+#include "printf.h"
 
 #include "types.h"
 #include "param.h"
