@@ -102,7 +102,7 @@ $U/usys.S : $U/usys.pl
 $U/usys.o : $U/usys.S
 	$(CC) $(CFLAGS) -c -o $U/usys.o $U/usys.S
 
-$U/_forktest: $U/forktest.o $(ULIB)
+$U/_forktest: $U/forktest.o $U/forktest.o $U/ulib.o $U/usys.o
 	# forktest has less library code linked in - needs to be small
 	# in order to be able to max out the proc table.
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o
