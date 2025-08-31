@@ -22,7 +22,7 @@ void itoa(int n, char *s) {
 }
 
 int main(int argc, char *argv[]) {
-    int num_teams = 10; // Default
+    int num_teams = 1; // Default
     
     if(argc > 1) {
         num_teams = atoi(argv[1]);

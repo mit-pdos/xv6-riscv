@@ -1,199 +1,129 @@
 #include "kernel/types.h"
-#include "kernel/stat.h"
 #include "user/user.h"
 
-#define MAZE_SIZE 11  // 0-9 are valid positions, 10 is finish
-#define END_MARKER 10
+// --- Configuration based on your lab report ---
+#define SHM_KEY         1       // Shared page key [cite: 451]
+#define MREQ_KEY        100     // Mailbox for A->B communication [cite: 452]
+#define MRESP_KEY       101     // Mailbox for B->A communication [cite: 453]
+#define PRINT_KEY       200     // Mailbox for print baton [cite: 454]
 
-// Structure for the intertwined maze in shared memory
-struct maze_data {
-    int path_a[MAZE_SIZE];  // Path for process A
-    int path_b[MAZE_SIZE];  // Path for process B
-    int process_a_pos;      // Current position of process A
-    int process_b_pos;      // Current position of process B
-    int process_a_finished; // Flag indicating A reached end
-    int process_b_finished; // Flag indicating B reached end
-    int game_over;          // Flag indicating game completion
+#define PGSIZE          4096    // Page size [cite: 382]
+#define END_MARK        0xFFFF  // Maze termination marker [cite: 389]
+#define EDGE_CAP        ((PGSIZE - 8) / 2) // Max edges in the maze page [cite: 384, 385]
+
+// Shared memory page layout [cite: 406]
+struct MazePage {
+    ushort a_start;
+    ushort b_start;
+    ushort end_marker; // Should be 0xFFFF [cite: 411]
+    ushort pad;        // Keeps header at 8 bytes [cite: 413]
+    ushort edge[EDGE_CAP]; // Intertwined edges [cite: 416]
 };
 
-// Simple random number generator
-static unsigned int rand_seed = 42;
-
-void srand(unsigned int seed) {
-    rand_seed = seed;
+// Simple, xv6-safe integer-to-string conversion [cite: 549]
+static void itoa(int val, char *buf) {
+    char tmp[16];
+    int i = 0, j = 0;
+    if (val == 0) {
+        buf[0] = '0';
+        buf[1] = '\0';
+        return;
+    }
+    while (val > 0) {
+        tmp[i++] = '0' + (val % 10);
+        val /= 10;
+    }
+    while (i > 0) {
+        buf[j++] = tmp[--i];
+    }
+    buf[j] = '\0';
 }
 
-int rand() {
-    rand_seed = rand_seed * 1103515245 + 12345;
-    return (rand_seed / 65536) % 32768;
+// Initializes the maze with intertwined paths [cite: 428]
+void init_maze(struct MazePage *m) {
+    // 1. Fill the entire maze with the end marker first. [cite: 429]
+    for (int i = 0; i < EDGE_CAP; i++) {
+        m->edge[i] = END_MARK;
+    }
+
+    // 2. Define two distinct paths. [cite: 431, 433]
+    int path_a[] = {5, 20, 40, 77};
+    int path_b[] = {10, 25, 41, 90};
+    int na = sizeof(path_a) / sizeof(path_a[0]);
+    int nb = sizeof(path_b) / sizeof(path_b[0]);
+
+    // 3. Set start points and the end marker in the header. [cite: 438, 440, 442]
+    m->a_start = (ushort)path_a[0];
+    m->b_start = (ushort)path_b[0];
+    m->end_marker = END_MARK;
+
+    // 4. Stitch the paths together in an intertwined manner. [cite: 443, 445]
+    // A's current location stores B's next location.
+    for (int i = 0; i + 1 < na; i++) {
+        m->edge[path_a[i]] = (ushort)path_b[i+1];
+    }
+    // B's current location stores A's next location.
+    for (int i = 0; i + 1 < nb; i++) {
+        m->edge[path_b[i]] = (ushort)path_a[i+1];
+    }
 }
 
-// Helper function to convert integer to string
-void itoa(int n, char *s) {
-    int i, sign;
-    if ((sign = n) < 0) n = -n;
-    i = 0;
-    do {
-        s[i++] = n % 10 + '0';
-    } while ((n /= 10) > 0);
-    if (sign < 0) s[i++] = '-';
-    s[i] = '\0';
-    
-    // Reverse the string
-    for (int j = 0, k = i - 1; j < k; j++, k--) {
-        char temp = s[j];
-        s[j] = s[k];
-        s[k] = temp;
+// Helper to launch a player process [cite: 534]
+void spawn(char role, int a2b_id, int b2a_id, int prn_id) {
+    char role_str[] = {role, '\0'};
+    char a2b_str[16], b2a_str[16], prn_str[16];
+
+    itoa(a2b_id, a2b_str);
+    itoa(b2a_id, b2a_str);
+    itoa(prn_id, prn_str);
+
+    if (fork() == 0) {
+        char *argv[] = {"player", role_str, a2b_str, b2a_str, prn_str, 0};
+        exec("player", argv);
+        printf("gamemaster: exec player %c failed\n", role);
+        exit(1);
     }
 }
 
-void setup_maze(struct maze_data *maze) {
-    printf("=== Setting up Intertwined Memory Challenge ===\n");
-    printf("Maze positions: 0-9 (valid), 10 (END_MARKER)\n\n");
-    
-    // Initialize random seed
-    srand(123);
-    
-    // Create intertwined paths with logical constraints
-    // Each position 0-8 points to a valid next position (0-9)
-    // Position 9 points to END_MARKER (10)
-    // END_MARKER (10) points to itself
-    
-    for(int i = 0; i < MAZE_SIZE - 2; i++) {  // 0-8
-        maze->path_a[i] = rand() % 10;  // Points to 0-9
-        maze->path_b[i] = rand() % 10;  // Points to 0-9
-    }
-    
-    // Position 9 points to END_MARKER for both paths
-    maze->path_a[9] = END_MARKER;
-    maze->path_b[9] = END_MARKER;
-    
-    // END_MARKER points to itself
-    maze->path_a[END_MARKER] = END_MARKER;
-    maze->path_b[END_MARKER] = END_MARKER;
-    
-    // Initialize process positions
-    maze->process_a_pos = 0;  // Both start at position 0
-    maze->process_b_pos = 0;
-    maze->process_a_finished = 0;
-    maze->process_b_finished = 0;
-    maze->game_over = 0;
-    
-    printf("=== MAZE CONFIGURATION ===\n");
-    printf("Path A (what A reads gives B's next position):\n");
-    for(int i = 0; i < MAZE_SIZE; i++) {
-        printf("   Position %d -> %d", i, maze->path_a[i]);
-        if(i == END_MARKER) printf(" (END_MARKER)");
-        printf("\n");
-    }
-    
-    printf("\nPath B (what B reads gives A's next position):\n");
-    for(int i = 0; i < MAZE_SIZE; i++) {
-        printf("   Position %d -> %d", i, maze->path_b[i]);
-        if(i == END_MARKER) printf(" (END_MARKER)");
-        printf("\n");
-    }
-    printf("==============================\n\n");
-}
+int main(void) {
+    printf("Gamemaster: Setting up...\n");
 
-int main(int argc, char *argv[]) {
-    printf("=== The Intertwined Memory Challenge ===\n");
-    printf("Master process starting...\n\n");
-    
-    // Create shared memory for the maze
-    int shm_handle = shm_create(1337);
-    if(shm_handle < 0) {
-        printf("Failed to create shared memory\n");
+    // 1. Create and attach to the shared memory page. [cite: 517, 519]
+    shm_create(SHM_KEY);
+    struct MazePage *maze = (struct MazePage *)shm_get(SHM_KEY);
+    if (maze == 0) {
+        printf("gamemaster: shm_get failed\n");
         exit(1);
     }
-    
-    // Get pointer to shared memory
-    struct maze_data *maze = (struct maze_data*)shm_get(1337);
-    if(maze == 0) {
-        printf("Failed to get shared memory pointer\n");
+
+    // 2. Initialize the maze data within the shared page.
+    init_maze(maze);
+    printf("Gamemaster: Maze initialized in shared memory.\n");
+
+    // 3. Create the three required mailboxes. [cite: 522, 523, 524]
+    int a2b = mbox_create(MREQ_KEY);
+    int b2a = mbox_create(MRESP_KEY);
+    int prn = mbox_create(PRINT_KEY);
+    if (a2b < 0 || b2a < 0 || prn < 0) {
+        printf("gamemaster: mbox_create failed\n");
         exit(1);
     }
-    
-    // Setup the maze
-    setup_maze(maze);
-    
-    // Create mailboxes for communication
-    int mbox_a_to_b = mbox_create(100);  // A sends to B
-    int mbox_b_to_a = mbox_create(101);  // B sends to A
-    
-    if(mbox_a_to_b < 0 || mbox_b_to_a < 0) {
-        printf("Failed to create mailboxes\n");
-        exit(1);
-    }
-    
-    printf("Created mailboxes: A->B (ID: %d), B->A (ID: %d)\n", mbox_a_to_b, mbox_b_to_a);
-    
-    // Fork and exec process A
-    int pid_a = fork();
-    if(pid_a == 0) {
-        char *exec_argv[4];
-        exec_argv[0] = "process";
-        exec_argv[1] = "A";  // Process type
-        exec_argv[2] = "0";  // Starting position
-        exec_argv[3] = 0;
-        
-        exec("process", exec_argv);
-        printf("Failed to exec process A\n");
-        exit(1);
-    }
-    
-    // Fork and exec process B
-    int pid_b = fork();
-    if(pid_b == 0) {
-        char *exec_argv[4];
-        exec_argv[0] = "process";
-        exec_argv[1] = "B";  // Process type
-        exec_argv[2] = "0";  // Starting position
-        exec_argv[3] = 0;
-        
-        exec("process", exec_argv);
-        printf("Failed to exec process B\n");
-        exit(1);
-    }
-    
-    printf("Launched processes: A (PID: %d), B (PID: %d)\n", pid_a, pid_b);
-    printf("\n=== CHALLENGE STARTED! ===\n");
-    printf("Both processes start at position 0\n");
-    printf("Goal: Both must reach position 10 (END_MARKER)\n\n");
-    
-    // Monitor the game progress
-    int step = 0;
-    while(!maze->game_over) {
-        sleep(50);  // Check every 500ms
-        step++;
-        
-        if(step % 10 == 0) {  // Print status every 5 seconds
-            printf("--- Status (Step %d) ---\n", step);
-            printf("Process A: Position %d", maze->process_a_pos);
-            if(maze->process_a_finished) printf(" (FINISHED)");
-            printf("\n");
-            printf("Process B: Position %d", maze->process_b_pos);
-            if(maze->process_b_finished) printf(" (FINISHED)");
-            printf("\n\n");
-        }
-        
-        // Check win condition
-        if(maze->process_a_finished && maze->process_b_finished) {
-            maze->game_over = 1;
-            printf("=== CHALLENGE COMPLETED! ===\n");
-            printf("Both processes reached the END_MARKER!\n");
-            printf("Process A final position: %d\n", maze->process_a_pos);
-            printf("Process B final position: %d\n", maze->process_b_pos);
-        }
-    }
-    
-    // Wait for child processes to complete
+
+    // 4. Seed the print baton so one process can print first. [cite: 527, 528]
+    mbox_send(prn, 1);
+
+    // 5. Spawn the two player processes.
+    printf("Gamemaster: Spawning players A and B...\n\n");
+    spawn('A', a2b, b2a, prn);
+    spawn('B', a2b, b2a, prn);
+
+    // 6. Wait for both children to terminate. [cite: 560, 561]
     wait(0);
     wait(0);
-    
-    printf("\nMaster process: Cleaning up...\n");
-    shm_close(1337);
-    
-    printf("Challenge completed successfully!\n");
-    return 0;
+
+    // 7. Clean up the shared memory region. [cite: 562]
+    shm_close(SHM_KEY);
+    printf("\nGamemaster: Players finished. Cleaning up.\n");
+
+    exit(0);
 }
