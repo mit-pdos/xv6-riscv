@@ -3,33 +3,30 @@
 #include "user/user.h"
 
 #define MAX_TEAMS 10
-#define MAZE_SIZE 8          // Reduced for quicker races
-#define LOCATION_CAPACITY 2  // Reduced to force more interaction
-#define CONSOLE_LOCK (MAZE_SIZE + MAX_TEAMS * 2) // A dedicated semaphore ID for printing
+#define MAZE_SIZE 8          
+#define LOCATION_CAPACITY 2  
+#define CONSOLE_LOCK (MAZE_SIZE + MAX_TEAMS * 2) 
 
 // Shared memory structure
 struct shared_game {
-    // Linear maze with dependencies - creates a proper race track
-    int maze_a[MAZE_SIZE];  // Where A tells B to go next
-    int maze_b[MAZE_SIZE];  // Where B tells A to go next
+    int maze_a[MAZE_SIZE];  
+    int maze_b[MAZE_SIZE];  
     
-    // Team mailboxes for communication
     struct {
-        int a_to_b;      // Message from A to B
-        int b_to_a;      // Message from B to A
-        int a_ready;     // A has a message ready
-        int b_ready;     // B has a message ready
-        int a_at_finish; // A reached finish
-        int b_at_finish; // B reached finish
-        int a_location;  // Current location of A (for monitoring)
-        int b_location;  // Current location of B (for monitoring)
+        int a_to_b;      
+        int b_to_a;      
+        int a_ready;     
+        int b_ready;     
+        int a_at_finish; 
+        int b_at_finish; 
+        int a_location;  
+        int b_location;  
     } mailbox[MAX_TEAMS];
     
-    // Game state
-    int winner_team;   // Which team won (-1 if no winner yet)
-    int game_started;  // Game has started
-    int total_teams;   // Number of teams in game
-    int race_step;     // Current race step for monitoring
+    int winner_team;   
+    int game_started;  
+    int total_teams;   
+    int race_step;     
 };
 
 // Helper function to convert an integer to a string
@@ -52,7 +49,9 @@ void itoa(int n, char *s) {
 }
 
 void setup_maze(struct shared_game *game) {
-    printf("Setting up race track (length: %d)...\n", MAZE_SIZE);
+    printf("Setting up race track (length: ");
+    printf("%d", MAZE_SIZE);
+    printf(")...\n");
     
     for(int i = 0; i < MAZE_SIZE - 1; i++) {
         game->maze_a[i] = i + 1;
@@ -62,7 +61,9 @@ void setup_maze(struct shared_game *game) {
     game->maze_a[MAZE_SIZE-1] = MAZE_SIZE-1;
     game->maze_b[MAZE_SIZE-1] = MAZE_SIZE-1;
     
-    printf("Race track: 0 -> 1 -> 2 -> ... -> %d (FINISH)\n", MAZE_SIZE-1);
+    printf("Race track: 0 -> 1 -> 2 -> ... -> ");
+    printf("%d", MAZE_SIZE-1);
+    printf(" (FINISH)\n");
     printf("Players must coordinate to advance through each location.\n");
 }
 
@@ -71,7 +72,8 @@ void init_semaphores() {
     
     for(int i = 0; i < MAZE_SIZE; i++) {
         if(sem_init(i, LOCATION_CAPACITY) < 0) {
-            printf("Failed to initialize location semaphore %d\n", i);
+            printf("Failed to initialize location semaphore ");
+            printf("%d\n", i);
             exit(1);
         }
     }
@@ -79,33 +81,22 @@ void init_semaphores() {
     for(int team = 0; team < MAX_TEAMS; team++) {
         if(sem_init(MAZE_SIZE + team*2, 0) < 0 ||
            sem_init(MAZE_SIZE + team*2 + 1, 0) < 0) {
-            printf("Failed to initialize communication semaphores for team %d\n", team);
+            printf("Failed to initialize communication semaphores for team ");
+            printf("%d\n", team);
             exit(1);
         }
     }
 
-    // Initialize the console lock semaphore
     if(sem_init(CONSOLE_LOCK, 1) < 0) {
         printf("Failed to initialize console lock semaphore\n");
         exit(1);
     }
     
-    printf("Semaphores initialized: %d location + %d communication + 1 console lock\n", MAZE_SIZE, MAX_TEAMS*2);
-}
-
-// Safe printf for gamemaster
-void safe_printf(char *msg) {
-    sem_down(CONSOLE_LOCK);
-    printf("%s", msg);
-    sem_up(CONSOLE_LOCK);
-}
-
-void safe_printf_int(char *msg, int val) {
-    sem_down(CONSOLE_LOCK);
-    printf("%s", msg);
-    printf("%d", val);
-    printf("\n");
-    sem_up(CONSOLE_LOCK);
+    printf("Semaphores initialized: ");
+    printf("%d", MAZE_SIZE);
+    printf(" location + ");
+    printf("%d", MAX_TEAMS*2);
+    printf(" communication + 1 console lock\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -120,8 +111,14 @@ int main(int argc, char *argv[]) {
     }
     
     printf("=== The Indian Grand Prix ===\n");
-    printf("Race track length: %d locations (0 to %d)\n", MAZE_SIZE, MAZE_SIZE-1);
-    printf("Starting game with %d teams\n\n", num_teams);
+    printf("Race track length: ");
+    printf("%d", MAZE_SIZE);
+    printf(" locations (0 to ");
+    printf("%d", MAZE_SIZE-1);
+    printf(")\n");
+    printf("Starting game with ");
+    printf("%d", num_teams);
+    printf(" teams\n\n");
     
     void *shm = (void*)shm_get(1337);
     if(shm == 0) {
@@ -148,7 +145,9 @@ int main(int argc, char *argv[]) {
         game->mailbox[i].b_location = 0;
     }
     
-    printf("Launching %d teams...\n", num_teams);
+    printf("Launching ");
+    printf("%d", num_teams);
+    printf(" teams...\n");
     
     for(int team = 0; team < num_teams; team++) {
         char team_str[4];
@@ -166,7 +165,8 @@ int main(int argc, char *argv[]) {
         int pid_a = fork();
         if(pid_a == 0) {
             exec("player", exec_argv);
-            printf("Failed to exec player A for team %d\n", team);
+            printf("Failed to exec player A for team ");
+            printf("%d\n", team);
             exit(1);
         }
 
@@ -178,18 +178,33 @@ int main(int argc, char *argv[]) {
         int pid_b = fork();
         if(pid_b == 0) {
             exec("player", exec_argv);
-            printf("Failed to exec player B for team %d\n", team);
+            printf("Failed to exec player B for team ");
+            printf("%d\n", team);
             exit(1);
         }
         
-        printf("Team %d: Player A (PID %d), Player B (PID %d)\n", team, pid_a, pid_b);
+        printf("Team ");
+        printf("%d", team);
+        printf(": Player A (PID ");
+        printf("%d", pid_a);
+        printf("), Player B (PID ");
+        printf("%d", pid_b);
+        printf(")\n");
     }
     
     sleep(20);
     
     game->game_started = 1;
-    printf("\n🏁 RACE STARTED! 🏁\n");
-    printf("Progress: 0 -> 1 -> 2 -> ... -> %d (FINISH)\n\n", MAZE_SIZE-1);
+    
+    sem_down(CONSOLE_LOCK);
+    printf("\n=== RACE STARTED! ===\n");
+    printf("Progress: 0 -> 1 -> 2 -> ... -> ");
+    printf("%d", MAZE_SIZE-1);
+    printf(" (FINISH)\n\n");
+    sem_up(CONSOLE_LOCK);
+    
+    // Wait for players to start before monitoring
+    sleep(100);
     
     int last_step = 0;
     while(game->winner_team == -1) {
@@ -219,9 +234,9 @@ int main(int argc, char *argv[]) {
                 if(game->winner_team == -1) {
                     game->winner_team = team;
                     sem_down(CONSOLE_LOCK);
-                    printf("\n🏆 TEAM ");
+                    printf("\n=== TEAM ");
                     printf("%d", team);
-                    printf(" WINS THE RACE! 🏆\n");
+                    printf(" WINS THE RACE! ===\n");
                     printf("Both players reached location ");
                     printf("%d", MAZE_SIZE-1);
                     printf(" (FINISH)!\n");
@@ -231,8 +246,7 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    // Wait for all player processes to finish printing
-    sleep(100);
+    sleep(200);
     
     sem_down(CONSOLE_LOCK);
     printf("\nRace completed! Final positions:\n");

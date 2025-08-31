@@ -28,30 +28,39 @@ struct shared_game {
     int race_step;
 };
 
-// Fixed printf functions with proper string handling
-void player_printf(int team, char player, char *msg, int val) {
-    sem_down(CONSOLE_LOCK);
-    printf("T%d", team);
-    printf("%c: ", player);
-    printf("%s ", msg);
-    printf("%d\n", val);
-    sem_up(CONSOLE_LOCK);
-}
-
-void player_printf_2(int team, char player, char *msg, int val1, int val2) {
-    sem_down(CONSOLE_LOCK);
-    printf("T%d", team);
-    printf("%c: ", player);
-    printf("%s ", msg);
-    printf("%d->%d\n", val1, val2);
-    sem_up(CONSOLE_LOCK);
-}
-
+// Simple, safe printf functions
 void player_printf_simple(int team, char player, char *msg) {
     sem_down(CONSOLE_LOCK);
-    printf("T%d", team);
-    printf("%c: ", player);
-    printf("%s\n", msg);
+    printf("T");
+    printf("%d", team);
+    printf(player == 'A' ? "A: " : "B: ");
+    printf("%s", msg);
+    printf("\n");
+    sem_up(CONSOLE_LOCK);
+}
+
+void player_printf_with_int(int team, char player, char *msg, int val) {
+    sem_down(CONSOLE_LOCK);
+    printf("T");
+    printf("%d", team);
+    printf(player == 'A' ? "A: " : "B: ");
+    printf("%s", msg);
+    printf(" ");
+    printf("%d", val);
+    printf("\n");
+    sem_up(CONSOLE_LOCK);
+}
+
+void player_printf_movement(int team, char player, int from, int to) {
+    sem_down(CONSOLE_LOCK);
+    printf("T");
+    printf("%d", team);
+    printf(player == 'A' ? "A: " : "B: ");
+    printf("Moving ");
+    printf("%d", from);
+    printf(" -> ");
+    printf("%d", to);
+    printf("\n");
     sem_up(CONSOLE_LOCK);
 }
 
@@ -116,7 +125,10 @@ int main(int argc, char *argv[]) {
         sleep(10);
     }
     
-    player_printf_simple(team_id, player_type, "Starting race!");
+    // Stagger player start messages to reduce output collision
+    sleep((team_id * 20) + (player_type == 'B' ? 15 : 0));
+    
+    player_printf_simple(team_id, player_type, "Starting race");
     
     int current_location = 0;
     int steps = 0;
@@ -131,7 +143,9 @@ int main(int argc, char *argv[]) {
     // Main race loop
     while(game->winner_team == -1 && current_location < MAZE_SIZE - 1) {
         steps++;
-        game->race_step = steps;
+        if(player_type == 'A') {
+            game->race_step = steps;
+        }
         
         // Try to acquire location semaphore
         sem_down(current_location);
@@ -156,14 +170,18 @@ int main(int argc, char *argv[]) {
         
         // Send message to teammate
         send_message_to_teammate(game, team_id, player_type, teammate_next_location);
-        player_printf_2(team_id, player_type, "Sent", current_location, teammate_next_location);
         
         // Receive message from teammate
-        current_location = receive_message_from_teammate(game, team_id, player_type);
-        player_printf(team_id, player_type, "Moving to location", current_location);
+        int next_location = receive_message_from_teammate(game, team_id, player_type);
+        
+        // Move to next location
+        if(next_location != current_location) {
+            player_printf_movement(team_id, player_type, current_location, next_location);
+            current_location = next_location;
+        }
         
         // Simulate movement time with some variation
-        sleep(30 + (team_id * 10) + (player_type == 'B' ? 5 : 0));
+        sleep(50 + (team_id * 15) + (player_type == 'B' ? 10 : 0));
         
         // Check if we've reached the finish
         if(current_location >= MAZE_SIZE - 1) {
@@ -174,7 +192,7 @@ int main(int argc, char *argv[]) {
     
     // Handle finish line
     if(current_location >= MAZE_SIZE - 1) {
-        player_printf_simple(team_id, player_type, "REACHED FINISH LINE!");
+        player_printf_with_int(team_id, player_type, "REACHED FINISH at position", MAZE_SIZE - 1);
         
         // Acquire finish line location
         sem_down(MAZE_SIZE - 1);
@@ -192,19 +210,17 @@ int main(int argc, char *argv[]) {
         sem_up(MAZE_SIZE - 1);
     }
     
-    // Wait a bit for race to conclude
-    sleep(50);
+    // Wait and stagger final messages
+    sleep(100 + (team_id * 30) + (player_type == 'B' ? 20 : 0));
     
-    // Report results with extra delay to avoid conflicts
-    sleep(team_id * 20 + (player_type == 'B' ? 10 : 0));
-    
+    // Report results
     if(game->winner_team == team_id) {
-        player_printf_simple(team_id, player_type, "WE WON THE RACE!");
+        player_printf_simple(team_id, player_type, "WE WON!");
     } else if(game->winner_team != -1) {
-        player_printf(team_id, player_type, "Race won by team", game->winner_team);
+        player_printf_with_int(team_id, player_type, "Race won by team", game->winner_team);
     }
     
-    player_printf(team_id, player_type, "Race completed in steps", steps);
+    player_printf_with_int(team_id, player_type, "Completed in steps", steps);
     shm_close(1337);
     
     return 0;
