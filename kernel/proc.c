@@ -379,7 +379,7 @@ exit(int status)
   p->state = ZOMBIE;
 
   release(&wait_lock);
-  shm_cleanup_proc(p);
+  shm_cleanup(p);
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");

@@ -39,8 +39,9 @@ entry("uptime");
 
 
 # ..    
-entry("sem_init");
-entry("sem_down");
-entry("sem_up");
+entry("shm_create");
 entry("shm_get");
 entry("shm_close");
+entry("mbox_create");
+entry("mbox_send");
+entry("mbox_recv");

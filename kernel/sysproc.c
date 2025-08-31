@@ -92,47 +92,58 @@ sys_uptime(void)
   return xticks;
 }
 
-// ... at the end of kernel/sysproc.c
-
+// Shared Memory System Calls
+// Shared Memory System Calls
 uint64
-sys_sem_init(void)
+sys_shm_create(void)
 {
-  int sem_id, value;
-  argint(0, &sem_id);
-  argint(1, &value);
-  return sem_init(sem_id, value);
-}
-
-uint64
-sys_sem_down(void)
-{
-  int sem_id;
-  argint(0, &sem_id);
-  return sem_down(sem_id);
-}
-
-uint64
-sys_sem_up(void)
-{
-  int sem_id;
-  argint(0, &sem_id);
-  return sem_up(sem_id);
+    int key;
+    argint(0, &key);
+    return shm_create(key);
 }
 
 uint64
 sys_shm_get(void)
 {
-  int key;
-  argint(0, &key);
-  return shm_get(key);
+    int key;
+    argint(0, &key);
+    return (uint64)shm_get(key);
 }
-
-
 
 uint64
 sys_shm_close(void)
 {
-  int key;
-  argint(0, &key);
-  return shm_close(key);
+    int key;
+    argint(0, &key);
+    return shm_close(key);
+}
+
+// Mailbox System Calls
+uint64
+sys_mbox_create(void)
+{
+    int key;
+    argint(0, &key);
+    return mbox_create(key);
+}
+
+uint64
+sys_mbox_send(void)
+{
+    int mbox_id, msg;
+    argint(0, &mbox_id);
+    argint(1, &msg);
+    return mbox_send(mbox_id, msg);
+}
+
+uint64
+sys_mbox_recv(void)
+{
+    int mbox_id;
+    uint64 msg_user_addr; // Variable to hold the user-space address of msg
+
+    argint(0, &mbox_id);
+    argaddr(1, &msg_user_addr); // Fetch the user pointer address
+
+    return mbox_recv(mbox_id, msg_user_addr); // Cast to int* pointer
 }

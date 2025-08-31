@@ -102,11 +102,12 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 
-extern uint64 sys_sem_init(void);
-extern uint64 sys_sem_down(void);
-extern uint64 sys_sem_up(void);
+extern uint64 sys_shm_create(void);
 extern uint64 sys_shm_get(void);
 extern uint64 sys_shm_close(void);
+extern uint64 sys_mbox_create(void);
+extern uint64 sys_mbox_send(void);
+extern uint64 sys_mbox_recv(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -133,11 +134,12 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 
-[SYS_sem_init]  sys_sem_init,
-[SYS_sem_down]  sys_sem_down,
-[SYS_sem_up]    sys_sem_up,
-[SYS_shm_get]   sys_shm_get,
-[SYS_shm_close] sys_shm_close,
+[SYS_shm_create] sys_shm_create,
+[SYS_shm_get]    sys_shm_get,
+[SYS_shm_close]  sys_shm_close,
+[SYS_mbox_create] sys_mbox_create,
+[SYS_mbox_send]   sys_mbox_send,
+[SYS_mbox_recv]   sys_mbox_recv,
 };
 
 void

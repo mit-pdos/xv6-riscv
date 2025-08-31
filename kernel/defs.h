@@ -191,10 +191,19 @@ int             sem_init(int, int);
 int             sem_down(int);
 int             sem_up(int);
 
-// ... in shm.c
-void            shminit(void);
-uint64          shm_get(int);
-int             shm_close(int);
-void            shm_cleanup_proc(struct proc*);
+// shm.c
+void            shm_init(void);
+int             shm_create(int key);
+void*           shm_get(int key);
+int             shm_close(int key);
+void    shm_cleanup(struct proc *p);
 // number of elements in fixed-size array
+
+// mbox.c
+void            mbox_init(void);
+int             mbox_create(int key);
+int             mbox_send(int mbox_id, int msg);
+int             mbox_recv(int mbox_id, uint64 user_addr_msg);
+
+
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

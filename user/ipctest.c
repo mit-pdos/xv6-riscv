@@ -1,79 +1,72 @@
-// user/ipctest.c
+// ipctest.c - Clean version with single includes and main function
+
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
 
-#define EMPTY 0
-#define FULL 1
-#define MUTEX 2
-
-int main()
-{
-  printf("IPC test starting\n");
-
-  void* shm = shm_get(123);
-  if(shm == 0){
-    printf("shm_get failed\n");
-    exit(1);
-  }
-  printf("Parent shared memory acquired at VA: %p\n", shm);
-  
-  int *shared_counter = (int*)shm;
-  *shared_counter = 0;
-
-  if(sem_init(EMPTY, 1) < 0 || sem_init(FULL, 0) < 0 || sem_init(MUTEX, 1) < 0){
-    printf("sem_init failed\n");
-    exit(1);
-  }
-
-  int pid = fork();
-
-  if(pid < 0){
-    printf("fork failed\n");
-    exit(1);
-  }
-
-  if(pid == 0) { // Child process (Consumer)
-    void* child_shm = shm_get(123);
-    if(child_shm == 0){
-      printf("child shm_get failed\n");
-      exit(1);
+int main() {
+    printf("Starting IPC Tests...\n");
+    
+    // Test shared memory
+    printf("\n=== Shared Memory Test ===\n");
+    int shm_key = 1234;
+    
+    // Create shared memory
+    int shm_id = shm_create(shm_key);
+    if(shm_id < 0) {
+        printf("Failed to create shared memory\n");
+        return -1;
     }
-    shared_counter = (int*)child_shm; 
-    printf("Child shared memory re-acquired at VA: %p\n", child_shm);
-
-    for(int i = 0; i < 5; i++){
-      sem_down(FULL);
-      
-      sem_down(MUTEX);
-      printf("Consumer: read %d\n", *shared_counter);
-      sem_up(MUTEX);
-      
-      sem_up(EMPTY);
-      sleep(10);
+    printf("Created shared memory with ID: %d\n", shm_id);
+    
+    // Get shared memory pointer
+    int* shm_ptr = (int*)shm_get(shm_key);
+    if(shm_ptr == (void*)-1) {
+        printf("Failed to get shared memory\n");
+        return -1;
+    }
+    printf("Got shared memory pointer: %p\n", shm_ptr);
+    
+    // Test writing/reading from shared memory
+    *shm_ptr = 42;
+    printf("Wrote value 42 to shared memory\n");
+    printf("Read value from shared memory: %d\n", *shm_ptr);
+    
+    // Test mailbox
+    printf("\n=== Mailbox Test ===\n");
+    int mbox_key = 5678;
+    
+    // Create mailbox
+    int mbox_id = mbox_create(mbox_key);
+    if(mbox_id < 0) {
+        printf("Failed to create mailbox\n");
+        return -1;
+    }
+    printf("Created mailbox with ID: %d\n", mbox_id);
+    
+    // Test sending message
+    int test_msg = 123;
+    if(mbox_send(mbox_id, test_msg) < 0) {
+        printf("Failed to send message\n");
+        return -1;
+    }
+    printf("Sent message: %d\n", test_msg);
+    
+    // Test receiving message
+    int recv_msg;
+    if(mbox_recv(mbox_id, &recv_msg) < 0) {
+        printf("Failed to receive message\n");
+        return -1;
+    }
+    printf("Received message: %d\n", recv_msg);
+    
+    // Clean up
+    if(shm_close(shm_key) < 0) {
+        printf("Failed to close shared memory\n");
+    } else {
+        printf("Closed shared memory\n");
     }
     
-    // Child cleans up its own mapping
-    shm_close(123);
-    exit(0);
-  } else { // Parent process (Producer)
-    for(int i = 0; i < 5; i++){
-      sem_down(EMPTY);
-      
-      sem_down(MUTEX);
-      *shared_counter = i + 1;
-      printf("Producer: wrote %d\n", *shared_counter);
-      sem_up(MUTEX);
-
-      sem_up(FULL);
-      sleep(5);
-    }
-    wait(0);
-    
-    // Parent cleans up its own mapping
-    shm_close(123);
-  }
-
-  printf("IPC test finished\n");
-  exit(0);
+    printf("\nIPC Tests completed!\n");
+    return 0;
 }

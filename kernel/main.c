@@ -28,8 +28,8 @@ main()
     iinit();         // inode table
     fileinit();      // file table
     virtio_disk_init(); // emulated hard disk
-    seminit();
-    shminit();
+    shm_init();      // shared memory system
+    mbox_init();
     userinit();      // first user process
     __sync_synchronize();
     started = 1;

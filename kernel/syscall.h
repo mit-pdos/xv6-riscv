@@ -22,8 +22,9 @@
 #define SYS_close  21
 
 // ...
-#define SYS_sem_init 22
-#define SYS_sem_down 23
-#define SYS_sem_up   24
-#define SYS_shm_get  25
-#define SYS_shm_close 26 
+#define SYS_shm_create 22
+#define SYS_shm_get    23
+#define SYS_shm_close  24
+#define SYS_mbox_create 25
+#define SYS_mbox_send   26
+#define SYS_mbox_recv   27
