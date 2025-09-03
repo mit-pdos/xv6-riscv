@@ -147,13 +147,14 @@ main(int argc, char *argv[])
     if(shortname[0] == '_')
       shortname += 1;
 
-    assert(strlen(shortname) <= DIRSIZ);
+    assert(strlen(shortname) < DIRSIZ);
     
     inum = ialloc(T_FILE);
 
     bzero(&de, sizeof(de));
     de.inum = xshort(inum);
     strncpy(de.name, shortname, DIRSIZ);
+    de.name[DIRSIZ - 1] = '\0';
     iappend(rootino, &de, sizeof(de));
 
     while((cc = read(fd, buf, sizeof(buf))) > 0)
