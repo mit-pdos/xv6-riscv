@@ -12,8 +12,7 @@ void
 start()
 {
   extern int main();
-  main();
-  exit(0);
+  exit(main());
 }
 
 char*
