@@ -11,7 +11,7 @@ Con esto ya se esta listo para ejecutar xv6, para ello se utiliza make clean (pa
 
 # Errores y soluciones
 
-
+Al ejecutar qemu este tenia cierto error en donde no llegaba a mostrar el prompt que verificaba el correcto funcionamiento de xv6, entonces nunca se llegaba a ejecutar bien el xv6. Para esto se reinstalo qemu para asegurar que fuese la ultima versión de manera que ejecute bien xv6, una vez reinstalado se ejecuto el comando script con la intención de que qemu logre ejecutarse de buena manera en la consola de manera que se pueda manipular xv6 posteriormente. Aparecio que no se tenian una de las herramientas, en concreto bc, por lo mismo se ocupo sudo apt install bc para instalar la herramienta y de esa manera que no falte nada para ejecutar xv6.
 
 # Prueba de funcionamiento. Se muestra lo solicitado en la tarea más lo que muestra la consola en respuesta a los comandos.
 
