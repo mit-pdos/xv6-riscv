@@ -108,9 +108,9 @@ bwrite(struct buf *b)
 {
   if(!holdingsleep(&b->lock))
     panic("bwrite");
-  virtio_disk_rw(b, 2);
-  printf("bwrite just wrote block %d on device %d\n", b->blockno, b->dev);
+  virtio_disk_rw(b, 1);
 }
+
 // Release a locked buffer.
 // Move to the head of the most-recently-used list.
 void

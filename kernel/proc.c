@@ -6,15 +6,6 @@
 #include "proc.h"
 #include "defs.h"
 
-// Minimal strcmp for kernel use
-int kstrcmp(const char *s1, const char *s2) {
-  while(*s1 && (*s1 == *s2)) {
-    s1++;
-    s2++;
-  }
-  return *(unsigned char *)s1 - *(unsigned char *)s2;
-}
-
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -455,7 +446,6 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-  int found = 0;
 
   c->proc = 0;
   for(;;){
@@ -464,32 +454,26 @@ scheduler(void)
     // processes are waiting.
     intr_on();
 
+    int found = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        if(kstrcmp(p->name, "forktest") == 0) {
-          printf("[scheduler] Preparing to switch: Current process: %s (pid=%d), Next process: %s (pid=%d), State: RUNNABLE\n", c->proc ? c->proc->name : "none", c->proc ? c->proc->pid : -1, p->name, p->pid);
-          printf("[scheduler] Saving context of current process and loading context of pid=%d (%s)\n", p->pid, p->name);
-        }
+        // Switch to chosen process.  It is the process's job
+        // to release its lock and then reacquire it
+        // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-        if(kstrcmp(p->name, "forktest") == 0) {
-          printf("[scheduler] Switched to process pid=%d (%s), State: RUNNING\n", p->pid, p->name);
-        }
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
-        if(kstrcmp(p->name, "forktest") == 0) {
-          printf("[scheduler] Returned from process pid=%d (%s), New State: %s\n", p->pid, p->name, (p->state == RUNNABLE ? "RUNNABLE" : (p->state == SLEEPING ? "SLEEPING" : (p->state == ZOMBIE ? "ZOMBIE" : (p->state == RUNNING ? "RUNNING" : "UNKNOWN")) )));
-        }
         c->proc = 0;
         found = 1;
       }
       release(&p->lock);
     }
     if(found == 0) {
-      printf("[scheduler] No RUNNABLE processes found. CPU will wait for interrupt.\n");
+      // nothing to run; stop running on this core until an interrupt.
       intr_on();
       asm volatile("wfi");
     }
