@@ -52,7 +52,7 @@ morecore(uint nu)
   if(nu < 4096)
     nu = 4096;
   p = sbrk(nu * sizeof(Header));
-  if(p == (char*)-1)
+  if(p == SBRK_ERROR)
     return 0;
   hp = (Header*)p;
   hp->s.size = nu;

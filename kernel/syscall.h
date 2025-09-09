@@ -11,7 +11,7 @@
 #define SYS_dup    10
 #define SYS_getpid 11
 #define SYS_sbrk   12
-#define SYS_sleep  13
+#define SYS_pause  13
 #define SYS_uptime 14
 #define SYS_open   15
 #define SYS_write  16

@@ -1,17 +1,20 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "kernel/fcntl.h"
+#include "kernel/riscv.h"
+#include "kernel/vm.h"
 #include "user/user.h"
 
 //
 // wrapper so that it's OK if main() does not call exit().
 //
 void
-start()
+start(int argc, char **argv)
 {
-  extern int main();
-  main();
-  exit(0);
+  int r;
+  extern int main(int argc, char **argv);
+  r = main(argc, argv);
+  exit(r);
 }
 
 char*
@@ -145,3 +148,14 @@ memcpy(void *dst, const void *src, uint n)
 {
   return memmove(dst, src, n);
 }
+
+char *
+sbrk(int n) {
+  return sys_sbrk(n, SBRK_EAGER);
+}
+
+char *
+sbrklazy(int n) {
+  return sys_sbrk(n, SBRK_LAZY);
+}
+

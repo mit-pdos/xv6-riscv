@@ -94,15 +94,13 @@ uservec:
         # flush now-stale user entries from the TLB.
         sfence.vma zero, zero
 
-        # jump to usertrap(), which does not return
-        jr t0
+        # call usertrap()
+        jalr t0
 
 .globl userret
 userret:
-        # userret(pagetable)
-        # called by usertrapret() in trap.c to
-        # switch from kernel to user.
-        # a0: user page table, for satp.
+        # usertrap() returns here, with user satp in a0.
+        # return from kernel to user.
 
         # switch to the user page table.
         sfence.vma zero, zero
