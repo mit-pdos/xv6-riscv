@@ -194,3 +194,20 @@ consoleinit(void)
   devsw[CONSOLE].read = consoleread;
   devsw[CONSOLE].write = consolewrite;
 }
+
+uint64
+sys_cprintf_locked(void) 
+{
+  char fmt[100];
+  int pid, iter, j;
+
+  argint(1, &pid);
+  argint(2, &iter);
+  argint(3, &j);
+  argstr(0, fmt, sizeof(fmt));
+  acquire(&cons.lock);
+  printf(fmt, pid, iter, j);
+  release(&cons.lock);
+
+  return 0;
+}
