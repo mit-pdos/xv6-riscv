@@ -146,6 +146,17 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // If init process then set its default priority
+  // and fix it in place. For other processes 
+  // priority can start at 3
+  if (p->pid == 1) {
+    p->priority = DEFAULT_INIT_PRIORITY;
+    p->fixedprio = 1;
+  } else {
+    p->priority = DEFAULT_PRIORITY;
+    p->sticks = 0;
+    p->wticks = 0;
+  }
   return p;
 }
 
@@ -432,30 +443,73 @@ scheduler(void)
     // to avoid a possible race between an interrupt
     // and wfi.
     intr_on();
-    intr_off();
+    int max_priority = -1;
 
     int found = 0;
+    
+    // First pass through processes list to find 
+    // process with maximum priority - Priority Based Scheduling
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+        // Check to see if this is the highest priority level
+        // so far.  Set max priority and save the index of the process
+        // before moving on to the next.
+        if (p->priority > max_priority) {
+          max_priority = p->priority;
+        }
       }
       release(&p->lock);
     }
+
+    // Second pass through list to get the highest priority 
+    // process from first pass. If not found, then wfi is called.
+    // Also decreases sticks for process that gets schedules
+    // and icnreases wticks for processes that are waiting.
+    for (p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if (p->state == RUNNABLE) {
+        if (p->priority == max_priority) {
+          // Switch to process with chosen priority.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          p->state = RUNNING;
+          c->proc = p;
+          p->sticks = p->sticks+1;
+
+          found = 1;
+          swtch(&c->context, &p->context);
+
+          // Reduce process's priority to ensure other processes get schedules.
+          // Essentially ageing the process and breaking ties.
+          if (!p->fixedprio && p->sticks % 2 == 0 && p->priority > 1) 
+            p->priority = p->priority-1;
+
+          // Process done running for now.
+          // It should have changed its p->state before coming back
+          c->proc = 0;
+        }
+
+        // If process has been waiting for too long
+        // increase its priority and reset waiting time. 
+        // Helps ensure no process ever stays too low of a priority to 
+        // ever run.
+        p->wticks++;
+        if (!p->fixedprio && p->wticks % 3 == 0 && p->priority != max_priority) {
+          p->wticks = 0;
+          if (p->priority < MAX_PRIORITY) p->priority = p->priority + 1;
+        }
+
+      }
+      release(&p->lock);
+    }
+    intr_off();
+    
     if(found == 0) {
       // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
     }
+
   }
 }
 
@@ -488,8 +542,8 @@ sched(void)
 
 // Give up the CPU for one scheduling round.
 void
-yield(void)
-{
+yield(void) {
+
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
@@ -654,6 +708,36 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
     memmove(dst, (char*)src, len);
     return 0;
   }
+}
+
+// Set priority for a specific process only
+uint64
+sys_setprioforproc(void) 
+{
+  int priority, pid;
+
+  argint(0, &priority);
+  argint(1, &pid);
+
+  struct proc *p;
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->pid == pid && p->state != UNUSED && p->state != ZOMBIE) {
+      p->priority = priority;
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+
+// Calling yielf from user space itself
+uint64
+sys_yield(void)
+{
+  yield();
+  return 0;
 }
 
 // Print a process listing to console.  For debugging.
