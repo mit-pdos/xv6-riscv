@@ -101,6 +101,13 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
+extern uint64 sys_getppid(void);
+extern uint64 sys_getprio(void);
+extern uint64 sys_setprio(void);
+extern uint64 sys_setprio(void);
+extern uint64 sys_setprioforproc(void);
+extern uint64 sys_yield(void);
+extern uint64 sys_cprintf_locked(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -126,6 +133,12 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_getppid] sys_getppid,
+[SYS_getprio] sys_getprio,
+[SYS_setprio] sys_setprio,
+[SYS_setprioforproc] sys_setprioforproc,
+[SYS_yield] sys_yield,
+[SYS_cprintf_locked] sys_cprintf_locked,
 };
 
 void
