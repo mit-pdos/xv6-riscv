@@ -24,6 +24,12 @@ int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
+int getppid(void);
+int getprio(void);
+int setprio(int);
+int setprioforproc(int, int);
+int yield(void);
+
 
 // ulib.c
 int stat(const char*, struct stat*);
@@ -43,6 +49,8 @@ char* sbrklazy(int);
 // printf.c
 void fprintf(int, const char*, ...) __attribute__ ((format (printf, 2, 3)));
 void printf(const char*, ...) __attribute__ ((format (printf, 1, 2)));
+void cprintf_locked(const char *fmt, int pid, int prio, int iter);
+
 
 // umalloc.c
 void* malloc(uint);
