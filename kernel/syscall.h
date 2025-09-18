@@ -20,3 +20,9 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+#define SYS_getppid 22
+#define SYS_getprio 23
+#define SYS_setprio 24
+#define SYS_setprioforproc 25
+#define SYS_yield 26
+#define SYS_cprintf_locked 27
