@@ -105,3 +105,38 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_getppid(void)
+{
+  return myproc()->parent->pid;
+}
+
+uint64
+sys_getprio(void)
+{
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  int priority = p->priority;
+  release(&p->lock);
+  return priority;
+}
+
+uint64
+sys_setprio(void) 
+{
+  int priority;
+
+  argint(0, &priority);
+
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  p->priority = priority;
+  release(&p->lock);
+  return 0;
+}
+
+// declare the function
+uint64 sys_cprintf_locked(void);
+
+
