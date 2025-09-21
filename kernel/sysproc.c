@@ -22,6 +22,13 @@ sys_getpid(void)
   return myproc()->pid;
 }
 
+//new syscall to get parent pid
+uint64
+sys_getppid(void)
+{
+  return myproc()->parent->pid;
+}
+
 uint64
 sys_fork(void)
 {
