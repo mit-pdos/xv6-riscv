@@ -14,6 +14,7 @@ int main() {
     // Parent process
     wait(0); // Wait for child to finish
     printf("Parent process: PID = %d, Child PID = %d\n", getpid(), pid);
+    printf("Hi, I am process : %d, my Grandfather is : %d\n",getpid(),getancestror(2));
   }
   exit(0);
 }

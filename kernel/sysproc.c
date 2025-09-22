@@ -26,7 +26,28 @@ sys_getpid(void)
 uint64
 sys_getppid(void)
 {
+  if(myproc()->parent == (void*)0){
+    return -1;
+  }
   return myproc()->parent->pid;
+}
+
+uint64
+sys_getancestror(void)
+{
+  int num_gen;
+  argint(0,&num_gen);
+  int cont_gen = 0;
+  struct proc *curr_proc = myproc();
+  while(curr_proc->parent != (void*)0 && cont_gen < num_gen){
+    cont_gen++; 
+    curr_proc = curr_proc->parent;
+  }
+  if(cont_gen == num_gen){
+    return curr_proc->pid; 
+  }else{
+    return -1;
+  }
 }
 
 uint64
