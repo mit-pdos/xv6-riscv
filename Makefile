@@ -146,6 +146,7 @@ UPROGS=\
 
 TPROGS=\
 	$T/_sleep \
+	$T/_trace \
 
 fs.img: mkfs/mkfs README $(UPROGS) $(TPROGS)
 	mkfs/mkfs fs.img README $(UPROGS) $(TPROGS)

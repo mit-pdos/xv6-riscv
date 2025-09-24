@@ -116,3 +116,18 @@ uint64 sys_sleep(void)
     release(&tickslock);
     return 0;
 }
+
+uint64 sys_trace(void)
+{
+    int mask;
+
+    argint(0, &mask);
+
+    myproc()->mask = mask;
+    return 0;
+}
+
+uint64 sys_sysinfo(void)
+{
+    return 0;
+}
