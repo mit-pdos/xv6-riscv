@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "sysinfo.h"
 
 uint64 sys_exit(void)
 {
@@ -129,5 +130,15 @@ uint64 sys_trace(void)
 
 uint64 sys_sysinfo(void)
 {
+    struct sysinfo info;
+    uint64 addr;
+
+    argaddr(0, &addr);
+    info.freemem = get_freemem();
+    info.nproc = get_procnum();
+
+    if (copyout(myproc()->pagetable, addr, (char *)&info, sizeof(info)) < 0)
+        return -1;
+
     return 0;
 }
