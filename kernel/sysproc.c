@@ -105,3 +105,11 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_getppid(void)
+{
+  struct proc *p = myproc();
+  if(p->parent == 0) return -1;
+  return p->parent->pid;
+}
