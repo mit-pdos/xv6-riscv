@@ -102,9 +102,21 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 
+//////////////////////////////////////////////////////////////
+// Agregado para tarea 1
+extern uint64 sys_getppid(void);
+extern uint64 sys_getancestor(void);
+// Fin de cambios para tarea 1
+
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
+
+// Agregado para tarea 1
+[SYS_getppid] sys_getppid,
+[SYS_getancestor] sys_getancestor,
+// Fin de cambios para tarea 1
+///////////////////////////////////////////////////////////////
 [SYS_fork]    sys_fork,
 [SYS_exit]    sys_exit,
 [SYS_wait]    sys_wait,

@@ -21,6 +21,10 @@ sub entry {
     print " ret\n";
 }
 	
+# Agregado para tarea 1
+entry("getppid");
+entry("getancestor");
+# Fin de cambios para tarea 1
 entry("fork");
 entry("exit");
 entry("wait");

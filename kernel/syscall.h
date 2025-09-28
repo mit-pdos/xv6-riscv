@@ -20,3 +20,7 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+// Agregado para tarea 1
+#define SYS_getppid 22
+#define SYS_getancestor 23
+// Fin de cambios para tarea 1  

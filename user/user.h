@@ -3,6 +3,10 @@
 struct stat;
 
 // system calls
+// Agregado para tarea 1
+int getppid(void);
+int getancestor(int n);
+// Fin de cambios para tarea 1
 int fork(void);
 int exit(int) __attribute__((noreturn));
 int wait(int*);

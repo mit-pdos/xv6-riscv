@@ -7,6 +7,44 @@
 #include "proc.h"
 #include "vm.h"
 
+
+/////////////////////////////
+
+// Agregado para Tarea 1
+
+uint64
+sys_getppid(void)
+{
+  struct proc *p = myproc();
+  if (p->parent)
+    return p->parent->pid;
+  return -1; // Si no tiene padre, retornamos -1
+}
+
+uint64
+sys_getancestor(void)
+{
+  int n;
+  argint(0, &n);  // toma el argumento desde user space
+  if(n < 0)
+    return -1;
+
+  struct proc *p = myproc();
+  while(n > 0 && p){
+    p = p->parent;
+    n--;
+  }
+  if(p)
+    return p->pid;
+  return -1; // si no hay tantos ancestros
+}
+
+
+// Fin de cambios para tarea 1
+
+/////////////////////////////
+
+
 uint64
 sys_exit(void)
 {
@@ -105,3 +143,6 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+
+
