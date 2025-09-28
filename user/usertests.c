@@ -695,24 +695,28 @@ exectest(char *s)
     close(1);
     fd = open("echo-ok", O_CREATE|O_WRONLY);
     if(fd < 0) {
-      printf("%s: create failed\n", s);
+      fprintf(2, "%s: create failed\n", s);
       exit(1);
     }
     if(fd != 1) {
-      printf("%s: wrong fd\n", s);
+      fprintf(2, "%s: wrong fd\n", s);
       exit(1);
     }
     if(exec("echo", echoargv) < 0){
-      printf("%s: exec echo failed\n", s);
+      fprintf(2, "%s: exec echo failed\n", s);
       exit(1);
     }
-    // won't get to here
+    // should never get to here
+    fprintf(2, "%s: exec echo returned\n", s);
+    exit(1);
   }
   if (wait(&xstatus) != pid) {
     printf("%s: wait failed!\n", s);
   }
-  if(xstatus != 0)
+  if(xstatus != 0) {
+    printf("%s: echo child failed with status %d\n", s, xstatus),
     exit(xstatus);
+  }
 
   fd = open("echo-ok", O_RDONLY);
   if(fd < 0) {
