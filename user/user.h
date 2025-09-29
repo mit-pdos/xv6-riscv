@@ -2,6 +2,15 @@
 
 struct stat;
 
+// Process info structure for getprocinfo system call
+struct proc_info {
+  int pid;                // Process ID
+  int state;              // Process state
+  uint64 sz;              // Size of process memory (bytes)
+  uint64 kstack;          // Virtual address of kernel stack
+  char name[16];          // Process name
+};
+
 // system calls
 int fork(void);
 int exit(int) __attribute__((noreturn));
@@ -24,6 +33,7 @@ int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
+int getprocinfo(int pid, struct proc_info *info);
 
 // ulib.c
 int stat(const char*, struct stat*);
