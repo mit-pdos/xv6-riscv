@@ -1,60 +1,43 @@
-# Informe de Instalación de xv6
+# Informe sobre la Implementación de las Llamadas al Sistema `getancestor` y `getppid` en xv6-riscv
 
-## Pasos Seguidos para Instalar xv6
+## Funcionamiento de las Llamadas al Sistema
 
-### 1. Clonar el Repositorio
-- El repositorio xv6-riscv ya estaba clonado en: `c:\Users\vduke\OneDrive\Documentos\GitHub\xv6-riscv`
-- Rama actual: Valentin_Duke
+En xv6-riscv, las llamadas al sistema son la forma en que los programas de usuario interactúan de manera segura con el núcleo del SO. Aquí hemos implementado dos nuevas: `getancestor` y `getppid`, que ayudan a manejar info sobre el árbol de procesos.
 
-### 2. Crear una Nueva Rama
-- Ya se encuentra en la rama personal: `Valentin_Duke`
+-   **Cómo funciona `getancestor`**: Básicamente, deja que un proceso obtenga el PID de un ancestro en su árbol genealógico, indicando el nivel (0 para sí mismo, 1 para el padre, 2 para el abuelo, y así). Al llamar `getancestor(n)`, el núcleo sube por el árbol de procesos de forma recursiva, usando el campo `parent` de la estructura `proc`. Si el nivel existe, devuelve el PID; si no, tira -1.
 
-### 3. Instalar Dependencias
-- **Sistema Operativo**: Windows 10/11 con WSL (Ubuntu)
-- **Dependencias instaladas**:
-  - WSL con Ubuntu
-  - build-essential (make, gcc, etc.)
-  - qemu-system-riscv64
-  - gcc-riscv64-unknown-elf (toolchain RISC-V)
-- **Comando usado**: `apt install -y build-essential qemu-system-riscv64 gcc-riscv64-unknown-elf`
+-   **Cómo funciona `getppid`**: Es más simple, solo devuelve el PID del padre del proceso actual. Es como un atajo de `getancestor(1)`, yendo directo al campo `parent->pid` en la estructura del proceso. Si no hay padre (como en el proceso raíz), también devuelve -1.
 
-### 4. Compilar xv6
-- Ejecutado: `make` en WSL
-- Compilación exitosa del kernel y programas de usuario
-- Archivos generados: `kernel/kernel`, `fs.img`, etc.
+-   **Cómo se integran**: Ambas se registran en la tabla de syscalls y se implementan en `sysproc.c` como `sys_getancestor` y `sys_getppid`. Los programas de prueba como `getancestor.c` y `test_getppid.c` muestran cómo usarlas en la práctica.
 
-### 5. Ejecutar xv6
-- Comando: `make qemu`
-- xv6 se ejecuta correctamente en QEMU
-- Salida muestra: kernel booting, harts starting, shell iniciado
+## Explicación de las Modificaciones Realizadas
 
-### 6. Verificar la Instalación
-- xv6 está ejecutándose con el prompt `$`
-- Comandos probados:
-  - `ls` - Lista archivos del directorio raíz
-  - `echo "Hola xv6"` - Imprime el mensaje
-  - `cat README` - Muestra contenido del README
+El foco estuvo en extender xv6-riscv con estas dos nuevas syscalls. Los cambios clave fueron:
 
-## Problemas Encontrados y Soluciones
+-   **En `kernel/syscall.h`**: Agregamos entradas nuevas en la tabla de syscalls, dándoles números únicos (SYS_getancestor y SYS_getppid) para que el sistema las reconozca.
 
-1. **Make no disponible en Windows**: Solución - Usar WSL con Ubuntu
-2. **Dependencias faltantes**: Instaladas vía apt en WSL
-3. **Toolchain RISC-V**: Instalado correctamente desde repositorios Ubuntu
+-   **En `kernel/sysproc.c`**: Implementamos `sys_getancestor` y `sys_getppid`. La primera saca el argumento `n`, valida el nivel y recorre el árbol recursivamente. La segunda va directo al PID del padre, sin más rollo.
 
-## Confirmación de que xv6 está Funcionando Correctamente
+-   **En `user/user.h`**: Declaramos los prototipos de `getancestor` y `getppid` para que los programas de usuario puedan llamarlos.
 
-- ✅ Kernel compila sin errores
-- ✅ QEMU ejecuta xv6 correctamente
-- ✅ Shell responde a comandos
-- ✅ Sistema de archivos montado (fs.img)
-- ✅ Programas de usuario compilados y disponibles
+-   **En `user/getancestor.c`**: Creamos un programa de prueba que llama a `getancestor` con valores como 0, 1, 2 y 10, imprimiendo los resultados para chequear que funcione bien, incluyendo errores.
 
-## Captura de Pantalla
+-   **En `user/test_getppid.c`**: Otro programa de prueba para `getppid`, que simplemente obtiene e imprime el PID del padre, probando en distintos contextos.
 
-Se tomó una captura de pantalla mostrando xv6 ejecutándose con los comandos de prueba en el terminal.
+Todo esto se hizo sin romper la compatibilidad con el resto del SO, siguiendo el estilo de las syscalls ya existentes en xv6.
 
-## Notas Adicionales
+## Dificultades Encontradas y Cómo se Resolvieron
 
-- Todo el proceso se realizó usando WSL para compatibilidad con herramientas Unix
-- La instalación fue exitosa y xv6 está listo para desarrollo y experimentación</content>
-<parameter name="filePath">c:\Users\vduke\OneDrive\Documentos\GitHub\xv6-riscv\INFORME.md
+No todo fue fácil, claro. Aquí van las principales piedras en el camino y cómo las sorteamos:
+
+-   **Problema con el recorrido del árbol en `getancestor`**: Al principio, costaba acceder a ancestros lejanos por cómo están los punteros en `proc`. Lo arreglamos revisando la doc de xv6 y manejando bien los casos donde `parent` es NULL.
+
+-   **Manejo de errores en niveles inválidos para `getancestor`**: Había que devolver -1 si `n` era mayor que la profundidad del árbol. Solución: agregar una verificación con un contador mientras se recorre.
+
+-   **Implementación de `getppid`**: Parecía sencilla, pero había que cubrir el caso del proceso raíz. Lo hicimos chequeando si `parent` es NULL y devolviendo -1.
+
+-   **Integración en la tabla de syscalls**: Surgieron conflictos con números repetidos para ambas. Arreglo: asignar números únicos libres en `syscall.h`.
+
+-   **Compilación y pruebas**: Errores iniciales por dependencias faltantes. Lo resolvimos compilando poco a poco y probando con `getancestor.c` y `test_getppid.c`, asegurándonos de que los PIDs salieran bien en la consola.
+
+En resumen, superamos todo consultando el código de xv6, probando paso a paso y aplicando buenas prácticas de desarrollo en SO.
