@@ -119,13 +119,22 @@ sys_getprocinfo(void)
   argint(0, &pid);       // Get the pid argument
   argaddr(1, &info_ptr); // Get the pointer to user struct
   
-  // Local struct to store info before copying to user space
+  // Local struct matching user-visible struct proc_info
   struct {
     int pid;
+    int parent_pid;
     int state;
+    int killed;
+    int xstate;
     uint64 sz;
     uint64 kstack;
+    uint64 pagetable;
+    uint64 trapframe;
+    uint64 context_sp;
+    uint64 ofile[16];
+    uint64 cwd;
     char name[16];
+    uint64 chan;
   } info;
   
   struct proc *p;
@@ -135,13 +144,26 @@ sys_getprocinfo(void)
   for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
     if(p->pid == pid) {
-      // Copy the process information to our local struct
+      // Populate the user-visible info struct
       info.pid = p->pid;
+      info.parent_pid = p->parent ? p->parent->pid : 0;
       info.state = p->state;
+      info.killed = p->killed;
+      info.xstate = p->xstate;
       info.sz = p->sz;
       info.kstack = p->kstack;
+      info.pagetable = (uint64)p->pagetable;
+      info.trapframe = (uint64)p->trapframe;
+      // context contains saved registers; copy the stack pointer value
+      info.context_sp = p->context.sp;
+      // Copy open file pointers as uint64s
+      for(int i = 0; i < 16; i++) {
+        info.ofile[i] = (uint64)p->ofile[i];
+      }
+      info.cwd = (uint64)p->cwd;
       memmove(info.name, p->name, sizeof(info.name));
-      
+      info.chan = (uint64)p->chan;
+
       found = 1;
       release(&p->lock);
       break;

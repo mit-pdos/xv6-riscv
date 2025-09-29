@@ -45,8 +45,21 @@ main(int argc, char *argv[])
   printf("Process Info for PID %d:\n", info.pid);
   printf("  Name: %s\n", info.name);
   printf("  State: %s\n", states[info.state]);
+  printf("  Parent PID: %d\n", info.parent_pid);
+  printf("  Killed: %d\n", info.killed);
+  printf("  Exit status: %d\n", info.xstate);
   printf("  Memory Size: %lu bytes\n", info.sz); // Use %lu for uint64
   printf("  Kernel Stack: 0x%lx\n", info.kstack); // Use %lx for uint64 in hexadecimal
+  printf("  Page table: 0x%lx\n", info.pagetable);
+  printf("  Trapframe: 0x%lx\n", info.trapframe);
+  printf("  Context SP: 0x%lx\n", info.context_sp);
+  printf("  CWD: 0x%lx\n", info.cwd);
+  printf("  Chan: 0x%lx\n", info.chan);
+  printf("  Open files:\n");
+  for(int i = 0; i < 16; i++){
+    if(info.ofile[i])
+      printf("    [%d] 0x%lx\n", i, info.ofile[i]);
+  }
 
   exit(0);
 }

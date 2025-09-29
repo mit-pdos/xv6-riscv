@@ -2,13 +2,22 @@
 
 struct stat;
 
-// Process info structure for getprocinfo system call
+// Process info structure for getprocinfo system call (extended)
 struct proc_info {
   int pid;                // Process ID
+  int parent_pid;         // Parent PID (or 0)
   int state;              // Process state
+  int killed;             // killed flag
+  int xstate;             // exit status
   uint64 sz;              // Size of process memory (bytes)
   uint64 kstack;          // Virtual address of kernel stack
+  uint64 pagetable;       // User page table (as uint64)
+  uint64 trapframe;       // Trapframe pointer (as uint64)
+  uint64 context_sp;      // Saved context sp (as uint64)
+  uint64 ofile[16];       // File pointers (as uint64s) - NOFILE assumed 16
+  uint64 cwd;             // Current directory dentry (as uint64)
   char name[16];          // Process name
+  uint64 chan;            // Sleeping channel (as uint64)
 };
 
 // system calls
