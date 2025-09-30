@@ -1,5 +1,7 @@
 # T1 — Implementación de llamadas al sistema en xv6
 
+## Ignacio Vidal y Felipe Céspedes - Grupo E
+
 ## 1. Objetivo
 Implementar las funciones `getppid(void)` y `getancestor(int)`, las cuales utilizan llamadas a sistema para permitir que un proceso obtenga el PID de su padre o de un ancestro en la jerarquía de procesos. 
 
@@ -40,7 +42,7 @@ Estas generan los stubs que ejecutan `ecall` con el número de syscall correcto.
 Se incluyó el nuevo programa de prueba `_yosoytupadre` en la variable `UPROGS`, para que el ejecutable quede disponible en la shell de xv6.
 
 ### user/yosoytupadre.c  
-Se creó el programa de prueba que imprime el PID, el PPID y los ancestros del proceso, y además ejecuta `fork()` para mostrar cómo cambian las relaciones padre–hijo–abuelo en tiempo real.
+Se creó el programa de prueba que imprime el PID, el PPID y los ancestros del proceso, verificando los retornos de `getancestor()` y mostrando mensajes cuando un ancestro no existe.
 
 ## 4. Resultados de las pruebas
 Al ejecutar `yosoytupadre` dentro de xv6 se observaron salidas como:
@@ -49,14 +51,18 @@ Soy 3, mi padre es 2
 Ancestro(0) = 3  
 Ancestro(1) = 2  
 Ancestro(2) = 1  
-[Hijo] PID=4, PPID=3, abuelo=2  
+Ancestro(3): no hay bisabuelo  
 
-Esto confirma que `getppid(22)` y `getancestor(23)` funcionan de acuerdo a lo solicitado.
+En cada ejecución el PID cambia (4, 5, 6, …), pero la jerarquía se mantiene igual:  
+- El proceso actual es hijo de `sh` (PID 2).  
+- El abuelo siempre es `init` (PID 1).  
+- No existe bisabuelo, por lo que `getancestor(3)` retorna **-1**, cumpliendo con lo solicitado en la tarea.
+
 
 ## 5. Dificultades encontradas
-- Comprender la ruta completa de una syscall dentro de xv6. Se resolvió revisando cómo estaba implementada `getpid` y replicando la estructura.  
-- El uso de `argint` y su firma en esta versión de xv6, que requirió ajustar la validación de argumentos.  
+- Comprender la ruta completa de una syscall dentro de xv6. Se resolvió investigando el proceso a profundidad y revisando cómo estaba implementada `getpid`, para luego replicar su estructura.  
 - Errores en el Makefile al incluir el nuevo programa, corregidos asegurando el uso correcto de `\` y formato LF.
+- Entender como funciona la jerarquía de procesos y en que casos límite no existe un ancestro. Se resolvió a través de experimentar con la función creada.
 
 ## 6. Conclusión
 La implementación permitió comprender mejor el flujo de una llamada a sistema, desde el espacio de usuario hasta el kernel, y la necesidad de coordinar múltiples archivos para que la comunicación funcione correctamente.
