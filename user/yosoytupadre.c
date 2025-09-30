@@ -1,6 +1,10 @@
 #include "kernel/types.h"
 #include "user/user.h"
 
+
+// YO.. SOY... TU PADRE!
+// NOOOOO
+
 int
 main(void)
 {
