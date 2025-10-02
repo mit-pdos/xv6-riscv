@@ -20,3 +20,7 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+#define SYS_getppid  23   // (elige un número libre después de las ya definidas)
+#define SYS_getancestor 24
+
+

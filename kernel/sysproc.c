@@ -105,3 +105,27 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_getppid(void) {
+  struct proc *p = myproc();
+  if(p->parent)
+    return p->parent->pid;
+  return -1;  // si no tiene padre (ej: init)
+}
+
+uint64
+sys_getancestor(void) {
+  int n;
+  argint(0, &n);   // recibe el parámetro n
+  struct proc *p = myproc();
+
+  for(int i = 0; i < n; i++) {
+    if(p->parent == 0)  // ya no hay más ancestros
+      return -1;
+    p = p->parent;
+  }
+  return p->pid;
+}
+
+
