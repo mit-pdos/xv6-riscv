@@ -1052,6 +1052,36 @@ reparent2(char *s)
   exit(0);
 }
 
+void
+consleep(char *s)
+{
+  enum { N = 32 };
+  int pids[N] = { 0 };
+  pids[0] = getpid();
+
+  for(int i = 1; i < N; i++){
+    pids[i] = fork();
+    if(pids[i] < 0){
+      printf("fork failed\n");
+      exit(1);
+    }
+    if(pids[i] > 0)
+      continue;
+    if(pause(pids[i-1] % 11) < 0){
+      printf("sleep failed\n");
+      exit(1);
+    }
+    exit(0);
+  }
+
+  int xstatus;
+  for(int i = 1; i < N; i++){
+    wait(&xstatus);
+    if(xstatus != 0)
+      exit(1);
+  }
+}
+
 // allocate all mem, free it, and allocate again
 void
 mem(char *s)
@@ -2779,6 +2809,7 @@ struct test {
   {forkfork, "forkfork"},
   {forkforkfork, "forkforkfork"},
   {reparent2, "reparent2"},
+  {consleep, "consleep"},
   {mem, "mem"},
   {sharedfd, "sharedfd"},
   {fourfiles, "fourfiles"},
