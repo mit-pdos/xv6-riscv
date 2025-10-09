@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "tick.h"
 
 uint64
 sys_exit(void)
@@ -64,25 +65,31 @@ sys_sbrk(void)
   return addr;
 }
 
+// defined in trap.c
+extern struct tick ticks[];
+
 uint64
 sys_pause(void)
 {
   int n;
-  uint ticks0;
+  uint tick0;
+  struct tick *tick;
 
   argint(0, &n);
   if(n < 0)
     n = 0;
-  acquire(&tickslock);
-  ticks0 = ticks;
-  while(ticks - ticks0 < n){
+
+  push_off();
+  tick = &ticks[cpuid()];
+  tick0 = tick->count;
+  while(tick->count - tick0 < n){
     if(killed(myproc())){
-      release(&tickslock);
+      pop_off();
       return -1;
     }
-    sleep(&ticks, &tickslock);
+    sleep(tick, 0);
   }
-  release(&tickslock);
+  pop_off();
   return 0;
 }
 
@@ -101,9 +108,10 @@ uint64
 sys_uptime(void)
 {
   uint xticks;
-
-  acquire(&tickslock);
-  xticks = ticks;
-  release(&tickslock);
+  struct tick *tick;
+  push_off();
+  tick = &ticks[cpuid()];
+  xticks = tick->count;
+  pop_off();
   return xticks;
 }

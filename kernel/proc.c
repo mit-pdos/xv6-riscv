@@ -552,7 +552,7 @@ sleep(void *chan, struct spinlock *lk)
   // so it's okay to release lk.
 
   acquire(&p->lock);  //DOC: sleeplock1
-  release(lk);
+  (lk) ? release(lk) : pop_off();
 
   // Go to sleep.
   p->chan = chan;
@@ -565,7 +565,7 @@ sleep(void *chan, struct spinlock *lk)
 
   // Reacquire original lock.
   release(&p->lock);
-  acquire(lk);
+  (lk) ? acquire(lk) : push_off();
 }
 
 // Wake up all processes sleeping on channel chan.
