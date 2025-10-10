@@ -91,7 +91,7 @@ push_off(void)
   // disable interrupts to prevent an involuntary context
   // switch while using mycpu().
   uint64 flags = rc_sstatus(SSTATUS_SIE);
-  int old = flags & SSTATUS_SIE;
+  int old = !!(flags & SSTATUS_SIE);
 
   if(mycpu()->noff == 0)
     mycpu()->intena = old;
