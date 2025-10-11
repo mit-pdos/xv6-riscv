@@ -107,3 +107,81 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_hello(void) // hello syscall definition
+{
+  int n;
+  argint(0, &n);
+  print_hello(n);
+  return 0;
+}
+
+uint64
+sys_sysinfo(void)
+{
+  int param;
+  
+  // Get the parameter from the syscall argument
+  argint(0, &param);
+  
+  if(param == 0) {
+    // Return number of active processes
+    return count_active_processes();
+  }
+  else if(param == 1) {
+    // Return total syscalls (excluding current one)
+    extern uint64 global_syscall_count;
+    return global_syscall_count - 1;
+  }
+  else if(param == 2) {
+    // Return number of free memory pages
+    return count_free_pages();
+  }
+  else {
+    return -1;
+  }
+}
+
+uint64
+sys_procinfo(void)
+{
+  uint64 addr;
+  struct proc *p = myproc();
+  
+  // Get the user pointer argument
+  argaddr(0, &addr);
+  
+  // Check for NULL pointer
+  if(addr == 0)
+    return -1;
+  
+  // Define the pinfo structure (must match user-space exactly)
+  struct pinfo {
+    int ppid;
+    int syscall_count;
+    int page_usage;
+  } __attribute__((packed));
+  
+  struct pinfo info;
+  
+  // Fill in the parent PID
+  if(p->parent)
+    info.ppid = p->parent->pid;
+  else
+    info.ppid = 0;
+  
+  // Fill in syscall count (exclude current call)
+  info.syscall_count = p->syscall_count - 1;
+  
+  // Calculate page usage (round up for partial pages)
+  info.page_usage = p->sz / PGSIZE;
+  if(p->sz % PGSIZE != 0)
+    info.page_usage++;
+  
+  // Copy data to user space
+  if(copyout(p->pagetable, addr, (char *)&info, sizeof(info)) < 0)
+    return -1;
+  
+  return 0;
+}

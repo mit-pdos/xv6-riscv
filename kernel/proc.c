@@ -124,6 +124,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->syscall_count = 0;  // Initialize per-process syscall counter
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -687,4 +688,29 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Count the number of active processes in the system
+int
+count_active_processes(void)
+{
+  struct proc *p;
+  int count = 0;
+  
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state != UNUSED) {
+      count++;
+    }
+    release(&p->lock);
+  }
+  
+  return count;
+}
+
+// hello: printing hello msg
+void
+print_hello(int n)
+{
+  printf("Hello from the kernel space %d\n", n);
 }
