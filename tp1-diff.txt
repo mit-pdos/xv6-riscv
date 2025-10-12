@@ -1,0 +1,12 @@
+diff --git a/Makefile b/Makefile
+index ee67e06..158a864 100644
+--- a/Makefile
++++ b/Makefile
+@@ -142,6 +142,7 @@ UPROGS=\
+ 	$U/_logstress\
+ 	$U/_forphan\
+ 	$U/_dorphan\
++	$U/_getcnt\
+ 
+ fs.img: mkfs/mkfs README $(UPROGS)
+ 	mkfs/mkfs fs.img README $(UPROGS)
