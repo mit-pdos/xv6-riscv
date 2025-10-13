@@ -42,3 +42,5 @@ entry("getpid");
 entry("sbrk");
 entry("pause");
 entry("uptime");
+entry("getppid"); # T1 Parte I
+entry("getancestor"); # T1 Parte II

@@ -47,3 +47,8 @@ void printf(const char*, ...) __attribute__ ((format (printf, 1, 2)));
 // umalloc.c
 void* malloc(uint);
 void free(void*);
+
+// T1 ParteI
+int getppid(void);
+// T1 ParteII
+int getancestor(int n);
