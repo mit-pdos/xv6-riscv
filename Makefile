@@ -60,6 +60,7 @@ OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
 CFLAGS = -Wall -Werror -Wno-unknown-attributes -O -fno-omit-frame-pointer -ggdb -gdwarf-2
+CFLAGS += -march=rv64gc
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding
@@ -89,7 +90,7 @@ $K/kernel: $(OBJS) $K/kernel.ld
 	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
 
 $K/%.o: $K/%.S
-	$(CC) -g -c -o $@ $<
+	$(CC) -march=rv64gc -g -c -o $@ $<
 
 tags: $(OBJS)
 	etags kernel/*.S kernel/*.c
