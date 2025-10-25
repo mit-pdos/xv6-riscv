@@ -42,3 +42,6 @@ entry("getpid");
 entry("sbrk");
 entry("pause");
 entry("uptime");
+entry("forkwitharg");
+entry("getforkarg");
+entry("getppid");
