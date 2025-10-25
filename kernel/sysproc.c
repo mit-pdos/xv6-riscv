@@ -107,3 +107,29 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_forkwitharg(void)
+{
+    int arg;
+    
+    // Get the argument passed from user space
+    argint(0, &arg);
+    
+    return forkwitharg(arg);
+}
+
+int
+sys_getforkarg(void)
+{
+    struct proc *p = myproc();
+    return p->fork_arg;
+}
+
+uint64 
+sys_getppid(void)
+{
+    struct proc *p=myproc();
+    if(p->parent) return p->parent->pid;
+    return -1;
+}
