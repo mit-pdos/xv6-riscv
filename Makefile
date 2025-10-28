@@ -131,6 +131,8 @@ UPROGS=\
 	$U/_kill\
 	$U/_ln\
 	$U/_ls\
+	$U/_test_syscalls\
+	$U/_yosoytupadre\
 	$U/_mkdir\
 	$U/_rm\
 	$U/_sh\
@@ -141,7 +143,7 @@ UPROGS=\
 	$U/_zombie\
 	$U/_logstress\
 	$U/_forphan\
-	$U/_dorphan\
+	$U/_dorphan
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
