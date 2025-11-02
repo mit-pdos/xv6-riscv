@@ -128,4 +128,41 @@ sys_getancestor(void) {
   return p->pid;
 }
 
+uint64
+sys_settickets(void)
+{
+  int n;
+  argint(0, &n);   // obtener argumento sin comparar retorno
+  if(n < 1)
+    n = 1;
+
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  p->tickets = n;
+  release(&p->lock);
+
+  return 0;
+}
+
+uint64
+sys_sleep(void)
+{
+  int n;
+  uint ticks0;
+
+  // Obtener argumento del usuario
+  argint(0, &n);
+
+  acquire(&tickslock);
+  ticks0 = ticks;
+  while(ticks - ticks0 < n){
+    if(killed(myproc())){
+      release(&tickslock);
+      return -1;
+    }
+    sleep(&ticks, &tickslock);
+  }
+  release(&tickslock);
+  return 0;
+}
 

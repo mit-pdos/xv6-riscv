@@ -10,17 +10,17 @@ sub entry {
     my $prefix = "sys_";
     my $name = shift;
     if ($name eq "sbrk") {
-	print ".global $prefix$name\n";
-	print "$prefix$name:\n";
+        print ".global $prefix$name\n";
+        print "$prefix$name:\n";
     } else {
-	print ".global $name\n";
-	print "$name:\n";
+        print ".global $name\n";
+        print "$name:\n";
     }
     print " li a7, SYS_${name}\n";
     print " ecall\n";
     print " ret\n";
 }
-	
+
 entry("fork");
 entry("exit");
 entry("wait");
@@ -40,8 +40,8 @@ entry("chdir");
 entry("dup");
 entry("getpid");
 entry("sbrk");
-entry("pause");
 entry("uptime");
 entry("getppid");
 entry("getancestor");
-
+entry("settickets");
+entry("sleep");

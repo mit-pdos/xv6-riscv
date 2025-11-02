@@ -26,6 +26,17 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+// Generador aleatorio simple (para Lottery Scheduling)
+uint64 kernel_rand_state = 88172645463325252ULL;
+
+static uint64
+kernelrand(void)
+{
+  kernel_rand_state = kernel_rand_state * 6364136223846793005ULL + 1442695040888963407ULL;
+  return kernel_rand_state;
+}
+
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -145,6 +156,11 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+    // Inicializar campos para Lottery Scheduling
+  p->tickets = 100;      // valor por defecto
+  p->cpu_slices = 0;
+
 
   return p;
 }
@@ -423,41 +439,54 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-
   c->proc = 0;
+
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
-    intr_off();
 
-    int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
+    // 1) Calcular el total de tickets de procesos RUNNABLE
+    int total = 0;
+    for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+      if(p->state == RUNNABLE){
+        if(p->tickets < 1)
+          p->tickets = 1;   // asegura mínimo 1
+        total += p->tickets;
       }
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      asm volatile("wfi");
+
+    if(total == 0)
+      continue;  // no hay procesos listos, volver a intentar
+
+    // 2) Seleccionar ticket ganador (número aleatorio)
+    uint64 r = kernelrand();
+    int pick = (int)(r % total) + 1;
+
+    // 3) Recorrer procesos acumulando tickets
+    int acc = 0;
+    for(p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
+        acc += p->tickets;
+        if(acc >= pick){
+          // Proceso ganador
+          p->state = RUNNING;
+          p->cpu_slices += 1;
+
+          c->proc = p;
+          swtch(&c->context, &p->context);
+          c->proc = 0;
+
+          release(&p->lock);
+          break;
+        }
+      }
+      release(&p->lock);
     }
   }
 }
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
