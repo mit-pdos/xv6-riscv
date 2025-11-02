@@ -155,6 +155,7 @@ found:
 static void
 freeproc(struct proc *p)
 {
+  nextpid--;
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
