@@ -123,6 +123,64 @@ git config --global i18n.logoutputencoding utf-8
 git config --list
 ```
 
+## 🎨 ZSH + Powerlevel10k 主题特殊配置
+
+如果你使用的是 ZSH + P10K 主题，乱码问题可能由主题配置引起。
+
+### ⚡ 快速修复 P10K 乱码
+
+```bash
+# 1. 重新配置 P10K (推荐)
+p10k configure
+
+# 选择以下选项以获得最佳兼容性:
+# 1 - Unicode (而非 nerdfont-v2)
+# 1 - Instant (而非 async)
+# 2 - Verbose
+# 2 - 2 lines
+# 1 - Left
+# 1 - Light
+# 2 - ASCII (最兼容!)
+# 1 - Yes (显示时间)
+# 2 - 24-hour format
+# 2 - Yes (执行时间)
+# 1 - Compact
+
+# 2. 或立即禁用有问题的功能
+echo 'typeset -g POWERLEVEL9K_INSTANT_PROMPT=false' >> ~/.p10k.zsh
+source ~/.zshrc
+```
+
+### 🛠️ P10K ASCII 兼容模式
+
+```bash
+# 创建纯 ASCII 兼容配置
+cat > ~/.p10k.zsh << 'EOF'
+# P10K ASCII 兼容配置 (专为 Windows 优化)
+typeset -g POWERLEVEL9K_MODE=ascii
+typeset -g POWERLEVEL9K_INSTANT_PROMPT=false
+typeset -g POWERLEVEL9K_PROMPT_ON_NEWLINE=true
+typeset -g POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX='%F{blue}$%f '
+
+# 简化的提示符元素
+typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
+  dir
+  vcs
+  cmd_exec_time
+  status
+)
+
+typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(
+  time
+)
+EOF
+
+# 重新加载
+exec zsh
+```
+
+**详细 P10K 解决方案**: 查看 `ZSH_P10K_ENCODING_FIX.md`
+
 ## 🔍 具体修复步骤
 
 ### 立即修复 (快速解决方案)
