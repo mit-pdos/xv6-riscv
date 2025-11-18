@@ -1,0 +1,117 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "make: 构建 xv6",
+            "type": "shell",
+            "command": "make",
+            "args": [],
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "D:\\msys2\\usr\\bin\\bash.exe",
+                    "args": ["--login", "-c"]
+                }
+            },
+            "problemMatcher": ["$gcc"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": false,
+                "clear": true
+            }
+        },
+        {
+            "label": "make: 清理构建文件",
+            "type": "shell",
+            "command": "make clean",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "D:\\msys2\\usr\\bin\\bash.exe",
+                    "args": ["--login", "-c"]
+                }
+            },
+            "problemMatcher": [],
+            "group": "build",
+            "presentation": {
+                "reveal":  "always",
+                "panel":"dedicated"
+            }
+        },
+        {
+            "label": "make: 运行 QEMU",
+            "type": "shell",
+            "command": "make qemu",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "D:\\msys2\\usr\\bin\\bash.exe",
+                    "args": ["--login", "-c"]
+                }
+            },
+            "problemMatcher": [],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "isBackground": false
+        },
+        {
+            "label": "make: 启动 QEMU (GDB 模式)",
+            "type": "shell",
+            "command": "make qemu-gdb",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "D:\\msys2\\usr\\bin\\bash.exe",
+                    "args": ["--login", "-c"]
+                }
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^$",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*Now run.*gdb.*",
+                    "endsPattern": ".*"
+                }
+            }
+        },
+        {
+            "label": "make: 显示 GDB 端口",
+            "type": "shell",
+            "command": "make print-gdbport",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "D:\\msys2\\usr\\bin\\bash.exe",
+                    "args": ["--login", "-c"]
+                }
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            }
+        }
+    ]
+}
+

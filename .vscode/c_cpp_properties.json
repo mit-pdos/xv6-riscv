@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "name": "xv6-riscv",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/kernel",
+                "${workspaceFolder}/user"
+            ],
+            "defines": [
+                "_GNU_SOURCE"
+            ],
+            "compilerPath": "D:\\msys2\\opt\\xpack-riscv-none-elf-gcc-15.2.0-1\\bin\\riscv-none-elf-gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64",
+            "compilerArgs": [
+                "-march=rv64gc",
+                "-mcmodel=medany",
+                "-ffreestanding",
+                "-fno-common",
+                "-nostdlib",
+                "-fno-builtin-*",
+                "-Wall",
+                "-Werror",
+                "-O",
+                "-fno-omit-frame-pointer",
+                "-ggdb",
+                "-gdwarf-2"
+            ],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}",
+                    "${workspaceFolder}/kernel",
+                    "${workspaceFolder}/user"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": "${workspaceFolder}/.vscode/browse.vc.db"
+            }
+        }
+    ],
+    "version": 4
+}
+

@@ -1,0 +1,96 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "调试 xv6 (GDB)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/kernel/kernel",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "D:\\msys2\\opt\\xpack-riscv-none-elf-gcc-15.2.0-1\\bin\\riscv-none-elf-gdb.exe",
+            "miDebuggerServerAddress": "localhost:26000",
+            "setupCommands": [
+                {
+                    "description": "启用 GDB 美化打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "设置架构为 RISC-V 64位",
+                    "text": "set architecture riscv:rv64",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "设置符号文件",
+                    "text": "file ${workspaceFolder}/kernel/kernel",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "连接到 QEMU GDB stub",
+                    "text": "target remote localhost:26000",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "启用反汇编下一行",
+                    "text": "set disassemble-next-line auto",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "启用压缩断点",
+                    "text": "set riscv use-compressed-breakpoints yes",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "make: 启动 QEMU (GDB 模式)",
+            "postDebugTask": null
+        },
+        {
+            "name": "调试 xv6 (附加到运行中的 QEMU)",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "${workspaceFolder}/kernel/kernel",
+            "processId": "${command:pickProcess}",
+            "MIMode": "gdb",
+            "miDebuggerPath": "D:\\msys2\\opt\\xpack-riscv-none-elf-gcc-15.2.0-1\\bin\\riscv-none-elf-gdb.exe",
+            "miDebuggerServerAddress": "localhost:26000",
+            "setupCommands": [
+                {
+                    "description": "启用 GDB 美化打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "设置架构为 RISC-V 64位",
+                    "text": "set architecture riscv:rv64",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "设置符号文件",
+                    "text": "file ${workspaceFolder}/kernel/kernel",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "连接到 QEMU GDB stub",
+                    "text": "target remote localhost:26000",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "启用反汇编下一行",
+                    "text": "set disassemble-next-line auto",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "启用压缩断点",
+                    "text": "set riscv use-compressed-breakpoints yes",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}
+

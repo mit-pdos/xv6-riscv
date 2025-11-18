@@ -1,0 +1,93 @@
+{
+    // 默认终端配置 - MSYS2 MINGW64
+    "terminal.integrated.defaultProfile.windows": "MSYS2",
+    "terminal.integrated.profiles.windows": {
+        "MSYS2": {
+            "path": "D:\\msys2\\usr\\bin\\bash.exe",
+            "args": [
+                "--login",
+                "-i"
+            ],
+            "env": {
+                "MSYSTEM": "MINGW64",
+                "CHERE_INVOKING": "1"
+            },
+            "icon": "terminal-bash"
+        },
+        "PowerShell": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell"
+        }
+    },
+    
+    // 文件编码设置
+    "files.encoding": "utf8",
+    "files.autoGuessEncoding": true,
+    "files.eol": "\n",
+    
+    // 文件关联
+    "files.associations": {
+        "*.c": "c",
+        "*.S": "asm",
+        "*.ld": "ld-script",
+        "*.pl": "perl",
+        "buf.h": "c"
+    },
+    
+    // C/C++ 配置
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/**",
+        "${workspaceFolder}/kernel",
+        "${workspaceFolder}/user"
+    ],
+    "C_Cpp.default.defines": [
+        "_GNU_SOURCE"
+    ],
+    "C_Cpp.default.compilerPath": "D:\\msys2\\opt\\xpack-riscv-none-elf-gcc-15.2.0-1\\bin\\riscv-none-elf-gcc.exe",
+    "C_Cpp.default.cStandard": "c11",
+    "C_Cpp.default.intelliSenseMode": "gcc-x64",
+    
+    // 编辑器设置
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+    "editor.formatOnSave": false,
+    
+    // 搜索排除
+    "search.exclude": {
+        "**/kernel/*.o": true,
+        "**/kernel/*.d": true,
+        "**/kernel/*.asm": true,
+        "**/kernel/*.sym": true,
+        "**/user/*.o": true,
+        "**/user/*.d": true,
+        "**/user/*.asm": true,
+        "**/user/*.sym": true,
+        "**/fs.img": true,
+        "**/.gdbinit": true
+    },
+    
+    // 文件监视排除
+    "files.watcherExclude": {
+        "**/kernel/*.o": true,
+        "**/kernel/*.d": true,
+        "**/user/*.o": true,
+        "**/user/*.d": true,
+        "**/fs.img": true
+    },
+    
+    // Makefile 工具配置
+    "makefile.configurations": [
+        {
+            "name": "xv6-riscv",
+            "makeDirectory": "${workspaceFolder}",
+            "buildLog": "${workspaceFolder}/.vscode/build.log",
+            "makeArgs": []
+        }
+    ],
+    
+    // Git 配置
+    "git.autofetch": true,
+    "git.enableSmartCommit": true
+}
+
