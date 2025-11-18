@@ -29,7 +29,51 @@ brew install riscv-tools
 brew install qemu
 ```
 
-#### Windows (使用 WSL)
+#### Windows 原生开发 (推荐)
+
+**方案一: 使用 MSYS2 (最简单)**
+```powershell
+# 1. 安装 MSYS2: https://www.msys2.org/
+# 2. 打开 MSYS2 MINGW64 终端
+
+# 更新包管理器
+pacman -Syu
+
+# 安装 RISC-V 工具链
+pacman -S mingw-w64-x86_64-riscv-none-embed-gcc
+
+# 安装 QEMU
+pacman -S mingw-w64-x86_64-qemu
+
+# 安装其他工具
+pacman -S mingw-w64-x86_64-make mingw-w64-x86_64-git
+```
+
+**方案二: 使用预编译二进制文件**
+```powershell
+# 1. 下载 RISC-V 工具链
+# 访问: https://github.com/xpack-dev-tools/riscv-none-embed-gcc-xpack/releases
+# 下载最新版本并解压到 C:\xpack-riscv-none-embed-gcc
+
+# 2. 下载 QEMU Windows 版本
+# 访问: https://qemu.weilnetz.de/w64/
+# 下载 qemu-w64-setup-xxx.exe 并安装
+
+# 3. 添加到环境变量 PATH
+# C:\xpack-riscv-none-embed-gcc\bin
+# C:\Program Files\qemu
+```
+
+**方案三: 使用 Chocolatey**
+```powershell
+# 安装 Chocolatey (以管理员身份运行 PowerShell)
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# 安装工具
+choco install riscv-tools qemu make git
+```
+
+#### Windows (使用 WSL - 备选方案)
 ```bash
 # 在 WSL Ubuntu 中执行
 sudo apt update
@@ -54,7 +98,12 @@ git merge upstream/riscv
 ```
 
 ### 2. 构建和运行
-```bash
+
+**Windows 原生开发:**
+```powershell
+# 在 MSYS2 MINGW64 或 PowerShell 中执行
+cd xv6-riscv
+
 # 构建并运行 xv6
 make qemu
 
@@ -63,6 +112,14 @@ $ echo "Hello xv6!"
 $ ls
 $ cat README
 $ exit  # 退出 QEMU
+```
+
+**如果遇到 make 工具问题:**
+```powershell
+# Windows 可能需要使用不同的 make 命令
+mingw32-make.exe qemu
+# 或
+make.exe qemu
 ```
 
 ### 3. 运行测试
@@ -233,6 +290,25 @@ A: 在 `user/` 目录创建 `.c` 文件，然后在 `Makefile` 的 `UPROGS` 列�
 
 ---
 
+## 🪟 Windows 用户特别说明
+
+### 详细 Windows 安装指南
+- **[📖 Windows 完整安装指南](WINDOWS_SETUP.md)** - 原生 Windows 开发环境的详细设置说明
+
+### Windows 脚本工具
+```powershell
+# 使用 Windows 版本的脚本
+scripts\windows-sync-upstream.bat    # 同步上游更新
+scripts\windows-create-feature.bat my-feature  # 创建功能分支
+scripts\windows-build-debug.bat      # 构建和调试
+```
+
+### Windows 兼容性
+- 提供了 Windows 原生脚本 (.bat 文件)
+- Makefile 兼容性补丁 (Makefile.windows.patch)
+- VS Code 开发环境配置建议
+- 详细的 Windows 问题解决方案
+
 🎉 **恭喜！** 你现在已经准备好开始探索 xv6 操作系统的世界了！
 
-如有问题，请查看 `WORKFLOW.md` 获取更详细的指南。
+如有问题，请查看 `WORKFLOW.md` 和 `WINDOWS_SETUP.md` 获取更详细的指南。

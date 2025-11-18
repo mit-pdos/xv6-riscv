@@ -1,0 +1,111 @@
+# Windows 兼容性补丁
+# 将这些更改应用到 Makefile 中以支持 Windows 开发
+
+# 在 Makefile 开头添加 (第1行之后):
+ifeq ($(OS),Windows_NT)
+    SHELL = cmd.exe
+    RM = del /Q 2>nul || true
+    RMDIR = rmdir /S /Q 2>nul || true
+    MKDIR = mkdir 2>nul || true
+    CP = copy /Y
+    CAT = type
+    ECHO = echo
+    # Windows 路径分隔符处理
+    PATH_SEP = ;
+else
+    RM = rm -f
+    RMDIR = rm -rf
+    MKDIR = mkdir -p
+    CP = cp
+    CAT = cat
+    ECHO = echo
+    PATH_SEP = :
+endif
+
+# 修改 QEMU 命令检测 (大约在第70行附近):
+QEMU = $(shell if qemu-system-riscv64 --version 2>nul; then echo qemu-system-riscv64; \
+	elif qemu-system-riscv64.exe --version 2>nul; then echo qemu-system-riscv64.exe; \
+	else echo "qemu-system-riscv64 not found"; fi)
+
+# 修改工具链检测 (大约在第50行附近):
+ifeq ($(OS),Windows_NT)
+    # Windows 工具链检测
+    TOOLPREFIX := $(shell if riscv-none-embed-gcc --version 2>nul; then echo 'riscv-none-embed-'; \
+	elif riscv64-linux-gnu-gcc --version 2>nul; then echo 'riscv64-linux-gnu-'; \
+	elif riscv64-unknown-elf-gcc --version 2>nul; then echo 'riscv64-unknown-elf-'; \
+	else echo "RISC-V toolchain not found"; fi)
+else
+    # 原有的 Unix 工具链检测代码
+    TOOLPREFIX := $(shell if riscv64-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
+	then echo 'riscv64-unknown-elf-'; \
+	elif riscv64-elf-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
+	then echo 'riscv64-elf-'; \
+	elif riscv64-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
+	then echo 'riscv64-linux-gnu-'; \
+	elif riscv64-unknown-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
+	then echo 'riscv64-unknown-linux-gnu-'; \
+	else echo "***" 1>&2; \
+	echo "*** Error: Couldn't find a riscv64 version of GCC/binutils." 1>&2; \
+	echo "*** To turn off this error, run 'gmake TOOLPREFIX= ...'." 1>&2; \
+	echo "***" 1>&2; exit 1; fi)
+endif
+
+# 修改文件删除规则 (在 clean 目标中):
+clean:
+ifeq ($(OS),Windows_NT)
+	-$(RM) *.o *.d *.asm *.sym fs.img kernel/vectors.S \
+		kernel/bootblock kernel/kernelentry kernel/kernel \
+		kernel/usermemfs mkfs/mkfs .gdbinit TAGS \
+		$(UPROGS) 2>nul
+	-$(RMDIR) $U/_forktest 2>nul
+else
+	rm -f *.o *.d *.asm *.sym fs.img kernel/vectors.S \
+		kernel/bootblock kernel/kernelentry kernel/kernel \
+		kernel/usermemfs mkfs/mkfs .gdbinit TAGS \
+		$(UPROGS)
+	rm -f $U/_forktest
+endif
+
+# 添加 Windows 特定的构建规则:
+ifeq ($(OS),Windows_NT)
+# Windows 文件扩展名处理
+EXE = .exe
+else
+EXE =
+endif
+
+# 修改工具链变量定义 (添加 EXE 扩展名):
+CC = $(TOOLPREFIX)gcc$(EXE)
+AS = $(TOOLPREFIX)gas
+LD = $(TOOLPREFIX)ld$(EXE)
+OBJCOPY = $(TOOLPREFIX)objcopy
+OBJDUMP = $(TOOLPREFIX)objdump
+
+# 添加 Windows 路径处理函数:
+ifeq ($(OS),Windows_NT)
+define fix-path
+$(subst /,\,$(1))
+endef
+else
+define fix-path
+$(1)
+endef
+endif
+
+# 修改 QEMU 命令调用 (添加 .exe 扩展名检测):
+qemu: fs.img
+	$(QEMU) -machine virt -bios none -kernel kernel/kernel -m 128M -smp 3 -nographic -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+
+# Windows 特定的帮助信息:
+windows-help:
+	@echo "Windows 开发帮助:"
+	@echo "确保安装了以下工具:"
+	@echo "  - RISC-V 工具链 (riscv-none-embed-gcc 或 riscv64-linux-gnu-gcc)"
+	@echo "  - QEMU (qemu-system-riscv64.exe)"
+	@echo "  - make 或 mingw32-make"
+	@echo "  - Git for Windows"
+	@echo ""
+	@echo "推荐使用 MSYS2 获取完整的开发环境"
+	@echo "详细安装指南请参考 WINDOWS_SETUP.md"
+
+.PHONY: windows-help
