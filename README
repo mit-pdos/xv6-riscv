@@ -46,3 +46,33 @@ You will need a RISC-V "newlib" tool chain from
 https://github.com/riscv/riscv-gnu-toolchain, and qemu compiled for
 riscv64-softmmu.  Once they are installed, and in your shell
 search path, you can run "make qemu".
+
+📚 **学习资源和工作流指南**
+
+本项目包含了完整的学习指南和工作流文档：
+
+- **[📖 学习指南](QUICKSTART.md)** - 快速开始和基础设置
+- **[🔄 工作流程](WORKFLOW.md)** - Git工作流和开发规范
+- **[📅 学习计划](STUDY_PLAN.md)** - 系统化的学习路线图
+
+🚀 **快速开始**
+
+```bash
+# 1. 查看快速开始指南
+cat QUICKSTART.md
+
+# 2. 构建并运行 xv6
+make qemu
+
+# 3. 使用提供的脚本进行开发
+./scripts/sync-upstream.sh    # 同步上游更新
+./scripts/create-feature.sh my-feature  # 创建功能分支
+./scripts/build-debug.sh      # 构建和调试
+```
+
+💡 **这个 fork 的特色**
+
+- 完整的中文学习文档和指南
+- 自动化工作流脚本
+- 详细的学习计划和实验指导
+- Git 最佳实践模板
