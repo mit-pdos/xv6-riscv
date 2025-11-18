@@ -16,3 +16,7 @@ kernel/kernel
 user/usys.S
 .gdbinit
 TAGS
+
+# VS Code - 忽略数据库文件和图片
+.vscode/BROWSE.VC.DB*
+.vscode/image/

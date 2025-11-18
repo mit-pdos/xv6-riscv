@@ -33,8 +33,7 @@ pacman -Su
 
 ```bash
 # 安装 RISC-V 工具链
-pacman -S mingw-w64-x86_64-riscv-none-embed-gcc
-
+pacman -S mingw-w64-x86_64-riscv64-unknown-elf-gcc
 # 安装 QEMU
 pacman -S mingw-w64-x86_64-qemu
 
@@ -51,7 +50,7 @@ pacman -S vim nano
 
 ```bash
 # 检查 RISC-V 工具链
-riscv-none-embed-gcc --version
+riscv64-unknown-elf-gcc --version
 
 # 检查 QEMU
 qemu-system-riscv64 --version
@@ -141,7 +140,7 @@ mingw32-make qemu
 
 ```powershell
 # 检查工具链
-riscv-none-embed-gcc --version
+riscv64-unknown-elf-gcc --version
 
 # 检查 QEMU
 qemu-system-riscv64 --version
@@ -246,7 +245,7 @@ if "%COMMAND%"=="run" (
 make qemu-gdb
 
 # 在另一个终端中
-riscv-none-embed-gdb kernel/kernel
+riscv64-unknown-elf-gdb kernel/kernel
 (gdb) target remote localhost:26000
 (gdb) break main
 (gdb) continue
@@ -271,7 +270,7 @@ riscv-none-embed-gdb kernel/kernel
             "environment": [],
             "externalConsole": true,
             "MIMode": "gdb",
-            "miDebuggerPath": "riscv-none-embed-gdb.exe",
+            "miDebuggerPath": "riscv64-unknown-elf-gdb.exe",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",

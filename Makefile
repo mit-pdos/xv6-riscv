@@ -35,19 +35,30 @@ OBJS = \
 #TOOLPREFIX = 
 
 # Try to infer the correct TOOLPREFIX if not set
+# Check xPack toolchain first (if installed), then fall back to others
+XPACK_PATH := /d/msys2/opt/xpack-riscv-none-elf-gcc-15.2.0-1/bin
 ifndef TOOLPREFIX
-TOOLPREFIX := $(shell if riscv64-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
+TOOLPREFIX := $(shell if [ -f $(XPACK_PATH)/riscv-none-elf-objdump.exe ] && $(XPACK_PATH)/riscv-none-elf-objdump.exe -i 2>&1 | grep -q 'elf64-big'; \
+	then echo 'riscv-none-elf-'; \
+	elif riscv-none-elf-objdump -i 2>&1 | grep -q 'elf64-big' 2>/dev/null; \
+	then echo 'riscv-none-elf-'; \
+	elif riscv64-unknown-elf-objdump -i 2>&1 | grep -q 'elf64-big' 2>/dev/null; \
 	then echo 'riscv64-unknown-elf-'; \
-	elif riscv64-elf-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
+	elif riscv64-elf-objdump -i 2>&1 | grep -q 'elf64-big' 2>/dev/null; \
 	then echo 'riscv64-elf-'; \
-	elif riscv64-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
+	elif riscv64-linux-gnu-objdump -i 2>&1 | grep -q 'elf64-big' 2>/dev/null; \
 	then echo 'riscv64-linux-gnu-'; \
-	elif riscv64-unknown-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
+	elif riscv64-unknown-linux-gnu-objdump -i 2>&1 | grep -q 'elf64-big' 2>/dev/null; \
 	then echo 'riscv64-unknown-linux-gnu-'; \
 	else echo "***" 1>&2; \
 	echo "*** Error: Couldn't find a riscv64 version of GCC/binutils." 1>&2; \
 	echo "*** To turn off this error, run 'gmake TOOLPREFIX= ...'." 1>&2; \
 	echo "***" 1>&2; exit 1; fi)
+endif
+
+# If using xPack toolchain, add it to PATH
+ifeq ($(TOOLPREFIX),riscv-none-elf-)
+export PATH := $(XPACK_PATH):$(PATH)
 endif
 
 QEMU = qemu-system-riscv64
@@ -61,6 +72,7 @@ OBJDUMP = $(TOOLPREFIX)objdump
 
 CFLAGS = -Wall -Werror -Wno-unknown-attributes -O -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS += -march=rv64gc
+CFLAGS += -mabi=lp64
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding
@@ -82,7 +94,7 @@ ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]nopie'),)
 CFLAGS += -fno-pie -nopie
 endif
 
-LDFLAGS = -z max-page-size=4096
+LDFLAGS = -z max-page-size=4096 -m elf64lriscv
 
 $K/kernel: $(OBJS) $K/kernel.ld
 	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) 
@@ -90,7 +102,7 @@ $K/kernel: $(OBJS) $K/kernel.ld
 	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
 
 $K/%.o: $K/%.S
-	$(CC) -march=rv64gc -g -c -o $@ $<
+	$(CC) -march=rv64gc -mabi=lp64 -g -c -o $@ $<
 
 tags: $(OBJS)
 	etags kernel/*.S kernel/*.c
@@ -185,9 +197,13 @@ qemu-gdb: $K/kernel .gdbinit fs.img
 print-gdbport:
 	@echo $(GDBPORT)
 
-QEMU_VERSION := $(shell $(QEMU) --version | head -n 1 | sed -E 's/^QEMU emulator version ([0-9]+\.[0-9]+)\..*/\1/')
+QEMU_VERSION := $(shell $(QEMU) --version 2>/dev/null | head -n 1 | sed -E 's/^QEMU emulator version ([0-9]+\.[0-9]+)\..*/\1/' || echo "0.0")
 check-qemu-version:
-	@if [ "$(shell echo "$(QEMU_VERSION) >= $(MIN_QEMU_VERSION)" | bc)" -eq 0 ]; then \
-		echo "ERROR: Need qemu version >= $(MIN_QEMU_VERSION)"; \
+	@if [ -z "$(QEMU_VERSION)" ] || [ "$(QEMU_VERSION)" = "0.0" ]; then \
+		echo "WARNING: Could not determine QEMU version, skipping version check"; \
+	elif command -v bc >/dev/null 2>&1 && [ "$(shell echo "$(QEMU_VERSION) >= $(MIN_QEMU_VERSION)" | bc 2>/dev/null)" -eq 0 ]; then \
+		echo "ERROR: Need qemu version >= $(MIN_QEMU_VERSION), found $(QEMU_VERSION)"; \
 		exit 1; \
+	elif ! command -v bc >/dev/null 2>&1; then \
+		echo "INFO: QEMU version check skipped (bc not available)"; \
 	fi
