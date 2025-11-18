@@ -286,6 +286,34 @@ riscv-none-embed-gdb kernel/kernel
 
 ## 🚨 常见 Windows 问题解决
 
+### 问题 0: MSYS2 终端乱码
+
+**症状**: 终端显示 `â­â ïº î± ï ~ î° î² â î³ at 10:03:49 AM ï â°â`
+
+**立即修复**:
+```bash
+# 设置正确的编码
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+source ~/.bashrc
+```
+
+**永久修复**:
+```bash
+# 添加到 ~/.bashrc
+echo 'export LANG=en_US.UTF-8' >> ~/.bashrc
+echo 'export LC_ALL=en_US.UTF-8' >> ~/.bashrc
+echo 'export LC_CTYPE=en_US.UTF-8' >> ~/.bashrc
+
+# Git 编码设置
+git config --global core.quotepath false
+git config --global gui.encoding utf-8
+
+# 重新启动 MSYS2
+```
+
+**详细解决方案**: 查看 `MSYS2_ENCODING_FIX.md`
+
 ### 问题 1: "make: command not found"
 
 **解决方案:**
