@@ -32,7 +32,7 @@ class QEMU(object):
 
     def reset_fs(self):
         try:
-            run(["rm", "fs.img"], check=True)
+            run(["rm", "-f", "fs.img"], check=True)
             run(["make", "fs.img"], check=True)
         except subprocess.CalledProcessError as e:
             print(f"Command failed with exit code {e.returncode}")
