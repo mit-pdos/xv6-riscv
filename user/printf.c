@@ -17,7 +17,7 @@ printint(int fd, long long xx, int base, int sgn)
 {
   char buf[20];
   int i, neg;
-  uint x;
+  unsigned long long x;
 
   neg = 0;
   if(sgn && xx < 0){
