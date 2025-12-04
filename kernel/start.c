@@ -52,9 +52,6 @@ start()
 void
 timerinit()
 {
-  // enable supervisor-mode timer interrupts.
-  w_mie(r_mie() | MIE_STIE);
-  
   // enable the sstc extension (i.e. stimecmp).
   w_menvcfg(r_menvcfg() | (1L << 63)); 
   
