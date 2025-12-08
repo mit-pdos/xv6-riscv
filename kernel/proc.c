@@ -10,10 +10,17 @@ struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
+int queue_size_0 = 0;
+int queue_size_1 = 0;
+
+struct proc *queue_0[NPROC];
+struct proc *queue_1[NPROC];
+
 struct proc *initproc;
 
 int nextpid = 1;
 struct spinlock pid_lock;
+struct spinlock queue_lock;
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
@@ -51,6 +58,7 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  initlock(&queue_lock, "queue_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
@@ -169,6 +177,10 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  //p->yielded = 0;
+  p->cpu_ticks = 0;
+  p->age_in_low_queue = 0;
+  p->priority = -1; // Initialize priority to -1 to mark as not queued yet
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -414,6 +426,141 @@ kwait(uint64 addr)
   }
 }
 
+void queue_push(struct proc *p) {
+  acquire(&p->lock);
+  if (p->priority == 0) {
+    release(&p->lock);
+    acquire(&queue_lock);
+    queue_0[queue_size_0++] = p;
+    release(&queue_lock);
+  }else{
+    release(&p->lock);
+  } 
+}
+
+struct proc *queue_pop() {
+  struct proc *p = 0;
+  acquire(&queue_lock);
+  
+  if (queue_size_0 > 0) {
+    p = queue_0[0];
+    for (int i = 1; i < queue_size_0; i++) {
+      queue_0[i - 1] = queue_0[i];
+    }
+    queue_size_0--;
+  }else if (queue_size_1 > 0) {
+    p = queue_1[0];
+    for (int i = 1; i < queue_size_1; i++) {
+      queue_1[i - 1] = queue_1[i];
+    }
+    queue_size_1--;
+  }else {
+    p = 0; // No process available
+  }
+  
+  release(&queue_lock);
+  return p;
+}
+
+struct proc *queue_remove(int pid, int priority) {
+  struct proc *p = 0;
+  acquire(&queue_lock);
+  if (priority == 0) {
+    for (int i = 0; i < queue_size_0; i++) {
+      if (queue_0[i]->pid == pid) {
+        p = queue_0[i];
+        for (int j = i + 1; j < queue_size_0; j++) {
+          queue_0[j - 1] = queue_0[j];
+        }
+        queue_size_0--;
+        break;
+      }
+    }
+  }else if (priority == 1) {
+    for (int i = 0; i < queue_size_1; i++) {
+      if (queue_1[i]->pid == pid) {
+        p = queue_1[i];
+        for (int j = i + 1; j < queue_size_1; j++) {
+          queue_1[j - 1] = queue_1[j];
+        }
+        queue_size_1--;
+        break;
+      }
+    }
+  }
+  release(&queue_lock);
+
+  if (p != 0) {
+    acquire(&p->lock);
+    p->priority = -1; // Mark as not in any queue
+    release(&p->lock);
+  }
+
+  return p;
+}
+
+void queue_update_priorities() {
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->state != RUNNABLE) {
+      release(&p->lock);
+      continue;
+    }
+    if (p->priority == 1) {
+      p->age_in_low_queue++;
+      if (p->age_in_low_queue >= 5) {
+        // Promote to high priority queue
+        p->priority = 1;
+        p->age_in_low_queue = 0; // Reset age counter
+        p->time_slices_left = 1; // Reset time slices
+        release(&p->lock);
+        queue_remove(p->pid, 1);
+        queue_push(p);
+      } else {
+        release(&p->lock);
+      }
+    } else if (p->priority == 0) {
+      p->age_in_high_queue++;
+      if (p->age_in_high_queue >= 5) {
+        // Promote to high priority queue
+        p->priority = 0;
+        p->age_in_high_queue = 0; // Reset age counter
+        release(&p->lock);
+        queue_remove(p->pid, 0);
+        queue_push(p);
+      } else {
+        release(&p->lock);
+      }
+    } else {
+      release(&p->lock);
+    }
+  }
+}
+
+void loop_proc_and_update_queues() {
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == RUNNABLE && p->priority == -1) {
+      // If process is not already in a queue, add it
+      p->priority = 0; // Default to high priority queue
+      p->time_slices_left = 3; // Initial time slice allocation
+      release(&p->lock);
+      queue_push(p);
+    } else if(p->state != RUNNABLE && p->priority != -1) {
+      // If process is no longer runnable, remove it from its queue
+      int old_priority = p->priority;
+      p->priority = -1; // Mark as not in any queue
+      release(&p->lock);
+      queue_remove(p->pid, old_priority);
+    } else {
+      // No action needed, just release the lock
+      release(&p->lock);
+    }
+  }
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -438,7 +585,10 @@ scheduler(void)
     intr_off();
 
     int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
+
+    loop_proc_and_update_queues();
+    p = queue_pop();
+    if (p != 0) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
@@ -447,14 +597,23 @@ scheduler(void)
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
-
         // Process is done running for now.
         // It should have changed its p->state before coming back.
+        if (p->time_slices_left > 0 && p->state == RUNNABLE) {
+          p->time_slices_left--;
+          p->state = RUNNING;
+          swtch(&c->context, &p->context);
+        }
+        
         c->proc = 0;
         found = 1;
       }
       release(&p->lock);
     }
+    queue_update_priorities();
+    //boost age
+    //boost_age();
+
     if(found == 0) {
       // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
@@ -477,8 +636,10 @@ sched(void)
 
   if(!holding(&p->lock))
     panic("sched p->lock");
-  if(mycpu()->noff != 1)
+  if(mycpu()->noff != 1) {
+    printf("sched: noff=%d intena=%d intr_get()=%d\n", mycpu()->noff, mycpu()->intena, intr_get());
     panic("sched locks");
+  }
   if(p->state == RUNNING)
     panic("sched RUNNING");
   if(intr_get())
@@ -496,6 +657,7 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
+  //p->yielded = 1;
   sched();
   release(&p->lock);
 }

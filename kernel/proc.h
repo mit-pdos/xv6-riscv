@@ -92,6 +92,15 @@ struct proc {
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
 
+  //int yielded;                 // If non-zero, process has yielded CPU this round
+  int cpu_ticks;               // Number of ticks process has run
+  int time_slices_left;             // Time slice allocated in the CPU during current round
+  int age_in_low_queue;        // Age of the process in the low priority queue
+  int age_in_high_queue;       // Age of the process in the high priority queue
+  int priority;                // Process priority
+  int in_queue;              // If non-zero, process is in a scheduling queue
+
+
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
 
