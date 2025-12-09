@@ -484,3 +484,41 @@ ismapped(pagetable_t pagetable, uint64 va)
   }
   return 0;
 }
+
+int
+mrdprotect(void *addr, int len)
+{
+    uint64 a = (uint64) addr;
+    struct proc *p = myproc();
+    pte_t *pte;
+
+    for (int off = 0; off < len; off += PGSIZE) {
+        pte = walk(p->pagetable, a + off, 0);
+        if (pte == 0)
+            return -1;
+
+        *pte &= ~PTE_R;   // quitar lectura
+    }
+
+    sfence_vma();
+    return 0;
+}
+
+int
+munrdprotect(void *addr, int len)
+{
+    uint64 a = (uint64) addr;
+    struct proc *p = myproc();
+    pte_t *pte;
+
+    for (int off = 0; off < len; off += PGSIZE) {
+        pte = walk(p->pagetable, a + off, 0);
+        if (pte == 0)
+            return -1;
+
+        *pte |= PTE_R;    // restaurar lectura
+    }
+
+    sfence_vma();
+    return 0;
+}
