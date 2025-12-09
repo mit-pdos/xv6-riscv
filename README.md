@@ -28,8 +28,9 @@
 https://chatgpt.com/share/693787fb-fb94-8006-87a3-43feb90ae45c
 
 ## 4. Problemas encontrados
- - El principal problema fue debido a los commits debido a que despues de commitear no se me guardo realmente pero me aparecia en el codespace como si estubiera guardado y al intentar hacer que los 2 [...]
- - el segundo problema fue entender que codigos y archivos se tenian que modificar realmente, ya que al usar una Ia como ayuda, este no entiende muy bien que archivos se deben modificar realmente y so[...]
+ - El principal problema fue debido a los commits debido a que despues de commitear no se me guardo realmente pero me aparecia en el codespace como si estubiera guardado y al intentar hacer que los 2 esten vinculados se borro mi progreso. La solucion si bien fue volver a hacerlo revisando que cosas habia cambiado ya que me acordaba de que archivos habia modificado, hubiera sido mejor realizar copias de seguridad periodicamente para prevenir esto
+
+ - el segundo problema fue entender que codigos y archivos se tenian que modificar realmente, ya que al usar una Ia como ayuda, este no entiende muy bien que archivos se deben modificar realmente y sobretodo derrepente cambia el nombre de las variables o funciones. La solocion a esto seria utilizar la Ia con precaucion y revisar bien los datos que esta nos brinda
 
 ## 5. Imagen del codigo funcionando
 ![Funcionamiento del codigo](Funcionamiento%20codigo.png)
