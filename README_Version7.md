@@ -1,0 +1,35 @@
+# INFORME Tarea 3: Proteccion de Lectura en XV6
+
+**Integrante:** Diego Gajardo
+**Usuario Github:** Wajax8
+**Rama:** Diego_Gajardo_T3
+
+## 1. Pasos realizados:
+ 1. Se definen las nuevas syscalls 'mrdprotect' y 'munrdprotect' y declaramos sus respectivos numeros en 'kernel/syscall.h'
+ 2. se implementan tambien en 'sysproc.c' llamando asi a las funciones de kernel necesarias
+ 3. En 'kernel/systemcall.c' se agrega las nuevas funciones al listado de systemcalls, para que asi el kernel las reconozca y se ejecuten cuando se llamen
+ 4. se agrego las funciones a 'user/usys.pl' para que los programas puedan llamar a las syscalls
+ 5. luego se añaden a 'user/user.h' para que cualquier programa puedan usarlas normalmente
+ 6. luego en 'vm.c'se agrego la parte la parte encargada de el permiso de lectura, protegiendo o desprotegiendola
+ 7. Se ajusta 'kernel/trap.c' para que se detecte cuando un programa intenta leer una pagina la cual se encuentre protegida
+ 8. Luego de todos los ajustes necesarios se crea el archivo 'user/mrdprotect.c' el cual es el que contiene los wrappers
+ 9. se añade en los UPFROGS los cuales se encuentran en 'Makefile'
+ 10. Luego se crea otro archivo el cual es 'user/mrtest' el cual se encarga del test y de la restauracion
+ 
+## 2. Comandos para compilar, ejecutar y testear
+ Compilacion: `make clean` = limpia los archivos  
+              `make` = los compila  
+ Inicio XV6: `make qemu` = procede a ejecutar el sistema operativo  
+ Cierre XV6: `Control + A` luego `X`
+
+ ejecutar tests: `mrdprotect` se prueba la proteccion y `mrtest` prueba la restauracion
+
+## 3. Promp de la Ia usada como ayuda
+https://chatgpt.com/share/693787fb-fb94-8006-87a3-43feb90ae45c
+
+## 4. Problemas encontrados
+ - El principal problema fue debido a los commits debido a que despues de commitear no se me guardo realmente pero me aparecia en el codespace como si estubiera guardado y al intentar hacer que los 2 [...]
+ - el segundo problema fue entender que codigos y archivos se tenian que modificar realmente, ya que al usar una Ia como ayuda, este no entiende muy bien que archivos se deben modificar realmente y so[...]
+
+## 5. Imagen del codigo funcionando
+![Funcionamiento del codigo](Funcionamiento%20codigo.png)
