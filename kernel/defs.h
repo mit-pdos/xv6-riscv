@@ -1,3 +1,7 @@
+#include "spinlock.h"
+#include "types.h"
+#include "vm.h"
+
 struct buf;
 struct context;
 struct file;
