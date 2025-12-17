@@ -152,11 +152,9 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  // if(which_dev == 2 && myproc() != 0)
-  //   yield();
+  if(which_dev == 2 && myproc() != 0) {
+    // yield();
 
-  // timer interrupt
-  if(which_dev == 2 && myproc() != 0){
     struct proc *p = myproc();
 
     if(p->state == RUNNING){
