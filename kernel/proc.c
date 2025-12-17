@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
+int time_quantum[NQUEUE] = {4, 8, 16, 32};   // MIIIIINEEEEE
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -124,6 +126,12 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+
+  // MLFQ initialization
+  p->priority   = 0;   // highest priority
+  p->ticks_used = 0;   // no CPU time used yet
+  p->wait_ticks = 0;   // no waiting yet
+  // End of MLFQ initialization
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -436,6 +444,25 @@ scheduler(void)
     // and wfi.
     intr_on();
     intr_off();
+
+    // STARVATION PREVENTION / PRIORITY BOOST
+    for(p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+
+      if(p->state == RUNNABLE){
+        p->wait_ticks++;
+
+        if(p->wait_ticks >= 10 * time_quantum[p->priority]){
+          if(p->priority > 0){
+            p->priority--;   // boost priority
+          }
+          p->wait_ticks = 0;
+        }
+      }
+
+      release(&p->lock);
+    }
+    // End of STARVATION PREVENTION / PRIORITY BOOST
 
     int found = 0;
     for(p = proc; p < &proc[NPROC]; p++) {

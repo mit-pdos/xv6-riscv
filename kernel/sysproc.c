@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "../user/pstat.h"
 
 uint64
 sys_exit(void)
@@ -106,4 +107,34 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+// MY FUNCTION FOR SYS_GETPINFO()
+uint
+sys_getpinfo(void)
+{
+  uint64 addr;
+  struct pstat ps;
+  struct proc *p;
+
+  argaddr(0, &addr);
+
+  for(int i = 0; i < NPROC; i++){
+    p = &proc[i];
+    acquire(&p->lock);
+
+    ps.pid[i] = p->pid;
+    ps.ppid[i] = p->parent ? p->parent->pid : 0;
+    ps.priority[i] = p->priority;
+    ps.state[i] = p->state;
+    ps.size[i] = p->sz;
+    safestrcpy(ps.name[i], p->name, 16);
+
+    release(&p->lock);
+  }
+
+  if(copyout(myproc()->pagetable, addr, (char *)&ps, sizeof(ps)) < 0)
+    return -1;
+
+  return 0;
 }

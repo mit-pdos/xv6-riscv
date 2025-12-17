@@ -1,3 +1,8 @@
+
+#define NQUEUE 4
+
+extern int time_quantum[NQUEUE];
+
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -104,4 +109,10 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  int priority;              // 0 (highest) .. 3 (lowest)
+  int ticks_used;            // ticks used in current queue level
+  int wait_ticks;            // ticks waiting (for priority boost)
 };
+
+extern struct proc proc[NPROC];
