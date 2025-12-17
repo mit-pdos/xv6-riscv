@@ -153,13 +153,24 @@ kerneltrap()
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2 && myproc() != 0) {
-    // yield();
 
     struct proc *p = myproc();
 
     if(p->state == RUNNING){
       p->ticks_used++;
 
+      // 1. Check if any RUNNABLE process has higher priority than current
+      for(struct proc *q = proc; q < &proc[NPROC]; q++){
+          acquire(&q->lock);
+          if(q->state == RUNNABLE && q->priority < p->priority){
+              release(&q->lock);
+              yield();   // preempt current process
+              break;
+          }
+          release(&q->lock);
+      }
+
+      // 2. Also yield if quantum expired
       if(p->ticks_used >= time_quantum[p->priority]){
         yield();   // quantum expired
       }
