@@ -1,3 +1,5 @@
+#ifndef PROC_H
+#define PROC_H
 // Saved registers for kernel context switches.
 #include "spinlock.h"
 #include "types.h"
@@ -114,4 +116,9 @@ struct proc {
   int weight;
   struct proc *rq_prev;
   struct proc *rq_next;
+
 };
+
+int setnice(int pid, int nice);
+
+#endif  // PROC_H

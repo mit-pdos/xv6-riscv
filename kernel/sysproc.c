@@ -7,6 +7,17 @@
 #include "proc.h"
 #include "vm.h"
 
+
+uint64
+sys_setnice(void)
+{
+    int pid, nice;
+
+    argint(0, &pid);
+    argint(1, &nice);
+
+    return setnice(pid, nice);
+}
 uint64
 sys_exit(void)
 {
