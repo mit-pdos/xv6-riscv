@@ -1,4 +1,10 @@
 #define SBRK_ERROR ((char *)-1)
+#include "../kernel/types.h"
+
+
+struct uproc;
+
+int getprocs(struct uproc *, int);
 
 struct stat;
 

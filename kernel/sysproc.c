@@ -5,7 +5,51 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "../uproc.h"
 #include "vm.h"
+
+
+extern struct proc proc[NPROC];
+
+extern int getprocs(struct uproc *up, int max);
+
+uint64
+sys_getprocs(void)
+{
+    uint64 uaddr;
+    int max;
+
+    argaddr(0, &uaddr);
+    argint(1, &max);
+
+    struct proc *p;
+    struct uproc up;
+    int count = 0;
+
+    for(p = proc; p < &proc[NPROC] && count < max; p++){
+        acquire(&p->lock);
+        if(p->state != UNUSED){
+            up.pid   = p->pid;
+            up.nice  = p->nice;
+            up.state = p->state;
+            up.vruntime = p->vruntime;
+            safestrcpy(up.name, p->name, sizeof(up.name));
+
+            if(copyout(myproc()->pagetable,
+                       uaddr + count * sizeof(struct uproc),
+                       (char *)&up,
+                       sizeof(up)) < 0){
+                release(&p->lock);
+                return -1;
+            }
+            count++;
+        }
+        release(&p->lock);
+    }
+
+    return count;
+}
+
 
 
 uint64

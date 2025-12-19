@@ -5,25 +5,19 @@
 int
 main(int argc, char *argv[])
 {
-    int pid = fork();
-    if(pid < 0){
-        printf("fork failed\n");
+    if(argc != 3){
+        printf("Usage: setnice <pid> <nice>\n");
         exit(1);
     }
 
-    if(pid == 0){
-        // Child: busy loop
-        for(int i = 0; i < 1000000; i++);
-        printf("Child finished\n");
-        exit(0);
-    } else {
-        // Parent: change child's nice value
-        printf("Parent: setting child nice to 10\n");
-        setnice(pid, 10);
+    int pid  = atoi(argv[1]);   // PID of the process to modify
+    int nice = atoi(argv[2]);   // New nice value
 
-        // wait for child
-        wait(0);
-        printf("Parent: child exited\n");
-        exit(0);
+    if(setnice(pid, nice) < 0){
+        printf("setnice failed for PID %d\n", pid);
+    } else {
+        printf("Set nice of PID %d to %d\n", pid, nice);
     }
+
+    exit(0);
 }
