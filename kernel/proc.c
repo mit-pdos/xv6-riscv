@@ -502,60 +502,54 @@ kwait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
-#define NICE_0_WEIGHT 1024  // baseline weight
-
 void
 scheduler(void)
 {
-    struct cpu *c = mycpu();
-    struct proc *p;
+  struct proc *p;
+  struct cpu *c = mycpu();
 
-    c->proc = 0;
+  c->proc = 0;
+  for(;;){
+    intr_on();  // enable interrupts so timer can work
+    intr_off(); // then disable for scheduling loop
 
-    for(;;){
-        intr_on();    // enable interrupts
-        intr_off();   // disable for scheduling
+    struct proc *min_vruntime_proc = 0;
 
-        struct proc *min_proc = 0;
-
-        // Find RUNNABLE process with minimum vruntime
-        for(p = proc; p < &proc[NPROC]; p++){
-            acquire(&p->lock);
-            if(p->state == RUNNABLE){
-                if(min_proc == 0 || p->vruntime < min_proc->vruntime){
-                    if(min_proc)
-                        release(&min_proc->lock); // release previous
-                    min_proc = p;              // keep lock
-                } else {
-                    release(&p->lock);
-                }
-            } else {
-                release(&p->lock);
-            }
-        }
-
-        if(min_proc){
-            // Switch to RUNNING
-            min_proc->state = RUNNING;
-            c->proc = min_proc;
-
-            // Record start tick for vruntime accounting
-            uint64 start_ticks = ticks;
-
-            swtch(&c->context, &min_proc->context);
-
-            // After returning: update vruntime based on actual ticks used
-            uint64 delta_ticks = ticks - start_ticks;
-            if(delta_ticks > 0)
-                min_proc->vruntime += delta_ticks * (NICE_0_WEIGHT / min_proc->weight);
-
-            c->proc = 0;
-            release(&min_proc->lock);
+    // Find the RUNNABLE process with the lowest vruntime
+    for(p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
+        if(min_vruntime_proc == 0 || p->vruntime < min_vruntime_proc->vruntime){
+          if(min_vruntime_proc) release(&min_vruntime_proc->lock); // release previous candidate
+          min_vruntime_proc = p;
         } else {
-            // idle if no RUNNABLE process
-            asm volatile("wfi");
+          release(&p->lock); // not selected
         }
+      } else {
+        release(&p->lock);
+      }
     }
+
+    if(min_vruntime_proc){
+      // Run the selected process
+      min_vruntime_proc->state = RUNNING;
+      c->proc = min_vruntime_proc;
+
+      swtch(&c->context, &min_vruntime_proc->context);
+
+      // After process yields or finishes
+      c->proc = 0;
+
+      // Increment vruntime proportional to CPU time / weight
+      // Assuming each tick is 1, adjust based on weight
+      min_vruntime_proc->vruntime += (1024 / min_vruntime_proc->weight);
+
+      release(&min_vruntime_proc->lock);
+    } else {
+      // No runnable process; wait for interrupt
+      asm volatile("wfi");
+    }
+  }
 }
 
 

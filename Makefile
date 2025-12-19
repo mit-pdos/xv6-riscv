@@ -149,7 +149,6 @@ UPROGS=\
 	$U/_ps\
 	$U/_program1\
 	$U/_program2\
-	$U/_test\
 
 
 fs.img: mkfs/mkfs README $(UPROGS)
