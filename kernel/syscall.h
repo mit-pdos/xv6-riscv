@@ -11,7 +11,7 @@
 #define SYS_dup    10
 #define SYS_getpid 11
 #define SYS_sbrk   12
-#define SYS_pause  13
+#define SYS_sleep  13
 #define SYS_uptime 14
 #define SYS_open   15
 #define SYS_write  16
@@ -20,3 +20,14 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+
+// System calls for labs
+#define SYS_trace     22
+#define SYS_sysinfo   23
+#define SYS_sigalarm  24
+#define SYS_sigreturn 25
+#define SYS_symlink   26
+#define SYS_mmap      27
+#define SYS_munmap    28
+#define SYS_connect   29
+#define SYS_pgaccess  30

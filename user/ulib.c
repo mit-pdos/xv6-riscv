@@ -1,20 +1,22 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "kernel/fcntl.h"
+#ifdef LAB_PGTBL
 #include "kernel/riscv.h"
-#include "kernel/vm.h"
+#include "kernel/memlayout.h"
+#endif
 #include "user/user.h"
+
 
 //
 // wrapper so that it's OK if main() does not call exit().
 //
 void
-start(int argc, char **argv)
+_main()
 {
-  int r;
-  extern int main(int argc, char **argv);
-  r = main(argc, argv);
-  exit(r);
+  extern int main();
+  main();
+  exit(0);
 }
 
 char*
@@ -149,13 +151,11 @@ memcpy(void *dst, const void *src, uint n)
   return memmove(dst, src, n);
 }
 
-char *
-sbrk(int n) {
-  return sys_sbrk(n, SBRK_EAGER);
+#ifdef LAB_PGTBL
+int
+ugetpid(void)
+{
+  struct usyscall *u = (struct usyscall *)USYSCALL;
+  return u->pid;
 }
-
-char *
-sbrklazy(int n) {
-  return sys_sbrk(n, SBRK_LAZY);
-}
-
+#endif

@@ -34,12 +34,13 @@
 // and to keep track in memory of logged block# before commit.
 struct logheader {
   int n;
-  int block[LOGBLOCKS];
+  int block[LOGSIZE];
 };
 
 struct log {
   struct spinlock lock;
   int start;
+  int size;
   int outstanding; // how many FS sys calls are executing.
   int committing;  // in commit(), please wait.
   int dev;
@@ -58,6 +59,7 @@ initlog(int dev, struct superblock *sb)
 
   initlock(&log.lock, "log");
   log.start = sb->logstart;
+  log.size = sb->nlog;
   log.dev = dev;
   recover_from_log();
 }
@@ -69,9 +71,6 @@ install_trans(int recovering)
   int tail;
 
   for (tail = 0; tail < log.lh.n; tail++) {
-    if(recovering) {
-      printf("recovering tail %d dst %d\n", tail, log.lh.block[tail]);
-    }
     struct buf *lbuf = bread(log.dev, log.start+tail+1); // read log block
     struct buf *dbuf = bread(log.dev, log.lh.block[tail]); // read dst
     memmove(dbuf->data, lbuf->data, BSIZE);  // copy block to dst
@@ -131,7 +130,7 @@ begin_op(void)
   while(1){
     if(log.committing){
       sleep(&log, &log.lock);
-    } else if(log.lh.n + (log.outstanding+1)*MAXOPBLOCKS > LOGBLOCKS){
+    } else if(log.lh.n + (log.outstanding+1)*MAXOPBLOCKS > LOGSIZE){
       // this op might exhaust log space; wait for commit.
       sleep(&log, &log.lock);
     } else {
@@ -218,7 +217,7 @@ log_write(struct buf *b)
   int i;
 
   acquire(&log.lock);
-  if (log.lh.n >= LOGBLOCKS)
+  if (log.lh.n >= LOGSIZE || log.lh.n >= log.size - 1)
     panic("too big a transaction");
   if (log.outstanding < 1)
     panic("log_write outside of trans");
