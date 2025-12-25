@@ -74,7 +74,33 @@ sys_sleep(void)
 int
 sys_pgaccess(void)
 {
-  // lab pgtbl: your code here.
+  //Lấy tham số thứ nhất lưu ở thanh ghi a_0 là địa chỉ ảo bắt đầu trang người dùng
+  uint64 base;
+  argaddr(0,&base);
+  //Lấy tham số thứ hai là số trâng ở thanh ghi a_1
+  int numOfPage;
+  argint(1, &numOfPage);
+  //Lấy tham số thứ ba là địa chỉ con trỏ buffer (64-bit) ở thanh ghi a2
+  uint64 userMask;
+  argaddr(2, &userMask);
+
+  uint64 result = 0;
+  struct proc *p = myproc();
+
+  for(int i = 0; i < numOfPage; i++)
+  {
+    uint64 virtualAddr = base + 4096*i;
+
+    pte_t *pte = walk(p->pagetable, virtualAddr, 0);
+
+    if(pte != 0 && (*pte & PTE_A))
+    {
+      result |= (1L << i);
+      *pte = *pte & ~PTE_A;
+    }
+  }
+  if(copyout(p->pagetable, userMask, (char *)&result, sizeof(result)) < 0)
+    return -1;
   return 0;
 }
 #endif
