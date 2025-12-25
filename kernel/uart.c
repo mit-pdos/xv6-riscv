@@ -1,5 +1,5 @@
 //
-// low-level driver routines for 16550a UART.
+// low-level driver for 16550a UART.
 //
 
 #include "types.h"
@@ -15,9 +15,11 @@
 // address of one of the registers.
 #define Reg(reg) ((volatile unsigned char *)(UART0 + (reg)))
 
+#define ReadReg(reg) (*(Reg(reg)))
+#define WriteReg(reg, v) (*(Reg(reg)) = (v))
+
 // the UART control registers.
-// some have different meanings for
-// read vs write.
+// some have different meanings for read vs write.
 // see http://byterunner.com/16550.html
 #define RHR 0                 // receive holding register (for input bytes)
 #define THR 0                 // transmit holding register (for output bytes)
@@ -35,10 +37,7 @@
 #define LSR_RX_READY (1<<0)   // input is waiting to be read from RHR
 #define LSR_TX_IDLE (1<<5)    // THR can accept another character to send
 
-#define ReadReg(reg) (*(Reg(reg)))
-#define WriteReg(reg, v) (*(Reg(reg)) = (v))
-
-// for transmission.
+// for sending threads to synchronize with uart "ready" interrupts.
 static struct spinlock tx_lock;
 static int tx_busy;           // is the UART busy sending?
 static int tx_chan;           // &tx_chan is the "wait channel"
@@ -114,7 +113,7 @@ uartputc_sync(int c)
       ;
   }
 
-  // wait for Transmit Holding Empty to be set in LSR.
+  // wait for UART to set Transmit Holding Empty in LSR.
   while((ReadReg(LSR) & LSR_TX_IDLE) == 0)
     ;
   WriteReg(THR, c);
@@ -123,7 +122,7 @@ uartputc_sync(int c)
     pop_off();
 }
 
-// read one input character from the UART.
+// try to read one input character from the UART.
 // return -1 if none is waiting.
 int
 uartgetc(void)
@@ -152,7 +151,7 @@ uartintr(void)
   }
   release(&tx_lock);
 
-  // read and process incoming characters.
+  // read and process incoming characters, if any.
   while(1){
     int c = uartgetc();
     if(c == -1)

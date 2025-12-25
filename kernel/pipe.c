@@ -120,9 +120,13 @@ piperead(struct pipe *pi, uint64 addr, int n)
   for(i = 0; i < n; i++){  //DOC: piperead-copy
     if(pi->nread == pi->nwrite)
       break;
-    ch = pi->data[pi->nread++ % PIPESIZE];
-    if(copyout(pr->pagetable, addr + i, &ch, 1) == -1)
+    ch = pi->data[pi->nread % PIPESIZE];
+    if(copyout(pr->pagetable, addr + i, &ch, 1) == -1) {
+      if(i == 0)
+        i = -1;
       break;
+    }
+    pi->nread++;
   }
   wakeup(&pi->nwrite);  //DOC: piperead-wakeup
   release(&pi->lock);
