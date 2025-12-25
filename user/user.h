@@ -31,6 +31,8 @@ char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
 int setnice(int pid, int nice);
+uint64 physaddr(void *);
+
 
 // ulib.c
 int stat(const char*, struct stat*);

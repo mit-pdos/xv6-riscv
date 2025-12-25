@@ -22,4 +22,6 @@
 #define SYS_close  21
 #define SYS_setnice  22 
 #define SYS_getprocs  23
+#define SYS_physaddr 24
+
 
