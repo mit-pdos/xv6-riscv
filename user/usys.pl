@@ -44,3 +44,5 @@ entry("pause");
 entry("uptime");
 entry("setnice");
 entry("getprocs");
+entry("physaddr");
+

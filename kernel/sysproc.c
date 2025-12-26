@@ -162,3 +162,21 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_physaddr(void)
+{
+    int va_int;
+    struct proc *p = myproc();
+
+    argint(0, &va_int);
+    uint64 va = (uint64)va_int;
+
+    pte_t *pte = walk(p->pagetable, va, 0);
+    if (pte == 0 || (*pte & PTE_V) == 0)
+        return -1;
+
+    return PTE2PA(*pte) >> PGSHIFT;
+}
+
+
