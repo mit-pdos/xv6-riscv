@@ -33,6 +33,7 @@ sys_getprocs(void)
             up.nice  = p->nice;
             up.state = p->state;
             up.vruntime = p->vruntime;
+            up.weight = p->weight;
             safestrcpy(up.name, p->name, sizeof(up.name));
 
             if(copyout(myproc()->pagetable,

@@ -16,13 +16,14 @@ main(void)
     exit(1);
   }
 
-    printf("PID\tNICE\tSTATE\tVRUNTIME\tNAME\n");
+    printf("PID\tNICE\tSTATE\tVRUNTIME\tWEIGHT\tNAME\n");
     for(int i = 0; i < n; i++){
-        printf("%d\t%d\t%d\t%lu\t\t%s\n",
+        printf("%d\t%d\t%d\t%lu\t\t%lu\t%s\n",
             procs[i].pid,
             procs[i].nice,
             procs[i].state,
             procs[i].vruntime,
+            procs[i].weight,
             procs[i].name);
     }
 

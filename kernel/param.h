@@ -12,4 +12,9 @@
 #define FSSIZE       2000  // size of file system in blocks
 #define MAXPATH      128   // maximum file path name
 #define USERSTACK    1     // user stack pages
+// CFS scheduling parameters
+#define TARGET_LATENCY   20   // ticks
+#define MIN_GRANULARITY  2    // ticks
+#define NICE_0_LOAD      1024
+
 

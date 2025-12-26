@@ -8,6 +8,7 @@ struct uproc {
   int state;
   char name[16];
   uint64 vruntime;
+  uint64 weight;
 };
 
 #endif

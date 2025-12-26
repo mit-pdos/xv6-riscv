@@ -89,8 +89,19 @@ usertrap(void)
     kexit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
+  if(which_dev == 2){
+    struct proc *p = myproc();
+    if(p){
+      p->runtime++;
+
+      p->vruntime += NICE_0_LOAD / p->weight;
+
+      if(p->runtime >= p->timeslice){
+        p->runtime = 0;
+        yield();
+      }
+    }
+  }
 
   prepare_return();
 

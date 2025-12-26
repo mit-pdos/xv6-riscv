@@ -510,47 +510,62 @@ scheduler(void)
 
   c->proc = 0;
   for(;;){
-    intr_on();  // enable interrupts so timer can work
-    intr_off(); // then disable for scheduling loop
+    intr_on();
+    intr_off();
 
-    struct proc *min_vruntime_proc = 0;
+    struct proc *chosen = 0;
+    uint total_weight = 0;
 
-    // Find the RUNNABLE process with the lowest vruntime
+    // 1. Compute total_weight of runnable processes
     for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
       if(p->state == RUNNABLE){
-        if(min_vruntime_proc == 0 || p->vruntime < min_vruntime_proc->vruntime){
-          if(min_vruntime_proc) release(&min_vruntime_proc->lock); // release previous candidate
-          min_vruntime_proc = p;
+        total_weight += p->weight;
+      }
+      release(&p->lock);
+    }
+
+    // 2. Pick process with minimum vruntime
+    for(p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
+        if(chosen == 0 || p->vruntime < chosen->vruntime){
+          if(chosen)
+            release(&chosen->lock);
+          chosen = p;
         } else {
-          release(&p->lock); // not selected
+          release(&p->lock);
         }
       } else {
         release(&p->lock);
       }
     }
 
-    if(min_vruntime_proc){
-      // Run the selected process
-      min_vruntime_proc->state = RUNNING;
-      c->proc = min_vruntime_proc;
+    if(chosen){
+      // 3. Compute TIMESLICE (this is the TA formula)
+      uint ideal =
+        TARGET_LATENCY * chosen->weight / total_weight;
 
-      swtch(&c->context, &min_vruntime_proc->context);
+      if(ideal < MIN_GRANULARITY)
+        ideal = MIN_GRANULARITY;
 
-      // After process yields or finishes
+      chosen->timeslice = ideal;
+      chosen->runtime = 0;
+
+      // 4. Run process
+      chosen->state = RUNNING;
+      c->proc = chosen;
+
+      swtch(&c->context, &chosen->context);
+
       c->proc = 0;
-
-      // Increment vruntime proportional to CPU time / weight
-      // Assuming each tick is 1, adjust based on weight
-      min_vruntime_proc->vruntime += (1024 / min_vruntime_proc->weight);
-
-      release(&min_vruntime_proc->lock);
+      release(&chosen->lock);
     } else {
-      // No runnable process; wait for interrupt
       asm volatile("wfi");
     }
   }
 }
+
 
 
 // Switch to scheduler.  Must hold only p->lock

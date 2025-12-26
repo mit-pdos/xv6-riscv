@@ -116,8 +116,8 @@ struct proc {
   int weight;
   struct proc *rq_prev;
   struct proc *rq_next;
-  uint64 last_tick;
-
+  uint timeslice;
+  uint runtime;
 };
 
 int setnice(int pid, int nice);
