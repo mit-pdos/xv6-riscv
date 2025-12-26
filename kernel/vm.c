@@ -453,7 +453,7 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 void vmprint_walk(pagetable_t pagetable, int i) // i is depth
 {
   for(int k = 0; k < 512; k++){
-    pte = pagetable[k];
+    pte_t pte = pagetable[k];
     
     if(pte & PTE_V){ // If valid
 
@@ -462,12 +462,14 @@ void vmprint_walk(pagetable_t pagetable, int i) // i is depth
       }
 
       printf("%d: pte %p pa %p\n", k, pte, (((pte) >> 10) << 12));
-    }
 
-    if ((pte & (PTE_R | PTE_W | PTE_X)) == 0){ // see if 1 of the 3 flags is up -> if not, then this is not the leaf page table -> recursive
-        pagetable_t child = (pagetable_t)((pte) >> 10) << 12)));
+      if (i < 3){ // this is not the leaf page table -> recursive
+        pagetable_t child = (pagetable_t)(((pte) >> 10) << 12);
         vmprint_walk(child, i + 1);
+      }
     }
+  }
+
 }
 
 void vmprint(pagetable_t pagetable) 

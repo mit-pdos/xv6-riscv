@@ -126,3 +126,18 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_setvmprintflag(void)
+{
+  int flag;
+  // Lấy đối số thứ nhất (flag) từ userspace
+  argint(0, &flag);
+
+  struct proc *p = myproc();
+  
+  // Thiết lập cờ in bảng trang trong struct proc
+  p->print_pagetable = (flag != 0); 
+  
+  return 0; // Thành công
+}
