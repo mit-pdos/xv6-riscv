@@ -6,6 +6,9 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "pstat.h"
+
+extern struct proc proc[NPROC];
 
 uint64
 sys_exit(void)
@@ -106,4 +109,33 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_getpinfo(void)
+{
+  uint64 addr; //user space pointer
+  struct pstat ps; //kernel-space struct
+  struct proc *p;
+  int i = 0;
+  argaddr(0,&addr);
+  for(p = proc; p < &proc[NPROC]; p++) {
+    i = p - proc; // get the idx
+    acquire(&p->lock);
+
+    ps.pid[i] = p->pid;
+    ps.ppid[i] = (p->parent) ? p->parent->pid : 0;
+    ps.state[i] = p->state;
+    ps.size[i] = p->sz;
+    // to add priority after scedhuling is done.
+    memmove(ps.name[i],p->name,16); // copy the name string
+
+    release(&p->lock);
+
+  }
+  //then copy kernel data to user space
+    if(copyout(myproc()->pagetable,addr,(char *)&ps,sizeof(ps)) < 0) return -1; //copyout failed
+    
+    return 0;
+
 }
