@@ -16,3 +16,4 @@ kernel/kernel
 user/usys.S
 .gdbinit
 TAGS
+*.pdf
