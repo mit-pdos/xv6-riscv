@@ -56,7 +56,10 @@ QEMU = qemu-system-riscv64
 MIN_QEMU_VERSION = 7.2
 
 CC = $(TOOLPREFIX)gcc
-AS = $(TOOLPREFIX)gas
+# Try $(TOOLPREFIX)gas first, then fall back to $(TOOLPREFIX)as if not found
+AS = $(shell if which $(TOOLPREFIX)gas >/dev/null 2>&1; \
+	then echo $(TOOLPREFIX)gas; \
+	else echo $(TOOLPREFIX)as; fi)
 LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
