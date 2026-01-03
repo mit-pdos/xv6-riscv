@@ -107,3 +107,14 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// Προσθήκη στο τέλος του αρχείου
+
+uint64
+sys_getpinfo(void)
+{
+  uint64 addr;
+  
+  argaddr(0, &addr);
+  return getpinfo(addr);
+}

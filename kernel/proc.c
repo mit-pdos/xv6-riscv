@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "pstat.h"
 
 struct cpu cpus[NCPU];
 
@@ -106,6 +107,10 @@ allocpid()
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
 // If there are no free procs, or a memory allocation fails, return 0.
+
+// ΑΝΤΙΚΑΤΑΣΤΑΣΗ της συνάρτησης allocproc() (γύρω στη γραμμή 100)
+// Προσθήκη αρχικοποίησης MLFQ πεδίων στο τέλος της found: ετικέτας:
+
 static struct proc*
 allocproc(void)
 {
@@ -145,6 +150,12 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  // MLFQ initialization - ΠΡΟΣΘΗΚΗ
+  p->priority = 0;                           // Start at highest priority
+  p->time_slice = get_time_slice(0);        // Time slice for priority 0
+  p->ticks_used = 0;                         // No ticks used yet
+  p->wait_ticks = 0;                         // No waiting time yet
 
   return p;
 }
@@ -414,6 +425,45 @@ kwait(uint64 addr)
   }
 }
 
+// Προσθήκη βοηθητικών συναρτήσεων πριν τον scheduler()
+
+// Get time slice for a priority level
+int
+get_time_slice(int priority)
+{
+  switch(priority) {
+    case 0: return 4;   // Priority 0: 4 ticks
+    case 1: return 8;   // Priority 1: 8 ticks
+    case 2: return 16;  // Priority 2: 16 ticks
+    case 3: return 32;  // Priority 3: 32 ticks
+    default: return 4;
+  }
+}
+
+// Demote process to lower priority
+void
+demote_process(struct proc *p)
+{
+  if(p->priority < 3) {
+    p->priority++;
+    p->time_slice = get_time_slice(p->priority);
+    p->ticks_used = 0;
+    p->wait_ticks = 0;
+  }
+}
+
+// Promote process to higher priority (for aging)
+void
+promote_process(struct proc *p)
+{
+  if(p->priority > 0) {
+    p->priority--;
+    p->time_slice = get_time_slice(p->priority);
+    p->ticks_used = 0;
+    p->wait_ticks = 0;
+  }
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -421,43 +471,76 @@ kwait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+
+// ΑΝΤΙΚΑΤΑΣΤΑΣΗ της συνάρτησης scheduler() (γύρω στη γραμμή 445)
+// Αυτή είναι η κύρια υλοποίηση του MLFQ
+
+// ΠΛΗΡΗΣ ΑΝΤΙΚΑΤΑΣΤΑΣΗ της συνάρτησης scheduler() στο kernel/proc.c
+
 void
 scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-
+  
   c->proc = 0;
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
+    // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-    intr_off();
 
-    int found = 0;
+    // MLFQ: Find highest priority runnable process
+    struct proc *selected = 0;
+    int min_priority = 4; // Higher than max priority (3)
+    
+    // First pass: increment wait_ticks for all RUNNABLE processes
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+        p->wait_ticks++;
       }
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      asm volatile("wfi");
+
+    // Second pass: find highest priority process and check aging
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      
+      if(p->state == RUNNABLE) {
+        // Check for aging: promote if waited 10 time slices
+        if(p->wait_ticks >= 10 * get_time_slice(p->priority)) {
+          promote_process(p);
+        }
+        
+        // Select process with highest priority (lowest number)
+        // If same priority, round-robin (first found)
+        if(p->priority < min_priority) {
+          if(selected != 0) {
+            release(&selected->lock);
+          }
+          selected = p;
+          min_priority = p->priority;
+          continue; // Keep the lock held
+        }
+      }
+      
+      release(&p->lock);
+    }
+
+    // If we found a runnable process, run it
+    if(selected != 0) {
+      p = selected;
+      
+      // Reset wait ticks when scheduled
+      p->wait_ticks = 0;
+      
+      // Switch to chosen process
+      p->state = RUNNING;
+      c->proc = p;
+      swtch(&c->context, &p->context);
+
+      // Process is done running for now
+      c->proc = 0;
+      release(&p->lock);
     }
   }
 }
@@ -490,12 +573,17 @@ sched(void)
 }
 
 // Give up the CPU for one scheduling round.
+
+// Προσθήκη στη συνάρτηση yield() (μετά τη γραμμή 513)
+// Για να μην επαναρχικοποιείται το time slice
+
 void
 yield(void)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
+  // DON'T reset ticks_used here - keep counting
   sched();
   release(&p->lock);
 }
@@ -687,4 +775,72 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Νέα συνάρτηση για το getpinfo system call
+
+int
+getpinfo(uint64 addr)
+{
+  struct proc *p;
+  struct pstat ps;
+  int i;
+
+  // Initialize pstat structure
+  for(i = 0; i < NPROC; i++) {
+    ps.inuse[i] = 0;
+    ps.pid[i] = 0;
+    ps.ppid[i] = 0;
+    ps.priority[i] = 0;
+    ps.sz[i] = 0;
+    ps.ticks[i] = 0;
+    ps.wait_ticks[i] = 0;
+  }
+
+  // Fill in process information
+  i = 0;
+  for(p = proc; p < &proc[NPROC] && i < NPROC; p++, i++) {
+    acquire(&p->lock);
+    
+    if(p->state != UNUSED) {
+      ps.inuse[i] = 1;
+      ps.pid[i] = p->pid;
+      
+      // Get parent PID
+      if(p->parent) {
+        ps.ppid[i] = p->parent->pid;
+      } else {
+        ps.ppid[i] = 0;
+      }
+      
+      // Copy name
+      safestrcpy(ps.name[i], p->name, 16);
+      
+      // MLFQ info
+      ps.priority[i] = p->priority;
+      ps.sz[i] = p->sz;
+      ps.ticks[i] = p->ticks_used;
+      ps.wait_ticks[i] = p->wait_ticks;
+      
+      // State as string
+      switch(p->state) {
+        case UNUSED:   safestrcpy(ps.state[i], "UNUSED", 10); break;
+        case USED:     safestrcpy(ps.state[i], "USED", 10); break;
+        case SLEEPING: safestrcpy(ps.state[i], "SLEEPING", 10); break;
+        case RUNNABLE: safestrcpy(ps.state[i], "RUNNABLE", 10); break;
+        case RUNNING:  safestrcpy(ps.state[i], "RUNNING", 10); break;
+        case ZOMBIE:   safestrcpy(ps.state[i], "ZOMBIE", 10); break;
+        default:       safestrcpy(ps.state[i], "???", 10); break;
+      }
+    }
+    
+    release(&p->lock);
+  }
+
+  // Copy to user space
+  struct proc *curproc = myproc();
+  if(copyout(curproc->pagetable, addr, (char *)&ps, sizeof(ps)) < 0)
+    return -1;
+  
+  return 0;
 }

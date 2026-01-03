@@ -6,6 +6,21 @@
 #include "proc.h"
 #include "defs.h"
 
+// Επίσης χρειάζεται η συνάρτηση get_time_slice στο trap.c
+// Προσθήκη στην αρχή του αρχείου:
+
+int
+get_time_slice(int priority)
+{
+  switch(priority) {
+    case 0: return 4;
+    case 1: return 8;
+    case 2: return 16;
+    case 3: return 32;
+    default: return 4;
+  }
+}
+
 struct spinlock tickslock;
 uint ticks;
 
@@ -81,8 +96,31 @@ usertrap(void)
     kexit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(killed(p))
+    kexit(-1);
+
+  // give up the CPU if this is a timer interrupt.
+
+  if(which_dev == 2) {
+    // MLFQ: Handle timer tick - ΠΡΟΣΘΗΚΗ
+    p->ticks_used++;
+    
+    // Check if time slice expired
+    if(p->ticks_used >= p->time_slice) {
+      // Demote to lower priority (except at lowest level)
+      if(p->priority < 3) {
+        p->priority++;
+        p->time_slice = get_time_slice(p->priority);
+        p->ticks_used = 0;
+        p->wait_ticks = 0;
+      } else {
+        // At lowest priority, reset ticks but stay there
+        p->ticks_used = 0;
+      }
+    }
+    
     yield();
+  }
 
   prepare_return();
 

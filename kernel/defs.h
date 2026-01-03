@@ -101,6 +101,10 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+int             getpinfo(uint64);  // ΠΡΟΣΘΗΚΗ
+int             get_time_slice(int);  // ΠΡΟΣΘΗΚΗ
+void            promote_process(struct proc*);  // ΠΡΟΣΘΗΚΗ
+void            demote_process(struct proc*);  // ΠΡΟΣΘΗΚΗ
 
 // swtch.S
 void            swtch(struct context*, struct context*);

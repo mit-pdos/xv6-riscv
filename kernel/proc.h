@@ -82,6 +82,9 @@ struct trapframe {
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
+// Προσθήκη στο τέλος του struct proc (πριν το τελευταίο };)
+// Βρίσκεται γύρω στη γραμμή 104
+
 struct proc {
   struct spinlock lock;
 
@@ -104,4 +107,10 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  
+  // MLFQ Scheduling fields - ΠΡΟΣΘΗΚΗ
+  int priority;                // Current priority level (0=highest, 3=lowest)
+  int ticks_used;              // Ticks used at current priority level
+  int time_slice;              // Time slice for current priority (in ticks)
+  int wait_ticks;              // Ticks spent waiting at current priority
 };
