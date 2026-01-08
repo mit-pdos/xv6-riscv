@@ -117,25 +117,29 @@ sys_getpinfo(void)
   uint64 addr; //user space pointer
   struct pstat ps; //kernel-space struct
   struct proc *p;
-  int i = 0;
   argaddr(0,&addr);
+  memset(&ps,0,sizeof(ps));
+  int i = 0;
   for(p = proc; p < &proc[NPROC]; p++) {
-    i = p - proc; // get the idx
     acquire(&p->lock);
-
-    ps.pid[i] = p->pid;
-    ps.ppid[i] = (p->parent) ? p->parent->pid : 0;
-    ps.state[i] = p->state;
-    ps.size[i] = p->sz;
-    // to add priority after scedhuling is done.
-    memmove(ps.name[i],p->name,16); // copy the name string
-
+    // i = p - proc; // get the idx
+    if(p->state == UNUSED){
+      release(&p->lock);
+      continue;
+    }else{
+      ps.pid[i] = p->pid;
+      ps.ppid[i] = (p->parent) ? p->parent->pid : 0;
+      ps.state[i] = p->state;
+      ps.size[i] = p->sz;
+      memmove(ps.name[i],p->name,16); // copy the name string
+      i++;
+    }
     release(&p->lock);
-
+    // // to add priority after scedhuling is done.
   }
-  //then copy kernel data to user space
-    if(copyout(myproc()->pagetable,addr,(char *)&ps,sizeof(ps)) < 0) return -1; //copyout failed
-    
-    return 0;
+  ps.num_processes = i;
+  if(copyout(myproc()->pagetable,addr,(char *)&ps,sizeof(ps)) < 0) return -1;
+
+  return 0;
 
 }

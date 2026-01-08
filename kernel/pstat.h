@@ -7,6 +7,7 @@
 */
 
 struct pstat{
+  int num_processes;
   int pid[NPROC]; // process id
   int ppid[NPROC];
   int priority[NPROC];
