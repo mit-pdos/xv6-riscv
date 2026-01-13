@@ -65,14 +65,24 @@ uint64 usertrap(void) {
   if (which_dev == 2) { // timer interrupt
     acquire(&p->lock);
     p->ticks_used++;
+
     if (p->ticks_used >= time_quantum[p->priority]) {
       p->ticks_used = 0;
       if (p->priority < NQUEUE - 1)
-        p->priority++; // demote
+        p->priority++;
       release(&p->lock);
       yield();
     } else {
+      int myprio = p->priority;
       release(&p->lock);
+
+      // <-- ΕΔΩ: preempt αν υπάρχει higher-priority runnable
+      for (struct proc *q = proc; q < &proc[NPROC]; q++) {
+        acquire(&q->lock);
+        int higher = (q->state == RUNNABLE && q->priority < myprio);
+        release(&q->lock);
+        if (higher) { yield(); break; }
+      }
     }
   }
 
@@ -117,7 +127,9 @@ prepare_return(void)
 
 // interrupts and exceptions from kernel code go here via kernelvec,
 // on whatever the current kernel stack is.
-void kerneltrap() {
+void
+kerneltrap(void)
+{
   int which_dev = devintr();
   uint64 sepc = r_sepc();
   uint64 sstatus = r_sstatus();
@@ -130,28 +142,33 @@ void kerneltrap() {
   struct proc *p = myproc();
 
   if (which_dev == 2 && p != 0 && p->state == RUNNING) {
+    int need_yield = 0;
+    int myprio;
+
     acquire(&p->lock);
     p->ticks_used++;
-    if (p->ticks_used >= time_quantum[p->priority]) {
+    myprio = p->priority;
+
+    if (p->ticks_used >= time_quantum[myprio]) {
       p->ticks_used = 0;
-      if (p->priority < NQUEUE - 1)
-        p->priority++;
-      release(&p->lock);
-      yield(); // quantum expired
-    } else {
-      release(&p->lock);
+      if (myprio < NQUEUE - 1)
+        p->priority = myprio + 1;   // demote
+      need_yield = 1;               // quantum expired
+    }
+    release(&p->lock);
+
+    // Preemption: if any higher-priority runnable exists, yield.
+    if (!need_yield) {
+      for (struct proc *q = proc; q < &proc[NPROC]; q++) {
+        acquire(&q->lock);
+        int higher = (q->state == RUNNABLE && q->priority < myprio);
+        release(&q->lock);
+        if (higher) { need_yield = 1; break; }
+      }
     }
 
-    // Preemption: check for higher-priority runnable process
-    for (struct proc *q = proc; q < &proc[NPROC]; q++) {
-      acquire(&q->lock);
-      if (q->state == RUNNABLE && q->priority < p->priority) {
-        release(&q->lock);
-        yield();
-        break;
-      }
-      release(&q->lock);
-    }
+    if (need_yield)
+      yield();
   }
 
   w_sepc(sepc);
@@ -159,13 +176,28 @@ void kerneltrap() {
 }
 
 void
-clockintr()
+clockintr(void)
 {
-  if(cpuid() == 0){
+  if (cpuid() == 0) {
     acquire(&tickslock);
     ticks++;
     wakeup(&ticks);
     release(&tickslock);
+
+    // Aging / boosting: run once per tick (on CPU 0 only)
+    for (struct proc *p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if (p->state == RUNNABLE) {
+        p->wait_ticks++;
+        if (p->priority > 0 &&
+            p->wait_ticks >= 10 * time_quantum[p->priority]) {
+          p->priority--;      // boost
+          p->wait_ticks = 0;
+          p->ticks_used = 0;  // fresh quantum after boost
+        }
+      }
+      release(&p->lock);
+    }
   }
 
   // ask for the next timer interrupt. this also clears

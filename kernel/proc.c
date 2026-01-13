@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
+static int rr_next[NQUEUE] = {0,0,0,0};  // pointer για RR ανά ουρά
+
 int time_quantum[NQUEUE] = {4, 8, 16, 32};   // MIIIIINEEEEE
 
 struct cpu cpus[NCPU];
@@ -432,61 +434,45 @@ kwait(uint64 addr)
 void
 scheduler(void)
 {
-  struct proc *p;
+  // struct proc *p;
   struct cpu *c = mycpu();
 
   c->proc = 0;
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
-    intr_on();
-    intr_off();
+  intr_on();
+  intr_off();
 
-    // STARVATION PREVENTION / PRIORITY BOOST
-    for(p = proc; p < &proc[NPROC]; p++){
+  int ran = 0;
+
+  // διάλεξε την υψηλότερη προτεραιότητα που έχει runnable
+  for(int lvl = 0; lvl < NQUEUE && ran == 0; lvl++){
+    int start = rr_next[lvl];
+    for(int off = 0; off < NPROC; off++){
+      int idx = (start + off) % NPROC;
+      struct proc *p = &proc[idx];
+
       acquire(&p->lock);
-
-      if(p->state == RUNNABLE){
-        p->wait_ticks++;
-
-        if(p->wait_ticks >= 10 * time_quantum[p->priority]){
-          if(p->priority > 0){
-            p->priority--;   // boost priority
-          }
-          p->wait_ticks = 0;
-        }
-      }
-
-      release(&p->lock);
-    }
-    // End of STARVATION PREVENTION / PRIORITY BOOST
-
-    int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
+      if(p->state == RUNNABLE && p->priority == lvl){
         p->state = RUNNING;
+        p->wait_ticks = 0;          // reset waiting όταν παίρνει CPU
+        rr_next[lvl] = (idx + 1) % NPROC;
+
         c->proc = p;
         swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
         c->proc = 0;
-        found = 1;
+
+        ran = 1;
+        release(&p->lock);
+        break;
       }
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      asm volatile("wfi");
-    }
   }
+
+  if(!ran)
+    asm volatile("wfi");
+  }
+
 }
 
 // Switch to scheduler.  Must hold only p->lock
