@@ -571,6 +571,8 @@ sleep(void *chan, struct spinlock *lk)
   p->chan = chan;
   p->state = SLEEPING;
 
+  p->wait_ticks = 0;     // COMMENT OUT IF REPARENT FAILS !!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   sched();
 
   // Tidy up.
@@ -589,13 +591,14 @@ wakeup(void *chan)
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++) {
-    if(p != myproc()){
+    // if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+        p->wait_ticks = 0;    // COMMENT IF REPARENT FAILS !!!!!!!!!!!!!!!!!!!!!!!!!!!
       }
       release(&p->lock);
-    }
+    // }
   }
 }
 
