@@ -439,38 +439,38 @@ scheduler(void)
 
   c->proc = 0;
   for(;;){
-  intr_on();
-  intr_off();
+    intr_on();
+    // intr_off();
 
-  int ran = 0;
+    int ran = 0;
 
-  // διάλεξε την υψηλότερη προτεραιότητα που έχει runnable
-  for(int lvl = 0; lvl < NQUEUE && ran == 0; lvl++){
-    int start = rr_next[lvl];
-    for(int off = 0; off < NPROC; off++){
-      int idx = (start + off) % NPROC;
-      struct proc *p = &proc[idx];
+    // διάλεξε την υψηλότερη προτεραιότητα που έχει runnable
+    for(int lvl = 0; lvl < NQUEUE && ran == 0; lvl++){
+      int start = rr_next[lvl];
+      for(int off = 0; off < NPROC; off++){
+        int idx = (start + off) % NPROC;
+        struct proc *p = &proc[idx];
 
-      acquire(&p->lock);
-      if(p->state == RUNNABLE && p->priority == lvl){
-        p->state = RUNNING;
-        p->wait_ticks = 0;          // reset waiting όταν παίρνει CPU
-        rr_next[lvl] = (idx + 1) % NPROC;
+        acquire(&p->lock);
+        if(p->state == RUNNABLE && p->priority == lvl){
+          p->state = RUNNING;
+          p->wait_ticks = 0;          // reset waiting όταν παίρνει CPU
+          rr_next[lvl] = (idx + 1) % NPROC;
 
-        c->proc = p;
-        swtch(&c->context, &p->context);
-        c->proc = 0;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+          c->proc = 0;
 
-        ran = 1;
+          ran = 1;
+          release(&p->lock);
+          break;
+        }
         release(&p->lock);
-        break;
       }
-      release(&p->lock);
     }
-  }
 
-  if(!ran)
-    asm volatile("wfi");
+    if(!ran)
+      asm volatile("wfi");
   }
 
 }
