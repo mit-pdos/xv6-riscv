@@ -1,0 +1,170 @@
+
+
+
+- Results:
+
+  The MLFQ xv6 kernel was tested with both single-CPU (CPUS=1) and multi-CPU (CPUS=3)
+  configurations. In all cases, the system booted successfully and remained stable under
+  normal and heavy workloads. The implemented getpinfo system call and the ps 
+  program correctly reported process information, including priority levels. The
+  MLFQ scheduler exhibited the expected behavior. Newly created processes 
+  started at the highest priority level, CPU-intensive processes were gradually
+  demoted to lower priority queues, and interactive processes retained higher priority.
+  Starvation was avoided through priority boosting, and round-robin scheduling was applied
+  within each priority level. Finally, the kernel passed the complete usertests suite,
+  concluding with ALL TESTS PASSED, confirming the implementation.
+
+
+
+- My output:
+
+  Note about burn.c: Command burn executed after is a helper file i created for testing reasons only.
+                     It doesn't affect the implementation at all. It's located in user/burn.c and it's 
+                     just an infinite loop i use to run in the background, that's why i execute it
+                     with & ($ burn &). The intention was to test how priority and state functioned
+                     when burn was executing one or multiple times. 
+                                 
+    Output for make qemu CPUS=1:
+
+    xv6 kernel is booting
+    init: starting sh
+
+    $ ps
+    PID  PPID  PRIO  STATE  SIZE    NAME
+    1    0     0     2      16384   init
+    2    1     0     2      20480   sh
+    3    2     0     4      16384   ps
+
+    $ echo hello world
+    hello world
+
+    $ ps
+    PID  PPID  PRIO  STATE  SIZE    NAME
+    1    0     0     2      16384   init
+    2    1     0     2      20480   sh
+    5    2     0     4      16384   ps
+
+    $ ps
+    PID  PPID  PRIO  STATE  SIZE    NAME
+    1    0     0     2      16384   init
+    2    1     0     2      20480   sh
+    6    2     0     4      16384   ps
+
+    $ forktest
+    fork test
+    fork test OK
+
+    $ ps
+    PID  PPID  PRIO  STATE  SIZE    NAME             // sh has been demoted to priority 1 after CPU activity
+    1    0     0     2      16384   init
+    2    1     1     2      20480   sh
+    69   2     0     4      16384   ps
+
+    $ usertests
+    usertests starting
+    ...
+    ALL TESTS PASSED
+
+    $ ps
+    PID   PPID  PRIO  STATE  SIZE    NAME           // init has been demoted to priority 3 (CPU-heavy), sh remains at priority 1 (interactive behavior),
+    1     0     3     2      16384   init           // new ps processes start at priority 0
+    2     1     1     2      20480   sh
+    6015  2     0     4      16384   ps
+
+    $ echo hello
+    hello
+
+    $ ps
+    PID   PPID  PRIO  STATE  SIZE    NAME
+    1     0     3     2      16384   init
+    2     1     1     2      20480   sh
+    6080  2     0     4      16384   ps
+
+    $ burn &
+    $ ps
+    PID   PPID  PRIO  STATE  SIZE    NAME
+    1     0     3     3      16384   init
+    2     1     1     2      20480   sh
+    6085  2     0     4      16384   ps
+    6084  1     3     3      16384   burn
+
+    $ burn &
+    $ ps
+    PID   PPID  PRIO  STATE  SIZE    NAME
+    1     0     3     3      16384   init
+    2     1     1     2      20480   sh
+    6089  2     0     4      16384   ps
+    6084  1     3     3      16384   burn
+    6088  1     3     3      16384   burn
+
+
+  -------------------------------------------------------------
+
+
+    Output for make qemu (By default equals runs with: CPUS=3):
+
+    xv6 kernel is booting
+    hart 1 starting
+    hart 2 starting
+    init: starting sh
+
+    $ ps
+    PID  PPID  PRIO  STATE  SIZE    NAME
+    1    0     0     2      16384   init
+    2    1     0     2      20480   sh
+    3    2     0     4      16384   ps
+
+    $ echo hello
+    hello
+
+    $ ps
+    PID  PPID  PRIO  STATE  SIZE    NAME
+    1    0     1     2      16384   init
+    2    1     0     2      20480   sh
+    5    2     0     4      16384   ps
+
+    $ forktest
+    fork test
+    fork test OK
+
+    $ ps
+    PID  PPID  PRIO  STATE  SIZE    NAME
+    1    0     1     2      16384   init
+    2    1     0     2      20480   sh
+    68   2     0     4      16384   ps
+
+    $ usertests
+    usertests starting
+    ...
+    ALL TESTS PASSED
+
+    $ ps
+    PID   PPID  PRIO  STATE  SIZE    NAME
+    1     0     3     2      16384   init
+    2     1     1     2      20480   sh
+    6735  2     0     4      16384   ps
+
+    $ burn &
+    $ ps
+    PID   PPID  PRIO  STATE  SIZE    NAME
+    1     0     3     2      16384   init
+    2     1     1     2      20480   sh
+    6740  2     0     4      16384   ps
+    6739  1     3     4      16384   burn
+
+    $ burn &
+    $ burn &
+    $ ps
+    PID   PPID  PRIO  STATE  SIZE    NAME
+    1     0     3     2      16384   init
+    2     1     1     2      20480   sh
+    6748  2     0     4      16384   ps
+    6739  1     3     4      16384   burn
+    6743  1     3     4      16384   burn
+    6746  1     3     3      16384   burn
+ 
+
+
+
+
+

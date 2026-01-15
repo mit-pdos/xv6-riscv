@@ -6,9 +6,9 @@
 #include "proc.h"
 #include "defs.h"
 
-static int rr_next[NQUEUE] = {0,0,0,0};  // pointer για RR ανά ουρά
+static int rr_next[NQUEUE] = {0,0,0,0};  // Pointer for RR per queue
 
-int time_quantum[NQUEUE] = {4, 8, 16, 32};   // MIIIIINEEEEE
+int time_quantum[NQUEUE] = {4, 8, 16, 32};   // Time quantum
 
 struct cpu cpus[NCPU];
 
@@ -444,7 +444,7 @@ scheduler(void)
 
     int ran = 0;
 
-    // διάλεξε την υψηλότερη προτεραιότητα που έχει runnable
+    // Choose the higher priority that has RUNNABLE
     for(int lvl = 0; lvl < NQUEUE && ran == 0; lvl++){
       int start = rr_next[lvl];
       for(int off = 0; off < NPROC; off++){
@@ -454,7 +454,7 @@ scheduler(void)
         acquire(&p->lock);
         if(p->state == RUNNABLE && p->priority == lvl){
           p->state = RUNNING;
-          p->wait_ticks = 0;          // reset waiting όταν παίρνει CPU
+          p->wait_ticks = 0;          // reset waiting when it takes CPU
           rr_next[lvl] = (idx + 1) % NPROC;
 
           c->proc = p;
@@ -571,7 +571,7 @@ sleep(void *chan, struct spinlock *lk)
   p->chan = chan;
   p->state = SLEEPING;
 
-  p->wait_ticks = 0;     // COMMENT OUT IF REPARENT FAILS !!!!!!!!!!!!!!!!!!!!!!!!!!!
+  p->wait_ticks = 0;     
 
   sched();
 
@@ -595,7 +595,7 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
-        p->wait_ticks = 0;    // COMMENT IF REPARENT FAILS !!!!!!!!!!!!!!!!!!!!!!!!!!!
+        p->wait_ticks = 0;   
       }
       release(&p->lock);
     // }

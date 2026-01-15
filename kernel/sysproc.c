@@ -110,31 +110,42 @@ sys_uptime(void)
 }
 
 // MY FUNCTION FOR SYS_GETPINFO()
+// Copies information about all processes into a user-provided pstat structure.
 uint
 sys_getpinfo(void)
 {
-  uint64 addr;
-  struct pstat ps;
+  uint64 addr;              // User-space address where struct pstat will be copied
+  struct pstat ps;          // Kernel-local pstat structure to be filled
   struct proc *p;
 
+  // Fetch the user pointer (argument 0) from the system call arguments
   argaddr(0, &addr);
 
+  // Iterate over the entire process table
   for(int i = 0; i < NPROC; i++){
     p = &proc[i];
+
+    // Acquire the process lock to safely read its fields
     acquire(&p->lock);
 
-    ps.pid[i] = p->pid;
-    ps.ppid[i] = p->parent ? p->parent->pid : 0;
-    ps.priority[i] = p->priority;
-    ps.state[i] = p->state;
-    ps.size[i] = p->sz;
-    safestrcpy(ps.name[i], p->name, 16);
+    // Copy per-process information into the corresponding pstat arrays
+    ps.pid[i]      = p->pid;                            // Process ID
+    ps.ppid[i]     = p->parent ? p->parent->pid : 0;    // Parent PID (0 if no parent)
+    ps.priority[i] = p->priority;                       // MLFQ priority level
+    ps.state[i]    = p->state;                          // Current process state
+    ps.size[i]     = p->sz;                             // Memory size in bytes
+    safestrcpy(ps.name[i], p->name, 16);                // Process name
 
+    // Release the process lock before moving to the next entry
     release(&p->lock);
   }
 
+  // Copy the filled pstat structure from kernel space to user space
+  // Return -1 on failure
   if(copyout(myproc()->pagetable, addr, (char *)&ps, sizeof(ps)) < 0)
     return -1;
 
+  // Success
   return 0;
 }
+

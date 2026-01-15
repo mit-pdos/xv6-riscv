@@ -76,7 +76,7 @@ uint64 usertrap(void) {
       int myprio = p->priority;
       release(&p->lock);
 
-      // <-- ΕΔΩ: preempt αν υπάρχει higher-priority runnable
+      // preempt αν υπάρχει higher-priority runnable
       for (struct proc *q = proc; q < &proc[NPROC]; q++) {
         acquire(&q->lock);
         int higher = (q->state == RUNNABLE && q->priority < myprio);
