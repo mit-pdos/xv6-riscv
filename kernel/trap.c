@@ -36,9 +36,11 @@ uint64 usertrap(void) {
   int which_dev = 0;
   struct proc *p = myproc();
 
+  // Sanity check: traps must come from user mode.
   if ((r_sstatus() & SSTATUS_SPP) != 0)
     panic("usertrap: not from user mode");
 
+  // While handling this trap, direct further traps to kerneltrap().
   w_stvec((uint64)kernelvec);
 
   // save user pc
@@ -46,33 +48,51 @@ uint64 usertrap(void) {
 
   if (r_scause() == 8) { // system call
     if (killed(p)) kexit(-1);
+
+    // Advance PC past the ecall instruction.
     p->trapframe->epc += 4;
+
+    // Enable interrupts during syscall handling.
     intr_on();
     syscall();
+
   } else if ((which_dev = devintr()) != 0) {
-    // handled below
+
+    // Device interrupt (e.g., timer, UART, disk). Handled by devintr().
   } else if ((r_scause() == 15 || r_scause() == 13) &&
              vmfault(p->pagetable, r_stval(), (r_scause() == 13) ? 1 : 0) != 0) {
-    // page fault
+
+    // Page fault handled by lazy allocation.
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
     setkilled(p);
   }
 
+  // If the process was killed while handling the trap, exit now.
   if (killed(p)) kexit(-1);
 
+  // MLFQ accounting and preemption on every timer interrupt (10ms tick).
   if (which_dev == 2) { // timer interrupt
     acquire(&p->lock);
+
+    // Count CPU usage in ticks for the currently running process.
     p->ticks_used++;
 
+    // If the process consumed its entire quantum at this priority level,
+    // reset its tick counter and demote it to the next lower priority queue.
     if (p->ticks_used >= time_quantum[p->priority]) {
       p->ticks_used = 0;
       if (p->priority < NQUEUE - 1)
         p->priority++;
       release(&p->lock);
+
+      // Force a reschedule after quantum expiration.
       yield();
+
     } else {
+      // Quantum not exhausted: only preempt if a higher-priority runnable
+      // process exists (strict priority scheduling across queues).
       int myprio = p->priority;
       release(&p->lock);
 
@@ -86,6 +106,7 @@ uint64 usertrap(void) {
     }
   }
 
+   // Prepare trapframe/control registers and return to user space.
   prepare_return();
   return MAKE_SATP(p->pagetable);
 }
@@ -130,10 +151,13 @@ prepare_return(void)
 void
 kerneltrap(void)
 {
+  // Determine the cause of the trap.
   int which_dev = devintr();
   uint64 sepc = r_sepc();
   uint64 sstatus = r_sstatus();
 
+  // Sanity checks: kernel traps must come from supervisor mode
+  // and interrupts must be disabled.
   if ((sstatus & SSTATUS_SPP) == 0)
     panic("kerneltrap: not from supervisor mode");
   if (intr_get() != 0)
@@ -141,23 +165,30 @@ kerneltrap(void)
 
   struct proc *p = myproc();
 
+  // Handle timer interrupts while a process is running in the kernel.
+  // This enforces MLFQ accounting even during kernel execution.
   if (which_dev == 2 && p != 0 && p->state == RUNNING) {
     int need_yield = 0;
     int myprio;
 
     acquire(&p->lock);
+
+    // Account for CPU usage in the current priority level.
     p->ticks_used++;
     myprio = p->priority;
 
+    // If the process has exhausted its time quantum,
+    // reset its tick counter and demote it to a lower-priority queue.
     if (p->ticks_used >= time_quantum[myprio]) {
       p->ticks_used = 0;
       if (myprio < NQUEUE - 1)
-        p->priority = myprio + 1;   // demote
-      need_yield = 1;               // quantum expired
+        p->priority = myprio + 1;   // Demote to next lower priority level
+      need_yield = 1;               //  Force rescheduling
     }
     release(&p->lock);
 
-    // Preemption: if any higher-priority runnable exists, yield.
+    // If the quantum is not exhausted, still preempt the process
+    // if a higher-priority runnable process exists.
     if (!need_yield) {
       for (struct proc *q = proc; q < &proc[NPROC]; q++) {
         acquire(&q->lock);
@@ -167,10 +198,12 @@ kerneltrap(void)
       }
     }
 
+    // Yield the CPU if required by quantum expiration or preemption.
     if (need_yield)
       yield();
   }
 
+  // Restore trap return state and resume kernel execution.
   w_sepc(sepc);
   w_sstatus(sstatus);
 }
@@ -193,7 +226,6 @@ clockintr(void)
             p->wait_ticks >= 10 * time_quantum[p->priority]) {
           p->priority--;      // boost
           p->wait_ticks = 0;
-          p->ticks_used = 0;  // fresh quantum after boost
         }
       }
       release(&p->lock);
@@ -202,7 +234,8 @@ clockintr(void)
 
   // ask for the next timer interrupt (10ms = 100000)
   w_stimecmp(r_time() + 100000);
-  // w_stimecmp(r_time() + 1000000);
+
+  // w_stimecmp(r_time() + 1000000);  // Initial version
 }
 
 // check if it's an external interrupt or software interrupt,

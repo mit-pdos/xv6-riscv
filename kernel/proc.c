@@ -434,29 +434,36 @@ kwait(uint64 addr)
 void
 scheduler(void)
 {
-  // struct proc *p;
   struct cpu *c = mycpu();
 
+  // No process is running on this CPU initially.
   c->proc = 0;
   for(;;){
+
+    // Enable interrupts while searching for a runnable process.
     intr_on();
-    // intr_off();
 
     int ran = 0;
 
-    // Choose the higher priority that has RUNNABLE
+    // Iterate over priority levels from highest (0) to lowest (NQUEUE-1).
+    // Always select the highest-priority RUNNABLE process.
     for(int lvl = 0; lvl < NQUEUE && ran == 0; lvl++){
       int start = rr_next[lvl];
+
+      // Round-robin scan of the process table for this priority level.
       for(int off = 0; off < NPROC; off++){
         int idx = (start + off) % NPROC;
         struct proc *p = &proc[idx];
 
         acquire(&p->lock);
-        if(p->state == RUNNABLE && p->priority == lvl){
-          p->state = RUNNING;
-          p->wait_ticks = 0;          // reset waiting when it takes CPU
-          rr_next[lvl] = (idx + 1) % NPROC;
 
+        // Select the first RUNNABLE process at this priority level.
+        if(p->state == RUNNABLE && p->priority == lvl){
+          p->state = RUNNING;   // Switch the process to RUNNING state.
+          p->wait_ticks = 0;          // Reset waiting time since the process is now executing.
+          rr_next[lvl] = (idx + 1) % NPROC;   // Advance round-robin pointer for fairness within this queue.
+
+          // Context switch to the selected process.
           c->proc = p;
           swtch(&c->context, &p->context);
           c->proc = 0;
@@ -469,6 +476,8 @@ scheduler(void)
       }
     }
 
+    // If no RUNNABLE process exists at any priority level,
+    // put the CPU in low-power wait state until the next interrupt.
     if(!ran)
       asm volatile("wfi");
   }
@@ -569,9 +578,7 @@ sleep(void *chan, struct spinlock *lk)
 
   // Go to sleep.
   p->chan = chan;
-  p->state = SLEEPING;
-
-  p->wait_ticks = 0;     
+  p->state = SLEEPING; 
 
   sched();
 
@@ -591,14 +598,11 @@ wakeup(void *chan)
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++) {
-    // if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
-        p->state = RUNNABLE;
-        p->wait_ticks = 0;   
+        p->state = RUNNABLE; 
       }
       release(&p->lock);
-    // }
   }
 }
 

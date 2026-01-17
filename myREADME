@@ -1,28 +1,21 @@
 
 
+Λειτουργικά Συστήματα
 
-- Results:
+Εργασία 1
 
-  The MLFQ xv6 kernel was tested with both single-CPU (CPUS=1) and multi-CPU (CPUS=3)
-  configurations. In all cases, the system booted successfully and remained stable under
-  normal and heavy workloads. The implemented getpinfo system call and the ps 
-  program correctly reported process information, including priority levels. The
-  MLFQ scheduler exhibited the expected behavior. Newly created processes 
-  started at the highest priority level, CPU-intensive processes were gradually
-  demoted to lower priority queues, and interactive processes retained higher priority.
-  Starvation was avoided through priority boosting, and round-robin scheduling was applied
-  within each priority level. Finally, the kernel passed the complete usertests suite,
-  concluding with ALL TESTS PASSED, confirming the implementation.
+Αναστάσιος Αλεβιζάκης, ΑΜ : 1115202200003
+
+
+- Αποτελέσματα:
+
+  Η υλοποίηση του πυρήνα xv6 με MLFQ ελέγχθηκε τόσο σε διαμόρφωση με έναν επεξεργαστή (CPUS=1) όσο και με πολλαπλούς επεξεργαστές (make qemu, τρέχει by default με CPUS=3). Σε όλες τις περιπτώσεις, το σύστημα εκκίνησε επιτυχώς και παρέμεινε σταθερό υπό κανονικό και έντονο φόρτο εργασίας. Η υλοποιημένη κλήση συστήματος getpinfo και το πρόγραμμα ps ανέφεραν σωστά τις πληροφορίες των διεργασιών, συμπεριλαμβανομένων των επιπέδων προτεραιότητας. Ο MLFQ scheduler παρουσίασε την αναμενόμενη συμπεριφορά: οι νεοδημιουργημένες διεργασίες ξεκινούσαν στο υψηλότερο επίπεδο προτεραιότητας, οι διεργασίες με έντονη χρήση CPU υποβιβάζονταν σταδιακά σε ουρές χαμηλότερης προτεραιότητας, ενώ οι διαδραστικές διεργασίες διατηρούσαν υψηλότερη προτεραιότητα. Το φαινόμενο της λιμοκτονίας αποφεύχθηκε μέσω μηχανισμού αύξησης προτεραιότητας (priority boosting), και η χρονοδρομολόγηση round-robin εφαρμόστηκε εντός κάθε επιπέδου προτεραιότητας. Τέλος, ο πυρήνας πέρασε με επιτυχία όλες τα tests που περιέχονται στα usertests, καταλήγοντας στο μήνυμα ALL TESTS PASSED, επιβεβαιώνοντας την ορθότητα της υλοποίησης.
 
 
 
-- My output:
+- To output μου:
 
-  Note about burn.c: Command burn executed after is a helper file i created for testing reasons only.
-                     It doesn't affect the implementation at all. It's located in user/burn.c and it's 
-                     just an infinite loop i use to run in the background, that's why i execute it
-                     with & ($ burn &). The intention was to test how priority and state functioned
-                     when burn was executing one or multiple times. 
+  Σημείωση για την burn.c: Η εντολή burn που εκτελέστηκε στη συνέχεια είναι ένα βοηθητικό αρχείο που δημιούργησα αποκλειστικά για σκοπούς δοκιμής. Δεν επηρεάζει καθόλου την υλοποίηση. Βρίσκεται στο αρχείο user/burn.c και πρόκειται απλώς για έναν άπειρο βρόγχο που χρησιμοποιώ για να τρέχει στο παρασκήνιο, γι’ αυτό και το εκτελώ με & ($ burn &). Ο σκοπός του ήταν να ελεγχθεί η συμπεριφορά της προτεραιότητας και της κατάστασης των διεργασιών όταν το burn εκτελείται μία ή περισσότερες φορές. 
                                  
     Output for make qemu CPUS=1:
 
