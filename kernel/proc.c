@@ -271,6 +271,11 @@ kfork(void)
   struct proc *np;
   struct proc *p = myproc();
   // In proc.c (inside kfork function):
+  /* Enforcement: block fork if flagged */
+  if(p->fork_blocked){
+    return -1;
+   }
+  
   p->fork_count++;            // Increment the total fork count
   p->window_fork_count++;     // Increment the fork count in the current time window
 
@@ -438,15 +443,15 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-
   static int last_window_tick = 0;
 
   c->proc = 0;
+
   for(;;){
     intr_on();
     intr_off();
 
-    // ---- WINDOW-BASED POLICY (RUNS ONCE PER WINDOW) ----
+    // ---- WINDOW LOGIC (ONLY ON CPU 0) ----
     if(cpuid() == 0){
       acquire(&tickslock);
       if(ticks % TIME_WINDOW == 0 && ticks != last_window_tick){
@@ -459,26 +464,77 @@ scheduler(void)
         release(&tickslock);
       }
     }
-    // ---------------------------------------------------
+    // -------------------------------------
 
     int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
+
+    for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
+
+      // HARD KILL ENFORCEMENT
+      if(p->killed){
+        p->state = ZOMBIE;
+        release(&p->lock);
+        continue;
+      }
+
+      if(p->state == RUNNABLE){
+
+        // CPU THROTTLING
+        if(p->cpu_throttled && (ticks % 2 == 0)){
+          release(&p->lock);
+          continue;
+        }
+
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
         c->proc = 0;
         found = 1;
       }
+
       release(&p->lock);
     }
 
-    if(found == 0) {
+    if(!found){
       asm volatile("wfi");
     }
   }
 }
+
+struct proc*
+find_forkbomb_root(struct proc *p)
+{
+  while(p->parent != 0 && p->parent->pid > 1){
+    p = p->parent;
+  }
+  return p;
+}
+
+
+void
+kill_process_tree(struct proc *root)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+
+    struct proc *q = p;
+    while(q){
+      if(q == root){
+        p->killed = 1;
+        p->state = ZOMBIE;
+        break;
+      }
+      q = q->parent;
+    }
+
+    release(&p->lock);
+  }
+}
+
+
 
 
 // Switch to scheduler.  Must hold only p->lock
@@ -714,37 +770,76 @@ detect_abuse(void)
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++){
+
     if(p->state != RUNNABLE && p->state != RUNNING)
       continue;
+      
+    if(p->pid <= 2){
+       continue;
+       }
 
     int abused = 0;
 
-    // ---- CPU HOG DETECTION ----
-    if(p->window_cpu_ticks > CPU_HOG_THRESHOLD){
-      p->abuse_score++;
-      p->abuse_type = ABUSE_CPU_HOG;
-      abused = 1;
-
-      printf("PID %d CPU_HOG detected | window_cpu=%d | score=%d\n",
-             p->pid, p->window_cpu_ticks, p->abuse_score);
-    }
-
-    // ---- FORK BOMB DETECTION ----
     if(p->window_fork_count > FORK_THRESHOLD){
-      p->abuse_score++;
       p->abuse_type = ABUSE_FORK_BOMB;
       abused = 1;
-
-      printf("PID %d FORK_BOMB detected | window_fork=%d | score=%d\n",
-             p->pid, p->window_fork_count, p->abuse_score);
+    }
+    else if(p->window_cpu_ticks > CPU_HOG_THRESHOLD){
+      p->abuse_type = ABUSE_CPU_HOG;
+      abused = 1;
     }
 
-    // (optional) If no abuse, do nothing — no decay here
-    if(!abused){
-      p->abuse_type = ABUSE_NONE;
+    if(!abused)
+      continue;
+
+    p->abuse_score++;
+
+    /* ---------- STAGE 2 ---------- */
+    if(p->abuse_score == 2){
+      if(p->abuse_type == ABUSE_CPU_HOG)
+        p->cpu_throttled = 1;
+
+      if(p->abuse_type == ABUSE_FORK_BOMB)
+        p->fork_blocked = 1;
     }
+
+    /* ---------- STAGE 3 ---------- */
+    if(p->abuse_score >= 3){
+
+      /* CPU hog: single kill */
+      if(p->abuse_type == ABUSE_CPU_HOG){
+        p->killed = 1;
+        printf("PID %d CPU HOG KILLED (score=%d)\n",
+               p->pid, p->abuse_score);
+      }
+
+      /* Fork bomb: kill ONCE, kill FULL TREE */
+      else if(p->abuse_type == ABUSE_FORK_BOMB){
+
+        struct proc *root = find_forkbomb_root(p);
+
+        if(root->tree_killed == 0){
+          root->tree_killed = 1;
+
+          printf("PID %d FORK BOMB TREE KILLED (root=%d)\n",
+                 p->pid, root->pid);
+
+          kill_process_tree(root);
+        }
+      }
+
+      continue;
+    }
+
+    printf("PID %d ABUSE type=%d score=%d throttled=%d fork_blocked=%d\n",
+           p->pid,
+           p->abuse_type,
+           p->abuse_score,
+           p->cpu_throttled,
+           p->fork_blocked);
   }
 }
+
 
 void
 reset_window_counters(void)
@@ -758,6 +853,8 @@ reset_window_counters(void)
     }
   }
 }
+
+
 
 
 

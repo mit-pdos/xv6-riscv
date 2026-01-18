@@ -5,6 +5,12 @@
 int
 main(void)
 {
+  int start = uptime();
+
+  // wait ~20 ticks so shell detaches
+  while(uptime() - start < 20)
+    ;
+
   while(1){
     fork();
   }

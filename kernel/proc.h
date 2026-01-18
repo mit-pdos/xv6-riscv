@@ -99,7 +99,11 @@ struct proc {
   int abuse_score;		// increases if abuse repeats across windows
   int abused_in_window;  
   int clean_windows;   // consecutive non-abusive windows
- 
+  int cpu_throttled;    // 1 = reduced CPU priority
+  int fork_blocked;     // 1 = cannot fork
+  int tree_killed;   // fork bomb already handled
+
+
 
   // p->lock must be held when using these:
   enum procstate state;        // Process state
