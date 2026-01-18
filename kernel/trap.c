@@ -9,6 +9,8 @@
 struct spinlock tickslock;
 uint ticks;
 
+int last_window_tick = 0;
+
 extern char trampoline[], uservec[];
 
 // in kernelvec.S, calls kerneltrap().
@@ -132,34 +134,45 @@ prepare_return(void)
 
 // interrupts and exceptions from kernel code go here via kernelvec,
 // on whatever the current kernel stack is.
-void 
-kerneltrap()
+void kerneltrap()
 {
   int which_dev = 0;
   uint64 sepc = r_sepc();
   uint64 sstatus = r_sstatus();
   uint64 scause = r_scause();
   
+  // Ensure we're in supervisor mode
   if((sstatus & SSTATUS_SPP) == 0)
     panic("kerneltrap: not from supervisor mode");
+
+  // Ensure interrupts are disabled
   if(intr_get() != 0)
     panic("kerneltrap: interrupts enabled");
 
+  // Handle device interrupts
   if((which_dev = devintr()) == 0){
-    // interrupt or trap from an unknown source
+    // Interrupt or trap from an unknown source
     printf("scause=0x%lx sepc=0x%lx stval=0x%lx\n", scause, r_sepc(), r_stval());
     panic("kerneltrap");
   }
 
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0)
+  // If this is a timer interrupt (which device is 2)
+  if(which_dev == 2 && myproc() != 0) {
+    // Yield the CPU for the current process if it's a timer interrupt
     yield();
+  }
 
-  // the yield() may have caused some traps to occur,
-  // so restore trap registers for use by kernelvec.S's sepc instruction.
+  // Reset the window counters every TIME_WINDOW (e.g., every 100 ticks)
+  if (ticks % TIME_WINDOW == 0) {
+    detect_abuse();
+    reset_window_counters();
+  }
+
+  // Restore the trap registers (in case yield() caused traps)
   w_sepc(sepc);
   w_sstatus(sstatus);
 }
+
 
 void
 clockintr()
@@ -167,15 +180,24 @@ clockintr()
   if(cpuid() == 0){
     acquire(&tickslock);
     ticks++;
+
+    if(myproc() && myproc()->state == RUNNING){
+      myproc()->cpu_ticks++;
+      myproc()->window_cpu_ticks++;
+
+      printf("CLOCK: pid=%d window_cpu=%d\n",
+             myproc()->pid,
+             myproc()->window_cpu_ticks);
+    }
+
     wakeup(&ticks);
     release(&tickslock);
   }
 
-  // ask for the next timer interrupt. this also clears
-  // the interrupt request. 1000000 is about a tenth
-  // of a second.
   w_stimecmp(r_time() + 1000000);
 }
+
+
 
 // check if it's an external interrupt or software interrupt,
 // and handle it.

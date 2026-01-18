@@ -145,6 +145,14 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+  
+  // In proc.c, inside allocproc function
+p->cpu_ticks = 0;
+p->window_cpu_ticks = 0;
+p->fork_count = 0;
+p->window_fork_count = 0;
+p->abuse_type = 0;  // No abuse initially
+p->abuse_score = 0;
 
   return p;
 }
@@ -262,6 +270,10 @@ kfork(void)
   int i, pid;
   struct proc *np;
   struct proc *p = myproc();
+  // In proc.c (inside kfork function):
+  p->fork_count++;            // Increment the total fork count
+  p->window_fork_count++;     // Increment the fork count in the current time window
+
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -301,7 +313,7 @@ kfork(void)
   acquire(&np->lock);
   np->state = RUNNABLE;
   release(&np->lock);
-
+  
   return pid;
 }
 
@@ -427,40 +439,47 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
 
+  static int last_window_tick = 0;
+
   c->proc = 0;
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
     intr_off();
+
+    // ---- WINDOW-BASED POLICY (RUNS ONCE PER WINDOW) ----
+    if(cpuid() == 0){
+      acquire(&tickslock);
+      if(ticks % TIME_WINDOW == 0 && ticks != last_window_tick){
+        last_window_tick = ticks;
+        release(&tickslock);
+
+        detect_abuse();
+        reset_window_counters();
+      } else {
+        release(&tickslock);
+      }
+    }
+    // ---------------------------------------------------
 
     int found = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
         c->proc = 0;
         found = 1;
       }
       release(&p->lock);
     }
+
     if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
     }
   }
 }
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -688,3 +707,58 @@ procdump(void)
     printf("\n");
   }
 }
+
+void
+detect_abuse(void)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state != RUNNABLE && p->state != RUNNING)
+      continue;
+
+    int abused = 0;
+
+    // ---- CPU HOG DETECTION ----
+    if(p->window_cpu_ticks > CPU_HOG_THRESHOLD){
+      p->abuse_score++;
+      p->abuse_type = ABUSE_CPU_HOG;
+      abused = 1;
+
+      printf("PID %d CPU_HOG detected | window_cpu=%d | score=%d\n",
+             p->pid, p->window_cpu_ticks, p->abuse_score);
+    }
+
+    // ---- FORK BOMB DETECTION ----
+    if(p->window_fork_count > FORK_THRESHOLD){
+      p->abuse_score++;
+      p->abuse_type = ABUSE_FORK_BOMB;
+      abused = 1;
+
+      printf("PID %d FORK_BOMB detected | window_fork=%d | score=%d\n",
+             p->pid, p->window_fork_count, p->abuse_score);
+    }
+
+    // (optional) If no abuse, do nothing — no decay here
+    if(!abused){
+      p->abuse_type = ABUSE_NONE;
+    }
+  }
+}
+
+void
+reset_window_counters(void)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state == RUNNABLE || p->state == RUNNING){
+      p->window_cpu_ticks = 0;
+      p->window_fork_count = 0;
+    }
+  }
+}
+
+
+
+

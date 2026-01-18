@@ -1,3 +1,15 @@
+// ===== Resource abuse detection thresholds =====
+#define TIME_WINDOW       10     // timer ticks per window
+#define CPU_HOG_THRESHOLD 5      // ticks in a window
+#define FORK_THRESHOLD    5      // forks in a window
+
+#define ABUSE_NONE        0
+#define ABUSE_CPU_HOG     1
+#define ABUSE_FORK_BOMB   2
+
+void reset_window_counters(void);
+void detect_abuse(void);
+
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -84,6 +96,10 @@ enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 // Per-process state
 struct proc {
   struct spinlock lock;
+  int abuse_score;		// increases if abuse repeats across windows
+  int abused_in_window;  
+  int clean_windows;   // consecutive non-abusive windows
+ 
 
   // p->lock must be held when using these:
   enum procstate state;        // Process state
@@ -94,6 +110,12 @@ struct proc {
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
+
+  int cpu_ticks;            // Total CPU time consumed by the process (in ticks)
+  int window_cpu_ticks;     // CPU time consumed in the current time window (in ticks)
+  int fork_count;           // Number of forks attempted by the process
+  int window_fork_count;    // Number of forks in the current time window
+  int abuse_type;           // 0: No abuse, 1: CPU_HOG, 2: FORK_BOMB
 
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack
