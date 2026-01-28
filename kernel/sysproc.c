@@ -107,3 +107,26 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// Get process information for all processes
+uint64
+sys_getprocs(void)
+{
+  uint64 addr;
+  int max;
+
+  argaddr(0, &addr);
+  argint(1, &max);
+  return getprocs(addr, max);
+}
+
+// Set trace mask for current process
+uint64
+sys_trace(void)
+{
+  int mask;
+
+  argint(0, &mask);
+  myproc()->tracemask = mask;
+  return 0;
+}
