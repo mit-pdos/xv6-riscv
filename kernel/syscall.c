@@ -70,7 +70,7 @@ argaddr(int n, uint64 *ip)
 
 // Fetch the nth word-sized system call argument as a null-terminated string.
 // Copies into buf, at most max.
-// Returns string length if OK (including nul), -1 if error.
+// Returns string length if OK (not including nul), -1 if error.
 int
 argstr(int n, char *buf, int max)
 {
