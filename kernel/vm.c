@@ -201,8 +201,11 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
     if((pte = walk(pagetable, a, 0)) == 0) // leaf page table entry allocated?
       continue;   
-    if((*pte & PTE_V) == 0)  // has physical page been allocated?
+    if((*pte & PTE_V) == 0){  // has physical page been allocated?
+      if(*pte & PTE_SWAP)
+        *pte = 0;
       continue;
+    }
     if(do_free){
       uint64 pa = PTE2PA(*pte);
       kfree((void*)pa);
@@ -300,12 +303,27 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   uint64 pa, i;
   uint flags;
   char *mem;
+  struct proc *parent = myproc();
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       continue;   // page table entry hasn't been allocated
-    if((*pte & PTE_V) == 0)
-      continue;   // physical page hasn't been allocated
+    if((*pte & PTE_V) == 0){
+      if((*pte & PTE_SWAP) == 0)
+        continue;
+      if((mem = kalloc()) == 0)
+        goto err;
+      uint64 perm = 0;
+      if(swap_copy_page(parent, i, mem, &perm) < 0){
+        kfree(mem);
+        goto err;
+      }
+      if(mappages(new, i, PGSIZE, (uint64)mem, perm) != 0){
+        kfree(mem);
+        goto err;
+      }
+      continue;
+    }
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
@@ -344,6 +362,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
   pte_t *pte;
+  struct proc *p = myproc();
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
@@ -352,6 +371,15 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
   
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0) {
+      pte = walk(pagetable, va0, 0);
+      if(pte && (*pte & PTE_SWAP)){
+        acquire(&p->lock);
+        if(swap_handle_fault(p, va0) == 0){
+          release(&p->lock);
+          continue;
+        }
+        release(&p->lock);
+      }
       if((pa0 = vmfault(pagetable, va0, 0)) == 0) {
         return -1;
       }
@@ -381,11 +409,22 @@ int
 copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 {
   uint64 n, va0, pa0;
+  pte_t *pte;
+  struct proc *p = myproc();
 
   while(len > 0){
     va0 = PGROUNDDOWN(srcva);
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0) {
+      pte = walk(pagetable, va0, 0);
+      if(pte && (*pte & PTE_SWAP)){
+        acquire(&p->lock);
+        if(swap_handle_fault(p, va0) == 0){
+          release(&p->lock);
+          continue;
+        }
+        release(&p->lock);
+      }
       if((pa0 = vmfault(pagetable, va0, 0)) == 0) {
         return -1;
       }
@@ -411,28 +450,42 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 {
   uint64 n, va0, pa0;
   int got_null = 0;
+  pte_t *pte;
+  struct proc *p = myproc();
 
   while(got_null == 0 && max > 0){
     va0 = PGROUNDDOWN(srcva);
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
-      return -1;
+    {
+      pte = walk(pagetable, va0, 0);
+      if(pte && (*pte & PTE_SWAP)){
+        acquire(&p->lock);
+        if(swap_handle_fault(p, va0) == 0){
+          release(&p->lock);
+          continue;
+        }
+        release(&p->lock);
+      }
+      if((pa0 = vmfault(pagetable, va0, 0)) == 0)
+        return -1;
+    }
     n = PGSIZE - (srcva - va0);
     if(n > max)
       n = max;
 
-    char *p = (char *) (pa0 + (srcva - va0));
+    char *cp = (char *) (pa0 + (srcva - va0));
     while(n > 0){
-      if(*p == '\0'){
+      if(*cp == '\0'){
         *dst = '\0';
         got_null = 1;
         break;
       } else {
-        *dst = *p;
+        *dst = *cp;
       }
       --n;
       --max;
-      p++;
+      cp++;
       dst++;
     }
 
@@ -455,9 +508,21 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
   uint64 mem;
   struct proc *p = myproc();
 
+  uint64 page = PGROUNDDOWN(va);
+  pte_t *pte = walk(pagetable, page, 0);
+  if(pte && (*pte & PTE_SWAP)){
+    acquire(&p->lock);
+    if(swap_handle_fault(p, page) == 0){
+      release(&p->lock);
+      uint64 pa = walkaddr(pagetable, page);
+      return pa;
+    }
+    release(&p->lock);
+  }
+
   if (va >= p->sz)
     return 0;
-  va = PGROUNDDOWN(va);
+  va = page;
   if(ismapped(pagetable, va)) {
     return 0;
   }

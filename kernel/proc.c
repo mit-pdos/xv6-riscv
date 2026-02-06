@@ -17,6 +17,7 @@ struct spinlock pid_lock;
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
+static void kernel_process_entry(void) __attribute__((noreturn));
 
 extern char trampoline[]; // trampoline.S
 
@@ -125,6 +126,14 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
+  for(int i = 0; i < MAX_SWAP_PAGES; i++){
+    p->swap_entries[i].used = 0;
+    p->swap_entries[i].slot = -1;
+    p->swap_entries[i].va = 0;
+    p->swap_entries[i].perm = 0;
+  }
+  p->swap_wait_chan = 0;
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -145,6 +154,8 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+  p->is_kernel = 0;
+  p->kernel_entry = 0;
 
   return p;
 }
@@ -163,12 +174,65 @@ freeproc(struct proc *p)
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
+  swap_remove_proc(p);
   p->parent = 0;
   p->name[0] = 0;
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->is_kernel = 0;
+  p->kernel_entry = 0;
+}
+
+static void
+kernel_process_entry(void)
+{
+  struct proc *p = myproc();
+  void (*entry)(void) = p->kernel_entry;
+
+  release(&p->lock);
+
+  if(entry)
+    entry();
+
+  kexit(0);
+  __builtin_unreachable();
+}
+
+void
+create_kernel_process(const char *name, void (*entrypoint)(void))
+{
+  if(entrypoint == 0)
+    panic("kernel proc entrypoint");
+
+  struct proc *p = allocproc();
+  if(p == 0)
+    panic("kernel proc alloc");
+
+  if(p->trapframe){
+    kfree((void*)p->trapframe);
+    p->trapframe = 0;
+  }
+  if(p->pagetable){
+    proc_freepagetable(p->pagetable, p->sz);
+    p->pagetable = 0;
+  }
+  p->sz = 0;
+
+  p->is_kernel = 1;
+  p->kernel_entry = entrypoint;
+  p->parent = 0;
+
+  safestrcpy(p->name, name ? name : "kproc", sizeof(p->name));
+
+  memset(&p->context, 0, sizeof(p->context));
+  p->context.ra = (uint64)kernel_process_entry;
+  p->context.sp = p->kstack + PGSIZE;
+
+  p->state = RUNNABLE;
+
+  release(&p->lock);
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -240,6 +304,7 @@ growproc(int n)
   struct proc *p = myproc();
 
   sz = p->sz;
+  uint64 oldsz = sz;
   if(n > 0){
     if(sz + n > TRAPFRAME) {
       return -1;
@@ -248,7 +313,12 @@ growproc(int n)
       return -1;
     }
   } else if(n < 0){
-    sz = uvmdealloc(p->pagetable, sz, sz + n);
+    long newsz = (long)sz + n;
+    if(newsz < 0)
+      newsz = 0;
+    if((uint64)newsz < sz)
+      swap_remove_range(p, PGROUNDUP((uint64)newsz), PGROUNDUP(oldsz));
+    sz = uvmdealloc(p->pagetable, sz, (uint64)newsz);
   }
   p->sz = sz;
   return 0;

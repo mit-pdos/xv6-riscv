@@ -70,13 +70,16 @@ kalloc(void)
 {
   struct run *r;
 
-  acquire(&kmem.lock);
-  r = kmem.freelist;
-  if(r)
-    kmem.freelist = r->next;
-  release(&kmem.lock);
-
-  if(r)
-    memset((char*)r, 5, PGSIZE); // fill with junk
-  return (void*)r;
+  for(;;){
+    acquire(&kmem.lock);
+    r = kmem.freelist;
+    if(r){
+      kmem.freelist = r->next;
+      release(&kmem.lock);
+      memset((char*)r, 5, PGSIZE);
+      return (void*)r;
+    }
+    release(&kmem.lock);
+    swap_request_memory();
+  }
 }

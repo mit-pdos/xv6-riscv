@@ -13,6 +13,7 @@ OBJS = \
   $K/main.o \
   $K/vm.o \
   $K/proc.o \
+  $K/swap.o \
   $K/swtch.o \
   $K/trampoline.o \
   $K/trap.o \
@@ -145,6 +146,7 @@ UPROGS=\
 	$U/_logstress\
 	$U/_forphan\
 	$U/_dorphan\
+	$U/_swapstress\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
