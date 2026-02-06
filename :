@@ -1,0 +1,24 @@
+swap done
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch riscv
+# Your branch is ahead of 'origin/riscv' by 1 commit.
+#   (use "git push" to publish your local commits)
+#
+# Changes to be committed:
+#	modified:   Makefile
+#	new file:   helper.md
+#	modified:   kernel/defs.h
+#	modified:   kernel/exec.c
+#	modified:   kernel/kalloc.c
+#	modified:   kernel/main.c
+#	modified:   kernel/proc.c
+#	modified:   kernel/proc.h
+#	modified:   kernel/riscv.h
+#	new file:   kernel/swap.c
+#	modified:   kernel/trap.c
+#	modified:   kernel/vm.c
+#	new file:   user/swapstress.c
+#
