@@ -101,6 +101,7 @@ int             killed(struct proc*);
 void            setkilled(struct proc*);
 struct cpu*     mycpu(void);
 struct proc*    myproc();
+void            create_kernel_process(const char*, void (*)(void));
 void            procinit(void);
 void            scheduler(void) __attribute__((noreturn));
 void            sched(void);
@@ -112,6 +113,12 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+void            swap_init(void);
+void            swap_request_memory(void);
+int             swap_handle_fault(struct proc*, uint64);
+void            swap_remove_proc(struct proc*);
+int             swap_copy_page(struct proc*, uint64, char*, uint64*);
+void            swap_remove_range(struct proc*, uint64, uint64);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

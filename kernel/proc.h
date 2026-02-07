@@ -87,6 +87,15 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+#define MAX_SWAP_PAGES 256
+
+struct swap_entry {
+  uint64 va;
+  int slot;
+  uint64 perm;
+  int used;
+};
+
 // Per-process state
 struct proc {
   struct spinlock lock;
