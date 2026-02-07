@@ -29,6 +29,7 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
+  $K/rbt.o \
   $K/virtio_disk.o
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
@@ -146,7 +147,14 @@ UPROGS=\
 	$U/_logstress\
 	$U/_forphan\
 	$U/_dorphan\
-	$U/_swapstress\
+	$U/_setnice_test\
+	$U/_nice_demo\
+	$U/_ps\
+	$U/_program1\
+	$U/_program2\
+	$U/_cowtest\
+
+
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

@@ -1,5 +1,7 @@
 #ifndef __ASSEMBLER__
 
+#define PTE_COW (1L << 8)
+
 // which hart (core) is this?
 static inline uint64
 r_mhartid()

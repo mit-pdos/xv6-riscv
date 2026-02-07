@@ -68,26 +68,18 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if(r_scause() == 15 || r_scause() == 13){
-    int handled = 0;
-    uint64 fault_va = r_stval();
-
-    acquire(&p->lock);
-    if(swap_handle_fault(p, fault_va) == 0)
-      handled = 1;
-    release(&p->lock);
-
-    if(!handled &&
-       vmfault(p->pagetable, fault_va, (r_scause() == 13)? 1 : 0) != 0){
-      handled = 1;
-    }
-
-    if(!handled){
-      printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
-      printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
-      setkilled(p);
-    }
-  } else {
+  } else if(r_scause() == 15) {
+      // handle COW write fault
+      if(cowfault(r_stval()) < 0) {
+          setkilled(p);   // kill the process if fault handling fails
+      }
+  }
+  else if((r_scause() == 15 || r_scause() == 13) &&
+            vmfault(p->pagetable, r_stval(),
+                    (r_scause() == 13)) != 0){
+    // page fault on lazily-allocated page
+  }
+  else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
     setkilled(p);
@@ -97,8 +89,19 @@ usertrap(void)
     kexit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
+  if(which_dev == 2){
+    struct proc *p = myproc();
+    if(p){
+      p->runtime++;
+
+      p->vruntime += NICE_0_LOAD / p->weight;
+
+      if(p->runtime >= p->timeslice){
+        p->runtime = 0;
+        yield();
+      }
+    }
+  }
 
   prepare_return();
 

@@ -1,4 +1,10 @@
+#ifndef PROC_H
+#define PROC_H
 // Saved registers for kernel context switches.
+#include "spinlock.h"
+#include "types.h"
+#include "vm.h"
+
 struct context {
   uint64 ra;
   uint64 sp;
@@ -113,8 +119,16 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  int is_kernel;               // Kernel-only process (no user space)
-  void (*kernel_entry)(void);  // Entry function for kernel process
-  struct swap_entry swap_entries[MAX_SWAP_PAGES];
-  char swap_wait_chan;
+  
+  uint64 vruntime;
+  int nice;
+  int weight;
+  struct proc *rq_prev;
+  struct proc *rq_next;
+  uint timeslice;
+  uint runtime;
 };
+
+int setnice(int pid, int nice);
+
+#endif  // PROC_H

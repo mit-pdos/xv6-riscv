@@ -3,8 +3,80 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "spinlock.h"
-#include "proc.h"
+#include "uproc.h"
 #include "defs.h"
+#include <math.h>
+#include "rbt.h"
+
+extern struct proc proc[NPROC];
+struct rbt runqueue;
+// shift -20..19 -> 0..39
+static const int nice_to_weight[40] = {
+    88761, 71755, 56483, 46273, 36291,
+    29154, 23254, 18705, 14949, 11916,
+    9548, 7620, 6100, 4904, 3906,
+    3121, 2501, 1991, 1586, 1277,
+    1024, 820, 655, 526, 423,
+    335, 272, 215, 172, 137,
+    110, 87, 70, 56, 45,
+    36, 29, 23, 18, 15
+};
+
+
+
+int
+getprocs(struct uproc *up, int max)
+{
+  struct proc *p;
+  int n = 0;
+
+  for(p = proc; p < &proc[NPROC] && n < max; p++){
+    acquire(&p->lock);
+    if(p->state != UNUSED){
+      up[n].pid   = p->pid;
+      up[n].nice  = p->nice;
+      up[n].state = p->state;
+      safestrcpy(up[n].name, p->name, sizeof(up[n].name));
+      up[n].vruntime = p->vruntime;
+      n++;
+    }
+    release(&p->lock);
+  }
+  return n;
+}
+
+int
+setnice(int pid, int nice)
+{
+    if(nice < -20 || nice > 19)
+        return -1; // invalid nice
+
+    struct proc *p;
+
+    // find process by pid
+    for(p = proc; p < &proc[NPROC]; p++){
+        acquire(&p->lock);
+        if(p->pid == pid){
+            p->nice = nice;
+
+            // update weight: wp = 1024 * 1.25^n
+            int idx = nice + 20; // shift -20..19 -> 0..39
+            p->weight = nice_to_weight[idx];
+
+            // if using RBT runqueue, update position
+            if(p->state == RUNNABLE){
+                rbt_remove(&runqueue, p);
+                rbt_insert(&runqueue, p);
+            }
+
+            release(&p->lock);
+            return 0;
+        }
+        release(&p->lock);
+    }
+
+    return -1; // pid not found
+}
 
 struct cpu cpus[NCPU];
 
@@ -48,6 +120,8 @@ proc_mapstacks(pagetable_t kpgtbl)
 void
 procinit(void)
 {
+  rbt_init(&runqueue);
+
   struct proc *p;
   
   initlock(&pid_lock, "nextpid");
@@ -156,6 +230,13 @@ found:
   p->context.sp = p->kstack + PGSIZE;
   p->is_kernel = 0;
   p->kernel_entry = 0;
+
+  p->vruntime = 0;
+  p->nice = 0;            
+  p->weight = 1024;       
+  p->rq_prev = 0;
+  p->rq_next = 0;
+
 
   return p;
 }
@@ -499,38 +580,63 @@ scheduler(void)
 
   c->proc = 0;
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
     intr_off();
 
-    int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+    struct proc *chosen = 0;
+    uint total_weight = 0;
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+    // 1. Compute total_weight of runnable processes
+    for(p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
+        total_weight += p->weight;
       }
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
+
+    // 2. Pick process with minimum vruntime
+    for(p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
+        if(chosen == 0 || p->vruntime < chosen->vruntime){
+          if(chosen)
+            release(&chosen->lock);
+          chosen = p;
+        } else {
+          release(&p->lock);
+        }
+      } else {
+        release(&p->lock);
+      }
+    }
+
+    if(chosen){
+      // 3. Compute TIMESLICE (this is the TA formula)
+      uint ideal =
+        TARGET_LATENCY * chosen->weight / total_weight;
+
+      if(ideal < MIN_GRANULARITY)
+        ideal = MIN_GRANULARITY;
+
+      chosen->timeslice = ideal;
+      chosen->runtime = 0;
+
+      // 4. Run process
+      chosen->state = RUNNING;
+      c->proc = chosen;
+
+      swtch(&c->context, &chosen->context);
+
+      c->proc = 0;
+      release(&chosen->lock);
+    } else {
       asm volatile("wfi");
     }
   }
 }
+
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores

@@ -1,3 +1,14 @@
+#include "spinlock.h"
+#include "types.h"
+#include "vm.h"
+
+
+// physical memory reference counting
+void incref(uint64 pa);
+void decref(uint64 pa);
+
+
+
 struct buf;
 struct context;
 struct file;
@@ -176,6 +187,7 @@ int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
 int             ismapped(pagetable_t, uint64);
 uint64          vmfault(pagetable_t, uint64, int);
+int             cowfault(uint64);
 
 // plic.c
 void            plicinit(void);
@@ -188,5 +200,8 @@ void            virtio_disk_init(void);
 void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
 
+
+
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+ 

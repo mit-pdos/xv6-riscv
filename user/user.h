@@ -1,4 +1,10 @@
 #define SBRK_ERROR ((char *)-1)
+#include "../kernel/types.h"
+
+
+struct uproc;
+
+int getprocs(struct uproc *, int);
 
 struct stat;
 
@@ -24,6 +30,9 @@ int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
+int setnice(int pid, int nice);
+uint64 physaddr(void *);
+
 
 // ulib.c
 int stat(const char*, struct stat*);
