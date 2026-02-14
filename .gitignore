@@ -16,3 +16,8 @@ kernel/kernel
 user/usys.S
 .gdbinit
 TAGS
+
+# 4 my sandbox
+.cache
+.clangd
+compile_commands.json
