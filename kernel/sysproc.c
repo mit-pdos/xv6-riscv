@@ -119,3 +119,12 @@ sys_setsched(void)
   sched_mode = mode;
   return 0;
 }
+uint64
+sys_setburst(void)
+{
+  int b;
+  argint(0, &b);
+  if(b <= 0) return -1;  // Positive only
+  myproc()->burst = b;
+  return 0;
+}

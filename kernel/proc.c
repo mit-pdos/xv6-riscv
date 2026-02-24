@@ -125,7 +125,9 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->ctime = ticks;  // Set arrival time using global ticks
+  p->burst = 0;
   p->state = USED;
+
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -469,6 +471,29 @@ scheduler(void)
       asm volatile("wfi");
     }
   }
+  struct proc *selected = 0;
+uint64 min_value = -1ULL;
+
+// First pass: Find the best candidate without locking
+for(p = proc; p < &proc[NPROC]; p++) {
+  if(p->state == RUNNABLE) {
+    if(sched_mode == 1) {  // FCFS: Min ctime
+      if(selected == 0 || p->ctime < min_value) {
+        min_value = p->ctime;
+        selected = p;
+      }
+    } else if(sched_mode == 2) {  // SJN: Min burst, tie by ctime
+      if(p->burst <= 0) continue;  // Skip unset
+      int current_min = (selected ? selected->burst : -1);
+      if(selected == 0 || p->burst < current_min || (p->burst == current_min && p->ctime < selected->ctime)) {
+        min_value = p->burst;
+        selected = p;
+      }
+    } else {  // Default RR: First runnable
+      if(selected == 0) selected = p;
+    }
+  }
+}
 }
 
 // Switch to scheduler.  Must hold only p->lock

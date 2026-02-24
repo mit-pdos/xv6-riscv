@@ -43,3 +43,4 @@ entry("sbrk");  # Add this!
 entry("pause");
 entry("uptime");
 entry("setsched");
+entry("setburst");
