@@ -7,6 +7,8 @@
 #include "proc.h"
 #include "vm.h"
 
+extern int sched_mode;
+
 uint64
 sys_exit(void)
 {
@@ -106,4 +108,14 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_setsched(void)
+{
+  int mode;
+  argint(0, &mode);
+  if(mode < 0 || mode > 2) return -1;  // Validate
+  sched_mode = mode;
+  return 0;
 }
