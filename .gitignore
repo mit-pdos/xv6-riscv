@@ -19,3 +19,5 @@ TAGS
 .cache/
 .clangd
 compile_commands.json
+.bear/
+compile_commands.tmp
