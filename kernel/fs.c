@@ -388,8 +388,7 @@ ireclaim(int dev)
     if (ip) {
       begin_op();
       ilock(ip);
-      iunlock(ip);
-      iput(ip);
+      iunlockput(ip);
       end_op();
     }
   }
