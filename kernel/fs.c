@@ -24,7 +24,7 @@
 #define min(a, b) ((a) < (b) ? (a) : (b))
 // there should be one superblock per disk device, but we run with
 // only one device
-struct superblock sb; 
+struct superblock sb;
 
 // Read the super block.
 static void
@@ -154,6 +154,9 @@ bfree(int dev, uint b)
 //   iunlock(ip)
 //   iput(ip)
 //
+// In the sequence above, the functions iunlock() and iput()
+// can also be replaced with the equivalent iunlockput().
+//
 // ilock() is separate from iget() so that system calls can
 // get a long-term reference to an inode (as for an open file)
 // and only lock it for short periods (e.g., in read()).
@@ -183,7 +186,7 @@ void
 iinit()
 {
   int i = 0;
-  
+
   initlock(&itable.lock, "itable");
   for(i = 0; i < NINODE; i++) {
     initsleeplock(&itable.inode[i].lock, "inode");
