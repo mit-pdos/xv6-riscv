@@ -1,3 +1,6 @@
+#pragma once
+#include "kernel/riscv.h"
+#include "kernel/types.h"
 struct buf;
 struct context;
 struct file;
