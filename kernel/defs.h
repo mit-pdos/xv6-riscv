@@ -102,6 +102,14 @@ int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 
+// mlfq.c
+void            mlfq_init(void);
+void            mlfq_enqueue(struct proc *p, int priority);
+struct proc*    mlfq_dequeue(int priority);
+int             mlfq_queue_empty(int priority);
+int             mlfq_queue_size(int priority);
+void            mlfq_remove(struct proc *p);
+
 // swtch.S
 void            swtch(struct context*, struct context*);
 

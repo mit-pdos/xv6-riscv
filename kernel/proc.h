@@ -104,4 +104,9 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // MLFQ run-queue linkage (protected by the per-queue lock).
+  // mlfq_level == -1 means "not currently enqueued".
+  struct proc *mlfq_next;
+  int mlfq_level;
 };
