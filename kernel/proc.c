@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "procinfo.h"
 
 struct cpu cpus[NCPU];
 
@@ -25,6 +26,73 @@ extern char trampoline[]; // trampoline.S
 // memory model when using p->parent.
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
+
+int
+ps_listinfo(uint64 uaddr, int lim)
+{
+  struct proc* p;
+  struct procinfo pi;
+  int written = 0;
+
+  if (uaddr == 0) {
+    int cnt = 0;
+
+    for (p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if (p->state != UNUSED)
+        cnt++;
+      release(&p->lock);
+    }
+
+    return cnt;
+  }
+
+  if (lim < 0)
+    return -1;
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    int used = 0;
+
+    acquire(&wait_lock);
+    acquire(&p->lock);
+
+    if (p->state != UNUSED) {
+      used = 1;
+
+      pi.pid = p->pid;
+      safestrcpy(pi.name, p->name, sizeof(pi.name));
+      pi.state = p->state;
+
+      if (p->parent != 0) {
+        pi.ppid = p->parent->pid;
+        safestrcpy(pi.pname, p->parent->name, sizeof(pi.pname));
+      }
+      else {
+        pi.ppid = 0;
+        pi.pname[0] = '\0';
+      }
+    }
+
+    release(&p->lock);
+    release(&wait_lock);
+
+    if (!used)
+      continue;
+
+    if (written >= lim)
+      return lim + 1;
+
+    if (copyout(myproc()->pagetable,
+      uaddr + written * sizeof(struct procinfo),
+      (char*)&pi,
+      sizeof(pi)) < 0)
+      return -2;
+
+    written++;
+  }
+
+  return written;
+}
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
