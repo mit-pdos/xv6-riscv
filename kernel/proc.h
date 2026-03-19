@@ -104,4 +104,20 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // MLFQ scheduling fields
+  int priority;                // Current priority level (0=highest)
+  uint64 time_slice_remaining; // Remaining quantum in ticks
+  uint64 cpu_time_used;        // Total CPU time consumed
+  uint64 last_run_time;        // Timestamp of last execution
+  uint64 wait_time;            // Time spent waiting
+  // Behavior tracking
+  uint64 io_count;             // Number of I/O operations
+  uint64 voluntary_yields;     // Voluntary context switches
+  uint64 cpu_usage_avg;        // Exponential moving average
+  // Aging support
+  uint64 priority_boost_time;  // Last priority boost timestamp
+  // Queue management
+  struct proc *mlfq_next;      // Next process in queue
+  struct proc *mlfq_prev;      // Previous process in queue
 };
