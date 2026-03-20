@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "pinfo.h"
 
 uint64
 sys_exit(void)
@@ -106,4 +107,45 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_getprocinfo(void)
+{
+  int pid;
+  uint64 addr;
+  struct pinfo info;
+  struct proc *p;
+  extern struct proc proc[NPROC];
+  
+  // Get arguments: pid and user pointer
+  argint(0, &pid);
+  argaddr(1, &addr);
+  
+  // Find the process with given pid
+  int found = 0;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state != UNUSED && p->pid == pid) {
+      // Fill the pinfo structure
+      info.pid = p->pid;
+      info.parent_pid = (p->parent) ? p->parent->pid : 0;
+      info.state = p->state;
+      info.sz = p->sz;
+      memmove(info.name, p->name, 16);
+      found = 1;
+      release(&p->lock);
+      break;
+    }
+    release(&p->lock);
+  }
+  
+  if(!found)
+    return -1;
+  
+  // Copy the info structure to user space
+  if(copyout(myproc()->pagetable, addr, (char *)&info, sizeof(info)) < 0)
+    return -1;
+  
+  return 0;
 }
