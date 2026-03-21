@@ -64,6 +64,10 @@ fileclose(struct file *f)
   acquire(&ftable.lock);
   if(f->ref < 1)
     panic("fileclose");
+
+  if(f->type == FD_MUTEX && holdingsleep(f->mutex))
+    releasesleep(f->mutex);
+
   if(--f->ref > 0){
     release(&ftable.lock);
     return;
@@ -75,6 +79,8 @@ fileclose(struct file *f)
 
   if(ff.type == FD_PIPE){
     pipeclose(ff.pipe, ff.writable);
+  } else if(ff.type == FD_MUTEX){
+    mutexclose(ff.mutex);
   } else if(ff.type == FD_INODE || ff.type == FD_DEVICE){
     begin_op();
     iput(ff.ip);
@@ -108,6 +114,9 @@ fileread(struct file *f, uint64 addr, int n)
 {
   int r = 0;
 
+  if(f->type == FD_MUTEX)
+    return -1;
+
   if(f->readable == 0)
     return -1;
 
@@ -135,6 +144,9 @@ int
 filewrite(struct file *f, uint64 addr, int n)
 {
   int r, ret = 0;
+
+  if(f->type == FD_MUTEX)
+    return -1;
 
   if(f->writable == 0)
     return -1;

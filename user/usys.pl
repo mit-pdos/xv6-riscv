@@ -42,3 +42,7 @@ entry("getpid");
 entry("sbrk");
 entry("pause");
 entry("uptime");
+entry("mutex");
+entry("mutex_lock");
+entry("mutex_unlock");
+entry("mutex_debug");
