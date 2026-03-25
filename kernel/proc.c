@@ -688,3 +688,21 @@ procdump(void)
     printf("\n");
   }
 }
+
+int
+getenergybypid(int pid)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid == pid){
+      int energy = p->energy;
+      release(&p->lock);
+      return energy;
+    }
+    release(&p->lock);
+  }
+
+  return -1;
+}
