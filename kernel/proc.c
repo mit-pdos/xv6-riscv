@@ -13,6 +13,7 @@ struct proc proc[NPROC];
 struct proc *initproc;
 
 int nextpid = 1;
+uint64 current_sched_round = 1;
 struct spinlock pid_lock;
 
 extern void forkret(void);
@@ -124,6 +125,9 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  // Initializing a process will default the energy and round-robin scheduling values to 0 (We don't want a new process to inherit energy).
+  p->energy = 0;
+  p->sched_round = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -168,6 +172,11 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+
+  // When freeing a process, we clear all values, including these so that a new process doesn't inherit old data.
+  p->energy = 0;
+  p->sched_round = 0;
+
   p->state = UNUSED;
 }
 
@@ -424,40 +433,78 @@ kwait(uint64 addr)
 void
 scheduler(void)
 {
-  struct proc *p;
   struct cpu *c = mycpu();
-
   c->proc = 0;
+
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
     intr_off();
 
     int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+    int best_pid = -1;
+    int best_energy = 0x7fffffff;
+    int any_runnable = 0;
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+    struct proc *p;
+
+    // Pass 1: find lowest-energy RUNNABLE proc not yet run this round
+    for(p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+
+      if(p->state == RUNNABLE){
+        any_runnable = 1;
+
+        // Checking is Round-Robin is still valid (if the process hasn't participated this round yet).
+        if(p->sched_round < current_sched_round){
+          if(best_pid == -1 || p->energy < best_energy){
+            best_pid = p->pid;
+            best_energy = p->energy;
+          }
+        }
       }
+
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      asm volatile("wfi");
+
+    // Every process went this round, and so the counter increments and goes over all processes again.
+    if(best_pid == -1){
+      if(any_runnable){
+        current_sched_round++;
+        continue;
+      } else {
+        asm volatile("wfi");
+        continue;
+      }
+    }
+
+    // Pass 2: find that proc again and run it if still eligible
+    for(p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+
+      if(p->pid == best_pid &&
+         p->state == RUNNABLE &&
+         p->sched_round < current_sched_round){
+
+        p->sched_round = current_sched_round;
+        p->state = RUNNING;
+        c->proc = p;
+
+        swtch(&c->context, &p->context);
+
+        c->proc = 0;
+        found = 1;
+
+        release(&p->lock);
+        break;
+      }
+
+      release(&p->lock);
+    }
+
+    if(found == 0){
+      // Process changed state between pass 1 and pass 2.
+      // Just retry next loop.
+      continue;
     }
   }
 }
