@@ -170,6 +170,10 @@ clockintr()
     wakeup(&ticks);
     release(&tickslock);
   }
+  struct proc *p = myproc();
+  if(p && p->state == RUNNING){
+    p->energy += 2;
+  }
 
   // ask for the next timer interrupt. this also clears
   // the interrupt request. 1000000 is about a tenth
