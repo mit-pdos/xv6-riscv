@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "powerstate.h"  // Feature 2: CPU Power States
 
 struct spinlock tickslock;
 uint ticks;
@@ -80,9 +81,45 @@ usertrap(void)
   if(killed(p))
     kexit(-1);
 
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
+  // --- Feature 2: Dynamic Timeslice Scaling (standalone version) ----------
+  //
+  // On each timer interrupt (which_dev == 2), we do NOT simply yield().
+  // Instead we:
+  //   1. Increment the per-process tick counter (ticks_in_slice).
+  //   2. Periodically refresh the global power state based on runnable count.
+  //   3. Compare ticks_in_slice against the current timeslice threshold.
+  //   4. Only yield when the threshold is reached, then reset the counter.
+  //
+  // This is the standalone version (no SJF dependency).
+  // Hook for Feature 1 (SJF): replace or supplement the yield() call below
+  // with logic that checks if a shorter job is waiting, and if so, preempt
+  // immediately regardless of the remaining timeslice.
+  //
+  // -------------------------------------------------------------------------
+  if(which_dev == 2) {
+    // Step 1: count one more tick for this process.
+    p->ticks_in_slice++;
+
+    // Step 2: update the global power state every 8 ticks.
+    // Scanning NPROC entries on every single tick would be wasteful;
+    // refreshing every 8 ticks (about every 0.8 s at xv6's tick rate)
+    // gives a good balance between responsiveness and overhead.
+    // We use the global 'ticks' counter (incremented by clockintr on CPU 0)
+    // gated by p->ticks_in_slice so we don't need a separate counter.
+    // A simple modulo on the global tick counter achieves the cadence.
+    if((ticks % 8) == 0) {
+      update_power_state();
+    }
+
+    // Step 3 & 4: yield only when the dynamic threshold is reached.
+    int threshold = get_timeslice_for_state();
+    if(p->ticks_in_slice >= threshold) {
+      p->ticks_in_slice = 0;  // Reset counter — next slice starts fresh.
+      yield();
+    }
+    // If threshold not yet reached, do NOT yield; let the process continue.
+  }
+  // --- End Feature 2 -------------------------------------------------------
 
   prepare_return();
 
@@ -151,9 +188,28 @@ kerneltrap()
     panic("kerneltrap");
   }
 
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0)
-    yield();
+  // --- Feature 2: Dynamic Timeslice Scaling (kernel-side) -----------------
+  // Same logic as usertrap(): only yield when the dynamic threshold is hit.
+  // kerneltrap() fires when a timer interrupt occurs while the CPU is already
+  // running kernel code (e.g., inside a system call or the scheduler itself).
+  //
+  // Hook for Feature 1 (SJF): same hook point as in usertrap().
+  // -------------------------------------------------------------------------
+  if(which_dev == 2 && myproc() != 0) {
+    struct proc *kp = myproc();
+    kp->ticks_in_slice++;
+
+    if((ticks % 8) == 0) {
+      update_power_state();
+    }
+
+    int kthreshold = get_timeslice_for_state();
+    if(kp->ticks_in_slice >= kthreshold) {
+      kp->ticks_in_slice = 0;
+      yield();
+    }
+  }
+  // --- End Feature 2 -------------------------------------------------------
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.

@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "powerstate.h"  // Feature 2: CPU Power States
 
 struct cpu cpus[NCPU];
 
@@ -145,6 +146,11 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  // Feature 2: initialise the slice tick counter for this new process.
+  // It will be reset again each time the scheduler picks this process,
+  // but zeroing it here ensures no garbage value reaches trap.c first.
+  p->ticks_in_slice = 0;
 
   return p;
 }
@@ -446,6 +452,13 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
+        // Feature 2: reset the slice counter so this process gets a
+        // fresh timeslice window every time the scheduler picks it.
+        // The length of that window is determined dynamically by
+        // get_timeslice_for_state() in trap.c.
+        p->ticks_in_slice = 0;
+
         swtch(&c->context, &p->context);
 
         // Process is done running for now.

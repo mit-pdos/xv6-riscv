@@ -181,5 +181,11 @@ void            virtio_disk_init(void);
 void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
 
+// powerstate.c  -- Feature 2: CPU Power States (Dynamic Timeslice Scaling)
+int             count_runnable_procs(void);
+void            update_power_state(void);
+int             get_timeslice_for_state(void);
+char*           power_state_name(void);
+
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
