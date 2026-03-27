@@ -124,6 +124,11 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->io_count = 0;
+  p->wait_time = 0;
+  p->voluntary_yields = 0;
+  p->sleep_start_tick = 0;
+  p->sleeping_for_io = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -168,6 +173,11 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->io_count = 0;
+  p->wait_time = 0;
+  p->voluntary_yields = 0;
+  p->sleep_start_tick = 0;
+  p->sleeping_for_io = 0;
   p->state = UNUSED;
 }
 
@@ -495,6 +505,7 @@ yield(void)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
+  p->voluntary_yields++;
   p->state = RUNNABLE;
   sched();
   release(&p->lock);
@@ -556,9 +567,24 @@ sleep(void *chan, struct spinlock *lk)
 
   // Go to sleep.
   p->chan = chan;
+  p->io_count++;
+  p->sleeping_for_io = 1;
+  acquire(&tickslock);
+  p->sleep_start_tick = ticks;
+  release(&tickslock);
   p->state = SLEEPING;
 
   sched();
+
+  // If wakeup() didn't account for this sleep interval (e.g., killed wakeup),
+  // account for it here before clearing the sleep metadata.
+  if(p->sleep_start_tick != 0){
+    acquire(&tickslock);
+    p->wait_time += (ticks - p->sleep_start_tick);
+    release(&tickslock);
+  }
+  p->sleeping_for_io = 0;
+  p->sleep_start_tick = 0;
 
   // Tidy up.
   p->chan = 0;
@@ -574,11 +600,20 @@ void
 wakeup(void *chan)
 {
   struct proc *p;
+  uint now;
+
+  acquire(&tickslock);
+  now = ticks;
+  release(&tickslock);
 
   for(p = proc; p < &proc[NPROC]; p++) {
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
+        if(p->sleep_start_tick != 0)
+          p->wait_time += (now - p->sleep_start_tick);
+        p->sleep_start_tick = 0;
+        p->sleeping_for_io = 0;
         p->state = RUNNABLE;
       }
       release(&p->lock);

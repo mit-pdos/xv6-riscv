@@ -104,4 +104,11 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // Scheduling behavior counters.
+  uint64 io_count;             // Number of sleep() calls treated as I/O waits
+  uint64 wait_time;            // Total ticks spent in SLEEPING state
+  uint64 voluntary_yields;     // Number of explicit yield() calls
+  uint64 sleep_start_tick;     // Tick when process entered SLEEPING
+  int sleeping_for_io;         // 1 while blocked in an I/O-style sleep
 };
