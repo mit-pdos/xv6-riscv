@@ -101,6 +101,19 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+uint            proc_avg_waiting_time(struct proc *p);
+uint            proc_response_time(struct proc *p);
+uint            proc_context_switches(struct proc *p);
+uint            proc_turnaround_time(struct proc *p);
+uint            get_elapsed_time(void);
+uint            proc_context_switches_per_second(void);
+uint            proc_cpu_utilization(void);
+uint            proc_throughput(void);
+void            proc_print_metrics(void);
+void            proc_print_extended_metrics(void);
+void            proc_print_csv_header(void);
+void            proc_print_csv_data(void);
+void            proc_print_system_csv(void);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

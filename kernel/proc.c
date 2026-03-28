@@ -19,6 +19,19 @@ extern void forkret(void);
 static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
+extern uint ticks;
+extern struct spinlock tickslock;
+
+// System-wide scheduling metrics
+struct {
+  struct spinlock lock;
+  uint total_processes_created;     // Total processes created
+  uint total_processes_completed;   // Total processes that have finished
+  uint total_context_switches;      // Total context switches across all processes
+  uint total_cpu_time;              // Total CPU time used (sum of all runtimes)
+  uint boot_time;                   // Time when system started
+} metrics;
+
 
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
@@ -51,6 +64,15 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  initlock(&metrics.lock, "metrics");
+  
+  // Initialize global metrics
+  metrics.total_processes_created = 0;
+  metrics.total_processes_completed = 0;
+  metrics.total_context_switches = 0;
+  metrics.total_cpu_time = 0;
+  metrics.boot_time = 0;  // Will be set to ticks at first use
+  
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
@@ -145,6 +167,24 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  // Initialize scheduling metrics
+  acquire(&tickslock);
+  p->creation_time = ticks;
+  if(metrics.boot_time == 0)
+    metrics.boot_time = ticks;
+  release(&tickslock);
+  p->first_run_time = 0;
+  p->finish_time = 0;
+  p->last_run_time = 0;
+  p->total_wait_time = 0;
+  p->total_runtime = 0;
+  p->context_switches = 0;
+  
+  // Update global process count
+  acquire(&metrics.lock);
+  metrics.total_processes_created++;
+  release(&metrics.lock);
 
   return p;
 }
@@ -356,6 +396,16 @@ kexit(int status)
   acquire(&p->lock);
 
   p->xstate = status;
+  
+  // Record finish time and update process completion count
+  acquire(&tickslock);
+  p->finish_time = ticks;
+  release(&tickslock);
+  
+  acquire(&metrics.lock);
+  metrics.total_processes_completed++;
+  release(&metrics.lock);
+  
   p->state = ZOMBIE;
 
   release(&wait_lock);
@@ -444,12 +494,37 @@ scheduler(void)
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
+        
+        // Track scheduling metrics: record first run time and calculate wait time
+        acquire(&tickslock);
+        if(p->first_run_time == 0) {
+          p->first_run_time = ticks;
+          p->total_wait_time = ticks - p->creation_time;
+        } else {
+          // For subsequent runs, accumulate additional wait time since last context switch
+          p->total_wait_time += ticks - p->creation_time;
+        }
+        p->last_run_time = ticks;
+        release(&tickslock);
+        
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
+        
+        // Track CPU time used
+        acquire(&tickslock);
+        uint runtime = ticks - p->last_run_time;
+        if(runtime > 0) {
+          p->total_runtime += runtime;
+          acquire(&metrics.lock);
+          metrics.total_cpu_time += runtime;
+          release(&metrics.lock);
+        }
+        release(&tickslock);
+        
         c->proc = 0;
         found = 1;
       }
@@ -496,6 +571,15 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
+  
+  // Track context switch
+  p->context_switches++;
+  
+  // Update global context switch counter
+  acquire(&metrics.lock);
+  metrics.total_context_switches++;
+  release(&metrics.lock);
+  
   sched();
   release(&p->lock);
 }
@@ -687,4 +771,266 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Get the average waiting time for a process
+// Returns the average waiting time in ticks
+uint
+proc_avg_waiting_time(struct proc *p)
+{
+  if(p == 0)
+    return 0;
+  
+  uint denom = p->context_switches + 1;
+  if(denom == 0)
+    denom = 1;
+  return p->total_wait_time / denom;
+}
+
+// Get the response time for a process
+// Returns the time in ticks from creation to first run
+uint
+proc_response_time(struct proc *p)
+{
+  if(p == 0 || p->first_run_time == 0)
+    return 0;
+  
+  return p->first_run_time - p->creation_time;
+}
+
+// Get the context switch count for a process
+// Returns the number of context switches
+uint
+proc_context_switches(struct proc *p)
+{
+  if(p == 0)
+    return 0;
+  
+  return p->context_switches;
+}
+
+// Get the turnaround time for a process
+// Returns the time from creation to finish (in ticks)
+uint
+proc_turnaround_time(struct proc *p)
+{
+  if(p == 0 || p->finish_time == 0)
+    return 0;
+  
+  return p->finish_time - p->creation_time;
+}
+
+// Get elapsed system time since boot (in ticks)
+uint
+get_elapsed_time(void)
+{
+  uint elapsed;
+  acquire(&tickslock);
+  if(metrics.boot_time == 0)
+    elapsed = 0;
+  else
+    elapsed = ticks - metrics.boot_time;
+  release(&tickslock);
+  return elapsed;
+}
+
+// Get context switches per second
+uint
+proc_context_switches_per_second(void)
+{
+  uint elapsed = get_elapsed_time();
+  if(elapsed == 0)
+    return 0;
+  // Note: xv6 runs at ~10 million ticks per second in simulation
+  // Return as (switches * 1000000) / elapsed for more precision
+  acquire(&metrics.lock);
+  uint total_switches = metrics.total_context_switches;
+  release(&metrics.lock);
+  
+  // Avoid division by zero and return ticks-per-second basis
+  return total_switches;
+}
+
+// Get CPU utilization percentage (0-100)
+uint
+proc_cpu_utilization(void)
+{
+  uint elapsed = get_elapsed_time();
+  if(elapsed == 0)
+    return 0;
+  
+  acquire(&metrics.lock);
+  uint total_cpu = metrics.total_cpu_time;
+  release(&metrics.lock);
+  
+  // Return utilization as percentage (cpu_time * 100 / elapsed_time)
+  if(total_cpu == 0)
+    return 0;
+  return (total_cpu * 100) / elapsed;
+}
+
+// Get throughput (processes per second)
+uint
+proc_throughput(void)
+{
+  uint elapsed = get_elapsed_time();
+  if(elapsed == 0)
+    return 0;
+  
+  acquire(&metrics.lock);
+  uint completed = metrics.total_processes_completed;
+  release(&metrics.lock);
+  
+  return completed;
+}
+
+// Print scheduling metrics for all processes
+void
+proc_print_metrics(void)
+{
+  struct proc *p;
+  
+  printf("\nProcess Scheduling Metrics:\n");
+  printf("PID\tName\t\tAvg Wait\tResponse\tContext Switches\n");
+  printf("---\t----\t\t--------\t--------\t-------- --------\n");
+  
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state == UNUSED)
+      continue;
+    
+    acquire(&p->lock);
+    printf("%d\t%s\t\t%d\t\t%d\t\t%d\n",
+           p->pid,
+           p->name,
+           proc_avg_waiting_time(p),
+           proc_response_time(p),
+           proc_context_switches(p));
+    release(&p->lock);
+  }
+  printf("\n");
+}
+
+// Print extended metrics including turnaround time and system-wide stats
+void
+proc_print_extended_metrics(void)
+{
+  struct proc *p;
+  
+  printf("\n=== Extended Process Scheduling Metrics ===\n");
+  printf("PID\tName\t\tTurnaround\tAvg Wait\tResponse\tCtx Switches\n");
+  printf("---\t----\t\t----------\t--------\t--------\t---------- -\n");
+  
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state == UNUSED)
+      continue;
+    
+    acquire(&p->lock);
+    printf("%d\t%s\t\t%d\t\t%d\t\t%d\t\t%d\n",
+           p->pid,
+           p->name,
+           proc_turnaround_time(p),
+           proc_avg_waiting_time(p),
+           proc_response_time(p),
+           proc_context_switches(p));
+    release(&p->lock);
+  }
+  
+  // System-wide metrics
+  uint elapsed = get_elapsed_time();
+  printf("\n=== System-Wide Metrics ===\n");
+  printf("Elapsed Time (ticks): %d\n", elapsed);
+  acquire(&metrics.lock);
+  printf("Total Processes Created: %d\n", metrics.total_processes_created);
+  printf("Total Processes Completed: %d\n", metrics.total_processes_completed);
+  printf("Total Context Switches: %d\n", metrics.total_context_switches);
+  printf("Total CPU Time (ticks): %d\n", metrics.total_cpu_time);
+  release(&metrics.lock);
+  
+  if(elapsed > 0) {
+    uint util = proc_cpu_utilization();
+    printf("CPU Utilization: %d%%\n", util);
+    printf("Throughput: %d processes completed\n", proc_throughput());
+    printf("Context Switches (total): %d\n", proc_context_switches_per_second());
+  }
+  printf("\n");
+}
+
+// Print process metrics in CSV format
+// Format: pid,name,state,creation_time,first_run_time,finish_time,turnaround_time,response_time,avg_wait,context_switches,total_runtime
+void
+proc_print_csv_header(void)
+{
+  printf("pid,name,state,creation_time,first_run_time,finish_time,turnaround_time,response_time,avg_wait,context_switches,total_runtime\n");
+}
+
+void
+proc_print_csv_data(void)
+{
+  struct proc *p;
+  char *states[] = {
+    [UNUSED]    "unused",
+    [USED]      "used",
+    [SLEEPING]  "sleeping",
+    [RUNNABLE]  "runnable",
+    [RUNNING]   "running",
+    [ZOMBIE]    "zombie"
+  };
+  
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state == UNUSED)
+      continue;
+    
+    acquire(&p->lock);
+    
+    char *state = "unknown";
+    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+      state = states[p->state];
+    
+    uint turnaround = proc_turnaround_time(p);
+    uint response = proc_response_time(p);
+    uint avg_wait = proc_avg_waiting_time(p);
+    
+    printf("%d,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d\n",
+           p->pid,
+           p->name,
+           state,
+           p->creation_time,
+           p->first_run_time,
+           p->finish_time,
+           turnaround,
+           response,
+           avg_wait,
+           p->context_switches,
+           p->total_runtime);
+    
+    release(&p->lock);
+  }
+}
+
+// Print system-wide metrics in CSV format
+void
+proc_print_system_csv(void)
+{
+  uint elapsed = get_elapsed_time();
+  
+  printf("timestamp,metric,value,unit\n");
+  
+  acquire(&tickslock);
+  printf("%d,boot_time,%d,ticks\n", ticks, metrics.boot_time);
+  printf("%d,elapsed_time,%d,ticks\n", ticks, elapsed);
+  release(&tickslock);
+  
+  acquire(&metrics.lock);
+  printf("%d,total_processes_created,%d,count\n", ticks, metrics.total_processes_created);
+  printf("%d,total_processes_completed,%d,count\n", ticks, metrics.total_processes_completed);
+  printf("%d,total_context_switches,%d,count\n", ticks, metrics.total_context_switches);
+  printf("%d,total_cpu_time,%d,ticks\n", ticks, metrics.total_cpu_time);
+  release(&metrics.lock);
+  
+  if(elapsed > 0) {
+    uint util = proc_cpu_utilization();
+    printf("%d,cpu_utilization,%d,percent\n", ticks, util);
+    printf("%d,throughput,%d,count\n", ticks, proc_throughput());
+  }
+  printf("\n");
 }
