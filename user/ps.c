@@ -30,13 +30,15 @@ main(void)
   }
 
   m = n + 8;
-  plist = malloc(m * sizeof(struct procinfo));
-  if (plist == 0) {
-    fprintf(2, "ps: malloc failed\n");
-    exit(1);
-  }
+  plist = 0;
 
   while (1) {
+    plist = malloc(m * sizeof(struct procinfo));
+    if (plist == 0) {
+      fprintf(2, "ps: malloc failed\n");
+      exit(1);
+    }
+
     n = ps_listinfo(plist, m);
     if (n < 0) {
       fprintf(2, "ps: ps_listinfo failed: %d\n", n);
@@ -46,11 +48,6 @@ main(void)
     if (n > m) {
       free(plist);
       m = n + 8;
-      plist = malloc(m * sizeof(struct procinfo));
-      if (plist == 0) {
-        fprintf(2, "ps: malloc failed\n");
-        exit(1);
-      }
       continue;
     }
     break;

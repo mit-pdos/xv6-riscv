@@ -76,10 +76,7 @@ ps_listinfo(uint64 uaddr, int lim)
     release(&p->lock);
     release(&wait_lock);
 
-    if (!used)
-      continue;
-
-    if (written >= lim)
+    if (used && written == lim)
       return lim + 1;
 
     if (copyout(myproc()->pagetable,
