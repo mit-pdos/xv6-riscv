@@ -1,0 +1,8 @@
+metric,expected_value,min_value,max_value,unit,description
+Boot Time,1000,500,1500,ticks,Time from start to first process ready
+Simple Echo Duration,100,50,150,ticks,Execution time of echo command
+Process Creation Time,60,20,100,ticks,Time for fork() syscall
+Response Time (Single Process),15,5,30,ticks,Time from creation to first run
+Context Switches Per Second,200,50,500,count/sec,Typical system context switches
+CPU Utilization (Idle),0,0,10,percent,CPU usage when no user processes
+CPU Utilization (Loaded),95,80,100,percent,CPU usage with user processes
