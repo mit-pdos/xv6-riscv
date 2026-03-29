@@ -1,5 +1,6 @@
 #define SBRK_ERROR ((char *)-1)
 
+struct pinfo;
 struct stat;
 
 // system calls
@@ -24,6 +25,7 @@ int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
+int ps(struct pinfo*, int);
 
 // ulib.c
 int stat(const char*, struct stat*);

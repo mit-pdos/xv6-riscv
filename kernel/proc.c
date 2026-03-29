@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "ps.h"
 #include "defs.h"
 
 struct cpu cpus[NCPU];
@@ -687,4 +688,41 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Copy process info to userspace.
+// Iterate through proc table and copy RUNNABLE/RUNNING/SLEEPING processes.
+// Returns number of processes copied, or -1 on error.
+int
+kps(uint64 addr, int max)
+{
+  if(max < 0 || max > 256)
+    return -1;
+
+  struct proc *cur = myproc();
+  struct proc *p;
+  int n = 0;
+
+  for(p = proc; p < &proc[NPROC] && n < max; p++){
+    struct pinfo pi;
+    int include = 0;
+
+    acquire(&p->lock);
+    if(p->state == SLEEPING || p->state == RUNNABLE || p->state == RUNNING){
+      pi.pid = p->pid;
+      pi.state = p->state;
+      pi.sz = p->sz;
+      safestrcpy(pi.name, p->name, sizeof(pi.name));
+      include = 1;
+    }
+    release(&p->lock);
+
+    if(include){
+      if(copyout(cur->pagetable, addr + n * sizeof(pi), (char *)&pi, sizeof(pi)) < 0)
+        return -1;
+      n++;
+    }
+  }
+
+  return n;
 }

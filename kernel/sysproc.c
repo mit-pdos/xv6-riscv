@@ -37,6 +37,17 @@ sys_wait(void)
 }
 
 uint64
+sys_ps(void)
+{
+  uint64 p;
+  int max;
+
+  argaddr(0, &p);
+  argint(1, &max);
+  return kps(p, max);
+}
+
+uint64
 sys_sbrk(void)
 {
   uint64 addr;
