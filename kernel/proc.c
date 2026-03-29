@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
+static const uint64 base_time_quantum[] = { 1 };
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -146,6 +148,19 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+
+  // Initialize MLFQ fields.
+  p->priority = 0;
+  p->time_slice_remaining = base_time_quantum[0];
+  p->cpu_time_used = 0;
+  p->last_run_time = 0;
+  p->wait_time = 0;
+  p->io_count = 0;
+  p->voluntary_yields = 0;
+  p->cpu_usage_avg = 0;
+  p->priority_boost_time = 0;
+  p->mlfq_next = 0;
+  p->mlfq_prev = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
