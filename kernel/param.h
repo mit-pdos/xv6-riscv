@@ -13,3 +13,8 @@
 #define MAXPATH      128   // maximum file path name
 #define USERSTACK    1     // user stack pages
 
+// feature 3: per-process energy budgeting
+#define ENERGY_BUDGET_DEFAULT      16
+#define ENERGY_BUDGET_RESET_TICKS  200
+#define ENERGY_BUDGET_DEBUG         0
+

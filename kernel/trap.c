@@ -81,8 +81,10 @@ usertrap(void)
     kexit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2){
+    energy_tick_running(p);
     yield();
+  }
 
   prepare_return();
 
@@ -152,8 +154,10 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0)
+  if(which_dev == 2 && myproc() != 0){
+    energy_tick_running(myproc());
     yield();
+  }
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
@@ -169,6 +173,9 @@ clockintr()
     ticks++;
     wakeup(&ticks);
     release(&tickslock);
+
+    // reset budgets periodically so exhausted procs can recover.
+    energy_tick_reset_all();
   }
 
   // ask for the next timer interrupt. this also clears

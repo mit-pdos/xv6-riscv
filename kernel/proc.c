@@ -124,6 +124,12 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->energy_budget = ENERGY_BUDGET_DEFAULT;
+  p->energy_used = 0;
+  p->budget_reset_timer = 0;
+  p->last_burst = 1;
+  p->predicted_burst = 1;
+  p->ticks_this_burst = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -168,6 +174,12 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->energy_budget = 0;
+  p->energy_used = 0;
+  p->budget_reset_timer = 0;
+  p->last_burst = 0;
+  p->predicted_burst = 0;
+  p->ticks_this_burst = 0;
   p->state = UNUSED;
 }
 
@@ -438,27 +450,113 @@ scheduler(void)
     intr_off();
 
     int found = 0;
+    struct proc *best = 0;
+    int best_has_budget = -1;
+    int best_predicted = 0;
+    int best_budget = -1;
+    int best_pid = 0;
+
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
+        int has_budget = (p->energy_budget > 0);
+        int predicted = p->predicted_burst;
+
+        // Keep SJF as the main policy, but push exhausted procs behind
+        // everyone else and use remaining budget as a tie-break.
+        if(best == 0 ||
+           has_budget > best_has_budget ||
+           (has_budget == best_has_budget && predicted < best_predicted) ||
+           (has_budget == best_has_budget && predicted == best_predicted && p->energy_budget > best_budget) ||
+           (has_budget == best_has_budget && predicted == best_predicted && p->energy_budget == best_budget && p->pid < best_pid)) {
+          best = p;
+          best_has_budget = has_budget;
+          best_predicted = predicted;
+          best_budget = p->energy_budget;
+          best_pid = p->pid;
+        }
+      }
+      release(&p->lock);
+    }
+
+    if(best != 0) {
+      acquire(&best->lock);
+      if(best->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+        best->ticks_this_burst = 0;
+        best->state = RUNNING;
+        c->proc = best;
+        swtch(&c->context, &best->context);
+
+        if(best->ticks_this_burst > 0) {
+          best->last_burst = best->ticks_this_burst;
+          best->predicted_burst = (best->predicted_burst + best->last_burst) / 2;
+          if(best->predicted_burst < 1)
+            best->predicted_burst = 1;
+        }
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
         found = 1;
       }
-      release(&p->lock);
+      release(&best->lock);
     }
+
     if(found == 0) {
       // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
     }
+  }
+}
+
+void
+energy_tick_running(struct proc *p)
+{
+  int old_budget;
+
+  if(p == 0)
+    return;
+
+  acquire(&p->lock);
+  if(p->state == RUNNING) {
+    p->ticks_this_burst += 1;
+    old_budget = p->energy_budget;
+    if(p->energy_budget > 0)
+      p->energy_budget -= 1;
+    p->energy_used += 1;
+
+    if(ENERGY_BUDGET_DEBUG && old_budget != p->energy_budget) {
+      printf("[energy] pid=%d budget %d->%d used=%d\n",
+             p->pid, old_budget, p->energy_budget, p->energy_used);
+      if(old_budget > 0 && p->energy_budget == 0)
+        printf("[energy] pid=%d exhausted budget, will be deprioritized\n", p->pid);
+    }
+  }
+  release(&p->lock);
+}
+
+void
+energy_tick_reset_all(void)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state != UNUSED) {
+      p->budget_reset_timer += 1;
+      if(p->budget_reset_timer >= ENERGY_BUDGET_RESET_TICKS) {
+        int old_budget = p->energy_budget;
+        p->energy_budget = ENERGY_BUDGET_DEFAULT;
+        p->budget_reset_timer = 0;
+        if(ENERGY_BUDGET_DEBUG)
+          printf("[energy] pid=%d budget reset %d->%d\n",
+                 p->pid, old_budget, p->energy_budget);
+      }
+    }
+    release(&p->lock);
   }
 }
 

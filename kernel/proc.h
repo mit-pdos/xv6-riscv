@@ -104,4 +104,14 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // feature 3: energy budget bookkeeping
+  int energy_budget;           // remaining budget in ticks
+  int energy_used;             // total ticks consumed
+  int budget_reset_timer;      // ticks since last reset
+
+  // simple burst history for SJF selection
+  int last_burst;              // last observed CPU burst (ticks)
+  int predicted_burst;         // exponentially averaged next burst
+  int ticks_this_burst;        // ticks counted in the current run
 };
