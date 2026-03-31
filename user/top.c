@@ -45,8 +45,8 @@ find_prev_ticks(struct pinfo *prev, int nprev, int pid)
 int
 main(int argc, char *argv[])
 {
-  struct pinfo cur[NPROC];
-  struct pinfo prev[NPROC];
+  struct pinfo *cur = malloc(NPROC * sizeof(struct pinfo));
+  struct pinfo *prev = malloc(NPROC * sizeof(struct pinfo));
   int ncur, nprev = 0;
   uint t0, t1, dt;
 
