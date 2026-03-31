@@ -443,6 +443,9 @@ scheduler(void)
     intr_on();
     intr_off();
 
+    // Track total scheduler iterations for idle percentage calculation
+    c->total_ticks++;
+
     int found = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
@@ -469,9 +472,34 @@ scheduler(void)
       release(&p->lock);
     }
     if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      asm volatile("wfi");
+      // Nothing to run — enter low-power idle state.
+      // Record the timestamp before halting so we can measure
+      // how long the CPU actually slept.
+      c->wfi_count++;
+      c->last_idle_start = r_time();
+
+      // WFI: CPU halts until next interrupt (timer, I/O, etc.)
+      // This saves energy compared to busy-waiting in a tight loop.
+      wfi();
+
+      // Woke up from WFI — compute how many ticks we were idle
+      uint64 idle_end = r_time();
+      if(c->last_idle_start > 0) {
+        c->idle_ticks += (idle_end - c->last_idle_start);
+      }
     }
+  }
+}
+
+// Aggregate idle statistics across all CPUs.
+// Writes results into the provided arrays (must have NCPU entries).
+void
+get_idle_ticks(uint64 *idle, uint64 *total, uint64 *wfi_counts)
+{
+  for(int i = 0; i < NCPU; i++){
+    idle[i] = cpus[i].idle_ticks;
+    total[i] = cpus[i].total_ticks;
+    wfi_counts[i] = cpus[i].wfi_count;
   }
 }
 

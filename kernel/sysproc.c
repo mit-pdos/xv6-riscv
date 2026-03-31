@@ -107,3 +107,46 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// Feature 4: Halt-on-Idle statistics syscall.
+// Copies per-CPU idle stats to the user-space buffer.
+// arg0: pointer to user buffer (struct idleinfo[NCPU])
+// arg1: number of CPUs to report (capped at NCPU)
+// Returns 0 on success, -1 on error.
+//
+// struct idleinfo layout (defined in user code):
+//   uint64 idle_ticks;
+//   uint64 total_ticks;
+//   uint64 wfi_count;
+uint64
+sys_idlestat(void)
+{
+  uint64 uaddr;
+  int ncpus;
+
+  argaddr(0, &uaddr);
+  argint(1, &ncpus);
+
+  if(ncpus <= 0 || ncpus > NCPU)
+    ncpus = NCPU;
+
+  uint64 idle[NCPU];
+  uint64 total[NCPU];
+  uint64 wfi_counts[NCPU];
+
+  get_idle_ticks(idle, total, wfi_counts);
+
+  // Copy per-CPU stats to user space as an array of 3 uint64s per CPU
+  // Layout: [idle_ticks, total_ticks, wfi_count] × ncpus
+  struct proc *p = myproc();
+  for(int i = 0; i < ncpus; i++){
+    uint64 buf[3];
+    buf[0] = idle[i];
+    buf[1] = total[i];
+    buf[2] = wfi_counts[i];
+    if(copyout(p->pagetable, uaddr + i * sizeof(buf), (char*)buf, sizeof(buf)) < 0)
+      return -1;
+  }
+
+  return 0;
+}

@@ -24,6 +24,12 @@ struct cpu {
   struct context context;     // swtch() here to enter scheduler().
   int noff;                   // Depth of push_off() nesting.
   int intena;                 // Were interrupts enabled before push_off()?
+
+  // Halt-on-Idle tracking (Feature 4)
+  uint64 idle_ticks;          // total ticks spent in WFI idle
+  uint64 total_ticks;         // total scheduler loop iterations
+  uint64 wfi_count;           // number of times WFI was entered
+  uint64 last_idle_start;     // timestamp when WFI was entered (for measuring duration)
 };
 
 extern struct cpu cpus[NCPU];
