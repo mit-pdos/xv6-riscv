@@ -1,5 +1,15 @@
 #define SBRK_ERROR ((char *)-1)
 
+#define PNAMESIZE 16
+
+struct pinfo {
+  int pid;
+  int state;
+  uint64 sz;
+  uint64 ticks;
+  char name[PNAMESIZE];
+};
+
 struct stat;
 
 // system calls
