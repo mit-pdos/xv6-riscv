@@ -97,6 +97,10 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
+  int estimatedBurstTime;      // Estimated burst time for SJF scheduling
+  int tickCount;               // Number of ticks the process has been running for
+  int lastBurstTime;           // Last burst time for SJF scheduling
+  int waitTicks;               // Ticks spent waiting in RUNNABLE state (for aging)
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
@@ -111,15 +115,4 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
-  // Feature 2: CPU Power States (Dynamic Timeslice Scaling)
-  // ticks_in_slice counts how many timer ticks this process has consumed
-  // in its current scheduling slice. It is incremented in trap.c on each
-  // timer interrupt while this process is running. When it reaches the
-  // threshold from get_timeslice_for_state(), the process yields the CPU.
-  // Reset to 0 each time the process is selected by the scheduler.
-  // No lock is needed: only the CPU running this process touches this field.
-  //
-  // Hook for Feature 1 (SJF): Feature 1 can use this field to track how
-  // long a process has run within its power-state budget.
-  int ticks_in_slice;          // Ticks used in current timeslice (Feature 2)
 };
