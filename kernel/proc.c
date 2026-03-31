@@ -688,3 +688,31 @@ procdump(void)
     printf("\n");
   }
 }
+
+int
+getprocs(uint64 addr, int nmax)
+{
+  struct proc *p;
+  struct pinfo pi;
+  int count = 0;
+
+  for(p = proc; p < &proc[NPROC] && count < nmax; p++){
+    acquire(&p->lock);
+    if(p->state != UNUSED){
+      pi.pid = p->pid;
+      pi.state = p->state;
+      pi.sz = p->sz;
+      pi.ticks = p->ticks_total;
+      strncpy(pi.name, p->name, PNAMESIZE);
+      release(&p->lock);
+
+      if(copyout(myproc()->pagetable, addr + count * sizeof(pi),
+                 (char *)&pi, sizeof(pi)) < 0)
+        return -1;
+      count++;
+    } else {
+      release(&p->lock);
+    }
+  }
+  return count;
+}

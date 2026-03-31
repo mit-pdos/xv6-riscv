@@ -107,3 +107,14 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_getprocs(void)
+{
+  uint64 addr;
+  int nmax;
+
+  argaddr(0, &addr);
+  argint(1, &nmax);
+  return getprocs(addr, nmax);
+}
