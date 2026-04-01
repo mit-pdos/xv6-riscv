@@ -116,7 +116,9 @@ void            proc_print_csv_data(void);
 void            proc_print_system_csv(void);
 
 // mlfq.c
+extern const uint64 mlfq_base_quantum[];
 void            mlfq_init(void);
+void            mlfq_aging(uint64 now);
 void            mlfq_enqueue(struct proc *p, int priority);
 struct proc*    mlfq_dequeue(int priority);
 int             mlfq_queue_empty(int priority);

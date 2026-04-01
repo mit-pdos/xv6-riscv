@@ -6,10 +6,6 @@
 #include "proc.h"
 #include "defs.h"
 
-static const uint64 base_time_quantum[MLFQ_LEVELS] = {
-  1, 2, 4, 8, 16,
-};
-
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -156,7 +152,7 @@ found:
 
   // Initialize MLFQ fields.
   p->priority = 0;
-  p->time_slice_remaining = base_time_quantum[0];
+  p->time_slice_remaining = mlfq_base_quantum[0];
   p->cpu_time_used = 0;
   p->last_run_time = 0;
   p->wait_time = 0;
@@ -728,7 +724,7 @@ wakeup(void *chan)
           int np = p->priority - MLFQ_IO_WAKE_BOOST;
           p->priority = np < 0 ? 0 : np;
         }
-        p->time_slice_remaining = base_time_quantum[p->priority];
+        p->time_slice_remaining = mlfq_base_quantum[p->priority];
         p->priority_boost_time = now;
 
         p->state = RUNNABLE;

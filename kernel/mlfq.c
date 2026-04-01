@@ -6,6 +6,11 @@
 #include "spinlock.h"
 #include "proc.h"
 
+// Time quanta per MLFQ level (must match scheduler expectations in proc.c).
+const uint64 mlfq_base_quantum[MLFQ_LEVELS] = {
+  1, 2, 4, 8, 16,
+};
+
 struct mlfq_queue {
   struct spinlock lock;
   struct proc *head;
@@ -173,6 +178,38 @@ mlfq_remove(struct proc *p)
   for(int i = 0; i < MLFQ_LEVELS; i++){
     if(mlfq_remove_from_q(p, i))
       return;
+  }
+}
+
+// Periodic anti-starvation: move every active process one level toward highest
+// priority, refresh per-level time allotment, record boost time, and re-queue
+// runnable processes when their queue level changes.
+void
+mlfq_aging(uint64 now)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state == UNUSED){
+      release(&p->lock);
+      continue;
+    }
+
+    int boosted = 0;
+    if(p->priority > 0){
+      mlfq_remove(p);
+      p->priority--;
+      boosted = 1;
+    }
+
+    p->time_slice_remaining = mlfq_base_quantum[p->priority];
+    p->priority_boost_time = now;
+
+    if(boosted && p->state == RUNNABLE)
+      mlfq_enqueue(p, p->priority);
+
+    release(&p->lock);
   }
 }
 

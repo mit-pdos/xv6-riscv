@@ -136,3 +136,6 @@ struct proc {
   int mlfq_level;
   
 };
+
+extern struct proc proc[NPROC];
+
