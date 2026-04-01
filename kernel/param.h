@@ -1,3 +1,6 @@
+#define MLFQ_LEVELS        5   // number of MLFQ priority levels (0 = highest)
+#define MLFQ_IO_WAKE_BOOST 2   // promote by this many levels on sleep wakeup (0 = off)
+
 #define NPROC        64  // maximum number of processes
 #define NCPU          8  // maximum number of CPUs
 #define NOFILE       16  // open files per process

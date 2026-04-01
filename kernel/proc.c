@@ -6,7 +6,9 @@
 #include "proc.h"
 #include "defs.h"
 
-static const uint64 base_time_quantum[] = { 1 };
+static const uint64 base_time_quantum[MLFQ_LEVELS] = {
+  1, 2, 4, 8, 16,
+};
 
 struct cpu cpus[NCPU];
 
@@ -213,6 +215,7 @@ found:
 static void
 freeproc(struct proc *p)
 {
+  mlfq_remove(p);
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
@@ -292,6 +295,7 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  mlfq_enqueue(p, p->priority);
 
   release(&p->lock);
 }
@@ -365,6 +369,7 @@ kfork(void)
 
   acquire(&np->lock);
   np->state = RUNNABLE;
+  mlfq_enqueue(np, np->priority);
   release(&np->lock);
 
   return pid;
@@ -513,13 +518,17 @@ scheduler(void)
     intr_off();
 
     int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
+    for(int lvl = 0; lvl < MLFQ_LEVELS && !found; lvl++){
+      while((p = mlfq_dequeue(lvl)) != 0){
+        acquire(&p->lock);
+        if(p->state != RUNNABLE){
+          release(&p->lock);
+          continue;
+        }
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
-        
+
         // Track scheduling metrics: record first run time and calculate wait time
         acquire(&tickslock);
         if(p->first_run_time == 0) {
@@ -531,14 +540,14 @@ scheduler(void)
         }
         p->last_run_time = ticks;
         release(&tickslock);
-        
+
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
-        
+
         // Track CPU time used
         acquire(&tickslock);
         uint runtime = ticks - p->last_run_time;
@@ -549,11 +558,12 @@ scheduler(void)
           release(&metrics.lock);
         }
         release(&tickslock);
-        
+
         c->proc = 0;
         found = 1;
+        release(&p->lock);
+        break;
       }
-      release(&p->lock);
     }
     if(found == 0) {
       // nothing to run; stop running on this core until an interrupt.
@@ -597,7 +607,8 @@ yield(void)
   acquire(&p->lock);
   p->voluntary_yields++;
   p->state = RUNNABLE;
-  
+  mlfq_enqueue(p, p->priority);
+
   // Track context switch
   p->context_switches++;
   
@@ -711,7 +722,17 @@ wakeup(void *chan)
           p->wait_time += (now - p->sleep_start_tick);
         p->sleep_start_tick = 0;
         p->sleeping_for_io = 0;
+
+        // Boost priority after I/O-style sleep wakeup (reward interactive behavior).
+        if(MLFQ_IO_WAKE_BOOST > 0 && p->priority > 0) {
+          int np = p->priority - MLFQ_IO_WAKE_BOOST;
+          p->priority = np < 0 ? 0 : np;
+        }
+        p->time_slice_remaining = base_time_quantum[p->priority];
+        p->priority_boost_time = now;
+
         p->state = RUNNABLE;
+        mlfq_enqueue(p, p->priority);
       }
       release(&p->lock);
     }
@@ -733,6 +754,7 @@ kkill(int pid)
       if(p->state == SLEEPING){
         // Wake process from sleep().
         p->state = RUNNABLE;
+        mlfq_enqueue(p, p->priority);
       }
       release(&p->lock);
       return 0;

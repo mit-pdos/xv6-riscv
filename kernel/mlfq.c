@@ -6,11 +6,6 @@
 #include "spinlock.h"
 #include "proc.h"
 
-// Default number of priority levels if not provided elsewhere.
-#ifndef MLFQ_LEVELS
-#define MLFQ_LEVELS 5
-#endif
-
 struct mlfq_queue {
   struct spinlock lock;
   struct proc *head;
