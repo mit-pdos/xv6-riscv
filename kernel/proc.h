@@ -106,9 +106,34 @@ struct proc {
   char name[16];               // Process name (debugging)
 
   // Scheduling behavior counters.
-  uint64 io_count;             // Number of sleep() calls treated as I/O waits
-  uint64 wait_time;            // Total ticks spent in SLEEPING state
-  uint64 voluntary_yields;     // Number of explicit yield() calls
   uint64 sleep_start_tick;     // Tick when process entered SLEEPING
   int sleeping_for_io;         // 1 while blocked in an I/O-style sleep
+  // Process scheduling metrics
+  uint creation_time;          // Time (in ticks) when process was created
+  uint first_run_time;         // Time (in ticks) when process first ran
+  uint finish_time;            // Time (in ticks) when process finished/exited
+  uint last_run_time;          // Time (in ticks) when process last started running
+  uint total_wait_time;        // Total accumulated waiting time (in ticks)
+  uint total_runtime;          // Total accumulated runtime (in ticks)
+  uint context_switches;       // Number of times process has been context switched
+  // MLFQ scheduling fields
+  int priority;                // Current priority level (0=highest)
+  uint64 time_slice_remaining; // Remaining quantum in ticks
+  uint64 cpu_time_used;        // Total CPU time consumed
+  uint64 last_run_time;        // Timestamp of last execution
+  uint64 wait_time;            // Time spent waiting
+  // Behavior tracking
+  uint64 io_count;             // Number of I/O operations
+  uint64 voluntary_yields;     // Voluntary context switches
+  uint64 cpu_usage_avg;        // Exponential moving average
+  // Aging support
+  uint64 priority_boost_time;  // Last priority boost timestamp
+  // Queue management
+  struct proc *mlfq_next;      // Next process in queue
+  struct proc *mlfq_prev;      // Previous process in queue
+
+  // MLFQ run-queue linkage (protected by the per-queue lock).
+  // mlfq_level == -1 means "not currently enqueued".
+  int mlfq_level;
+  
 };
