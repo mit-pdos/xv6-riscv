@@ -124,6 +124,10 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->io_count = 0;
+  p->wait_time = 0;
+  p->voluntary_yields = 0;
+  p->sleep_start_tick = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -168,6 +172,10 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->io_count = 0;
+  p->wait_time = 0;
+  p->voluntary_yields = 0;
+  p->sleep_start_tick = 0;
   p->state = UNUSED;
 }
 
@@ -490,11 +498,15 @@ sched(void)
 }
 
 // Give up the CPU for one scheduling round.
+// voluntary==1 counts toward voluntary_yields (explicit yield syscall).
+// voluntary==0 is timer preemption and must not increment that counter.
 void
-yield(void)
+yield(int voluntary)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
+  if(voluntary)
+    p->voluntary_yields++;
   p->state = RUNNABLE;
   sched();
   release(&p->lock);
@@ -556,9 +568,21 @@ sleep(void *chan, struct spinlock *lk)
 
   // Go to sleep.
   p->chan = chan;
+  p->io_count++;
+  acquire(&tickslock);
+  p->sleep_start_tick = ticks;
+  release(&tickslock);
   p->state = SLEEPING;
 
   sched();
+
+  // Rare: woken without wakeup() clearing interval (e.g. kill).
+  if(p->sleep_start_tick != 0){
+    acquire(&tickslock);
+    p->wait_time += ticks - p->sleep_start_tick;
+    release(&tickslock);
+  }
+  p->sleep_start_tick = 0;
 
   // Tidy up.
   p->chan = 0;
@@ -574,11 +598,24 @@ void
 wakeup(void *chan)
 {
   struct proc *p;
+  uint now;
+
+  // clockintr() calls wakeup(&ticks) while holding tickslock.
+  if(holding(&tickslock))
+    now = ticks;
+  else {
+    acquire(&tickslock);
+    now = ticks;
+    release(&tickslock);
+  }
 
   for(p = proc; p < &proc[NPROC]; p++) {
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
+        if(p->sleep_start_tick != 0)
+          p->wait_time += now - p->sleep_start_tick;
+        p->sleep_start_tick = 0;
         p->state = RUNNABLE;
       }
       release(&p->lock);
@@ -600,6 +637,12 @@ kkill(int pid)
       p->killed = 1;
       if(p->state == SLEEPING){
         // Wake process from sleep().
+        if(p->sleep_start_tick != 0){
+          acquire(&tickslock);
+          p->wait_time += ticks - p->sleep_start_tick;
+          release(&tickslock);
+        }
+        p->sleep_start_tick = 0;
         p->state = RUNNABLE;
       }
       release(&p->lock);

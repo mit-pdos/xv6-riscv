@@ -104,4 +104,10 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // I/O vs yield heuristics (sleep counted as I/O wait).
+  uint64 io_count;             // kernel sleep() entries
+  uint64 wait_time;            // ticks spent SLEEPING (until wakeup/kill)
+  uint64 voluntary_yields;     // yield(1): explicit yield syscall only
+  uint64 sleep_start_tick;     // ticks when current sleep began (or 0)
 };

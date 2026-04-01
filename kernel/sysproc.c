@@ -107,3 +107,36 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_yield(void)
+{
+  yield(1);
+  return 0;
+}
+
+uint64
+sys_getprociostats(void)
+{
+  uint64 ua, ub, uc;
+  uint64 io, wt, vy;
+  struct proc *p = myproc();
+
+  argaddr(0, &ua);
+  argaddr(1, &ub);
+  argaddr(2, &uc);
+
+  acquire(&p->lock);
+  io = p->io_count;
+  wt = p->wait_time;
+  vy = p->voluntary_yields;
+  release(&p->lock);
+
+  if(copyout(p->pagetable, ua, (char *)&io, sizeof(io)) < 0)
+    return -1;
+  if(copyout(p->pagetable, ub, (char *)&wt, sizeof(wt)) < 0)
+    return -1;
+  if(copyout(p->pagetable, uc, (char *)&vy, sizeof(vy)) < 0)
+    return -1;
+  return 0;
+}
