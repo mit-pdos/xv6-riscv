@@ -6,7 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 
-static const uint64 base_time_quantum[] = { 1 };
+static const uint64 base_time_quantum[MLFQ_LEVELS] = { 5, 10, 20, 40, 80 };
 
 struct cpu cpus[NCPU];
 
@@ -285,8 +285,10 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
-
+  
   release(&p->lock);
+
+  mlfq_enqueue(p, 0);
 }
 
 // Grow or shrink user memory by n bytes.
@@ -358,7 +360,10 @@ kfork(void)
 
   acquire(&np->lock);
   np->state = RUNNABLE;
+  int prio = np->priority;
   release(&np->lock);
+
+  mlfq_enqueue(np, prio);
 
   return pid;
 }
@@ -482,13 +487,15 @@ kwait(uint64 addr)
   }
 }
 
-// Per-CPU process scheduler.
+// Per-CPU MLFQ scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
-//  - choose a process to run.
-//  - swtch to start running that process.
-//  - eventually that process transfers control
-//    via swtch back to the scheduler.
+//  - iterate priority levels from highest (0) to lowest (MLFQ_LEVELS-1).
+//  - dequeue first runnable process from highest non-empty queue.
+//  - set time quantum for the process's priority level.
+//  - context switch to the selected process.
+//  - on return, re-enqueue if the process is still runnable.
+//  - if all queues are empty, wait for interrupt.
 void
 scheduler(void)
 {
@@ -506,47 +513,66 @@ scheduler(void)
     intr_off();
 
     int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        
-        // Track scheduling metrics: record first run time and calculate wait time
-        acquire(&tickslock);
-        if(p->first_run_time == 0) {
-          p->first_run_time = ticks;
-          p->total_wait_time = ticks - p->creation_time;
-        } else {
-          // For subsequent runs, accumulate additional wait time since last context switch
-          p->total_wait_time += ticks - p->creation_time;
-        }
-        p->last_run_time = ticks;
-        release(&tickslock);
-        
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+    for(int level = 0; level < MLFQ_LEVELS; level++){
+      p = mlfq_dequeue(level);
+      if(p == 0)
+        continue;
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        
-        // Track CPU time used
-        acquire(&tickslock);
-        uint runtime = ticks - p->last_run_time;
-        if(runtime > 0) {
-          p->total_runtime += runtime;
-          acquire(&metrics.lock);
-          metrics.total_cpu_time += runtime;
-          release(&metrics.lock);
-        }
-        release(&tickslock);
-        
-        c->proc = 0;
-        found = 1;
+      acquire(&p->lock);
+      if(p->state != RUNNABLE) {
+        // Process changed state after enqueue (defensive check).
+        release(&p->lock);
+        continue;
       }
+
+      // Set time quantum appropriate for this priority level.
+      p->time_slice_remaining = base_time_quantum[level];
+
+      // Track scheduling metrics: record first run time and calculate wait time
+      acquire(&tickslock);
+      if(p->first_run_time == 0) {
+        p->first_run_time = ticks;
+        p->total_wait_time = ticks - p->creation_time;
+      } else {
+        // For subsequent runs, accumulate additional wait time since last context switch
+        p->total_wait_time += ticks - p->creation_time;
+      }
+      p->last_run_time = ticks;
+      release(&tickslock);
+
+      p->state = RUNNING;
+      c->proc = p;
+      swtch(&c->context, &p->context);
+
+      // Process is done running for now.
+      // p->lock is held (acquired by the process before swtch back).
+
+      // Track CPU time used
+      acquire(&tickslock);
+      uint runtime = ticks - p->last_run_time;
+      if(runtime > 0) {
+        p->total_runtime += runtime;
+        acquire(&metrics.lock);
+        metrics.total_cpu_time += runtime;
+        release(&metrics.lock);
+      }
+      release(&tickslock);
+
+      c->proc = 0;
+
+      // Re-enqueue if the process yielded (still RUNNABLE).
+      // Sleeping or zombie processes are NOT re-enqueued;
+      // wakeup() will enqueue them when they become runnable again.
+      int requeue = (p->state == RUNNABLE);
+      int prio = p->priority;
       release(&p->lock);
+
+      if(requeue) {
+        mlfq_enqueue(p, prio);
+      }
+
+      found = 1;
+      break;  // Restart from highest priority level.
     }
     if(found == 0) {
       // nothing to run; stop running on this core until an interrupt.
@@ -682,8 +708,12 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
+        int prio = p->priority;
+        release(&p->lock);
+        mlfq_enqueue(p, prio);
+      } else {
+        release(&p->lock);
       }
-      release(&p->lock);
     }
   }
 }
@@ -701,8 +731,12 @@ kkill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       if(p->state == SLEEPING){
-        // Wake process from sleep().
+        // Wake process from sleep() and enqueue in MLFQ.
         p->state = RUNNABLE;
+        int prio = p->priority;
+        release(&p->lock);
+        mlfq_enqueue(p, prio);
+        return 0;
       }
       release(&p->lock);
       return 0;
