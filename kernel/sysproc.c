@@ -107,3 +107,37 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// Copy current process I/O scheduling counters to user pointers.
+uint64
+sys_getschedstats(void)
+{
+  uint64 a0, a1, a2;
+  struct proc *p = myproc();
+  uint64 io, wt, vy;
+
+  argaddr(0, &a0);
+  argaddr(1, &a1);
+  argaddr(2, &a2);
+
+  acquire(&p->lock);
+  io = p->io_count;
+  wt = p->wait_time;
+  vy = p->voluntary_yields;
+  release(&p->lock);
+
+  if(copyout(p->pagetable, a0, (char *)&io, sizeof(io)) < 0)
+    return -1;
+  if(copyout(p->pagetable, a1, (char *)&wt, sizeof(wt)) < 0)
+    return -1;
+  if(copyout(p->pagetable, a2, (char *)&vy, sizeof(vy)) < 0)
+    return -1;
+  return 0;
+}
+
+uint64
+sys_yield(void)
+{
+  yield();
+  return 0;
+}

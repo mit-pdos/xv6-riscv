@@ -699,11 +699,9 @@ void
 wakeup(void *chan)
 {
   struct proc *p;
-  uint now;
-
-  acquire(&tickslock);
-  now = ticks;
-  release(&tickslock);
+  // Safe without tickslock: uint read is atomic; may be called from
+  // clockintr() which already holds tickslock.
+  uint now = ticks;
 
   for(p = proc; p < &proc[NPROC]; p++) {
     if(p != myproc()){
