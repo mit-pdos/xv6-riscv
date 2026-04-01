@@ -115,6 +115,14 @@ void            proc_print_csv_header(void);
 void            proc_print_csv_data(void);
 void            proc_print_system_csv(void);
 
+// mlfq.c
+void            mlfq_init(void);
+void            mlfq_enqueue(struct proc *p, int priority);
+struct proc*    mlfq_dequeue(int priority);
+int             mlfq_queue_empty(int priority);
+int             mlfq_queue_size(int priority);
+void            mlfq_remove(struct proc *p);
+
 // swtch.S
 void            swtch(struct context*, struct context*);
 

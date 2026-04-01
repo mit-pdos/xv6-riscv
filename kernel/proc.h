@@ -128,4 +128,9 @@ struct proc {
   // Queue management
   struct proc *mlfq_next;      // Next process in queue
   struct proc *mlfq_prev;      // Previous process in queue
+
+  // MLFQ run-queue linkage (protected by the per-queue lock).
+  // mlfq_level == -1 means "not currently enqueued".
+  int mlfq_level;
+  
 };

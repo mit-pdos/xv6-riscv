@@ -148,6 +148,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->mlfq_level = -1;
 
   // Initialize MLFQ fields.
   p->priority = 0;
@@ -223,6 +224,8 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->mlfq_next = 0;
+  p->mlfq_level = -1;
   p->state = UNUSED;
 }
 
