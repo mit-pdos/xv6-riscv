@@ -112,7 +112,6 @@ struct proc {
   uint creation_time;          // Time (in ticks) when process was created
   uint first_run_time;         // Time (in ticks) when process first ran
   uint finish_time;            // Time (in ticks) when process finished/exited
-  uint last_run_time;          // Time (in ticks) when process last started running
   uint total_wait_time;        // Total accumulated waiting time (in ticks)
   uint total_runtime;          // Total accumulated runtime (in ticks)
   uint context_switches;       // Number of times process has been context switched
