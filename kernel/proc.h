@@ -81,6 +81,16 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+#define PNAMESIZE 16
+
+struct pinfo {
+  int pid;
+  int state;
+  uint64 sz;
+  uint64 ticks;
+  char name[PNAMESIZE];
+};
+
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -104,4 +114,5 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  uint64 ticks_total;          // Total timer ticks while running
 };
