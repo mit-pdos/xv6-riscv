@@ -45,3 +45,4 @@ entry("uptime");
 entry("getschedstats");
 entry("yield");
 entry("getload");
+entry("getcsstats");

@@ -154,7 +154,7 @@ found:
 
   // Initialize MLFQ fields.
   p->priority = 0;
-  p->time_slice_remaining = mlfq_base_quantum[0];
+  p->time_slice_remaining = qm_get_time_quantum(0);
   p->cpu_time_used = 0;
   p->last_run_time = 0;
   p->wait_time = 0;
@@ -595,6 +595,12 @@ sched(void)
     panic("sched interruptible");
 
   intena = mycpu()->intena;
+
+  int voluntary = 1;
+  if(p->state == RUNNABLE && p->time_slice_remaining == 0)
+    voluntary = 0;
+  qm_track_context_switch(voluntary);
+
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
 }
@@ -724,11 +730,11 @@ wakeup(void *chan)
         p->sleeping_for_io = 0;
 
         // Boost priority after I/O-style sleep wakeup (reward interactive behavior).
-        if(MLFQ_IO_WAKE_BOOST > 0 && p->priority > 0) {
+        if(MLFQ_IO_WAKE_BOOST > 0){
           int np = p->priority - MLFQ_IO_WAKE_BOOST;
           p->priority = np < 0 ? 0 : np;
         }
-        p->time_slice_remaining = mlfq_base_quantum[p->priority];
+        p->time_slice_remaining = qm_get_time_quantum(p->priority);
         p->priority_boost_time = now;
 
         p->state = RUNNABLE;

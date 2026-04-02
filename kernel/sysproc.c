@@ -87,6 +87,33 @@ sys_pause(void)
 }
 
 uint64
+sys_getcsstats(void)
+{
+  uint64 a0, a1, a2, a3;
+  uint64 total, vol, invol;
+  uint64 rate_x1000;
+  struct proc *p = myproc();
+
+  argaddr(0, &a0);
+  argaddr(1, &a1);
+  argaddr(2, &a2);
+  argaddr(3, &a3);
+
+  qm_get_context_switch_counts(&total, &vol, &invol);
+  rate_x1000 = (uint64)qm_get_context_switch_rate_x1000();
+
+  if(copyout(p->pagetable, a0, (char *)&total, sizeof(total)) < 0)
+    return -1;
+  if(copyout(p->pagetable, a1, (char *)&vol, sizeof(vol)) < 0)
+    return -1;
+  if(copyout(p->pagetable, a2, (char *)&invol, sizeof(invol)) < 0)
+    return -1;
+  if(copyout(p->pagetable, a3, (char *)&rate_x1000, sizeof(rate_x1000)) < 0)
+    return -1;
+  return 0;
+}
+
+uint64
 sys_kill(void)
 {
   int pid;
