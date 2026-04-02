@@ -15,4 +15,7 @@
 #define QUANTUM_THRESHOLD_HIGH  5.0f  // CPU-bound threshold
 #define QUANTUM_THRESHOLD_LOW   2.0f  // I/O-bound threshold
 
+// Aging configuration
+#define AGING_INTERVAL     100    // Aging interval in ticks (configurable)
+
 #endif

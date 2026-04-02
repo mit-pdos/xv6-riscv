@@ -20,7 +20,7 @@ extern void forkret(void);
 static void freeproc(struct proc *p);
 
 // Base time quantum per priority level
-static const uint64 base_time_quantum[NPRIO] = {
+const uint64 base_time_quantum[NPRIO] = {
   BASE_QUANTUM_0,
   BASE_QUANTUM_1,
   BASE_QUANTUM_2,
@@ -142,6 +142,7 @@ found:
   p->priority = 0;              // Start at highest priority
   p->time_slice_remaining = base_time_quantum[0];
   p->cpu_usage_avg = 0.0f;      // Initialize EMA to zero
+  p->priority_boost_time = ticks; // Initialize boost timestamp
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){

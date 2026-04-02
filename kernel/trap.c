@@ -5,9 +5,13 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "mlfq.h"
 
 struct spinlock tickslock;
 uint ticks;
+
+// External reference for aging timer
+extern uint64 last_aging_time;
 
 extern char trampoline[], uservec[];
 
@@ -167,6 +171,13 @@ clockintr()
   if(cpuid() == 0){
     acquire(&tickslock);
     ticks++;
+    
+    // Check if aging interval elapsed
+    if(ticks - last_aging_time >= AGING_INTERVAL) {
+      mlfq_aging();
+      last_aging_time = ticks;
+    }
+    
     wakeup(&ticks);
     release(&tickslock);
   }

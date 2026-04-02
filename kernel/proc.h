@@ -117,4 +117,5 @@ struct proc {
   int priority;                // Current priority level (0 = highest)
   uint64 time_slice_remaining; // Remaining time in current quantum
   float cpu_usage_avg;         // Exponential moving average of CPU usage
+  uint64 priority_boost_time;   // Time of last priority boost
 };
