@@ -21,6 +21,7 @@ main()
     kvminithart();   // turn on paging
     procinit();      // process table
     mlfq_init();     // initialize MLFQ run queues
+    qm_init();       // initialize quantum/load manager
     trapinit();      // trap vectors
     trapinithart();  // install kernel trap vector
     plicinit();      // set up interrupt controller

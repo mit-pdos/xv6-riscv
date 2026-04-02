@@ -141,3 +141,24 @@ sys_yield(void)
   yield();
   return 0;
 }
+
+uint64
+sys_getload(void)
+{
+  uint64 a0, a1;
+  uint64 load;
+  uint64 avg_x1000;
+  struct proc *p = myproc();
+
+  argaddr(0, &a0);
+  argaddr(1, &a1);
+
+  load = (uint64)qm_get_system_load();
+  avg_x1000 = (uint64)qm_get_loadavg_x1000();
+
+  if(copyout(p->pagetable, a0, (char *)&load, sizeof(load)) < 0)
+    return -1;
+  if(copyout(p->pagetable, a1, (char *)&avg_x1000, sizeof(avg_x1000)) < 0)
+    return -1;
+  return 0;
+}

@@ -125,6 +125,13 @@ int             mlfq_queue_empty(int priority);
 int             mlfq_queue_size(int priority);
 void            mlfq_remove(struct proc *p);
 
+// quantum.c
+void            qm_init(void);
+void            qm_tick(uint64 now_tick);
+int             count_runnable_processes(void);
+int             qm_get_system_load(void);
+int             qm_get_loadavg_x1000(void);
+
 // swtch.S
 void            swtch(struct context*, struct context*);
 
