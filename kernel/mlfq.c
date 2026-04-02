@@ -203,7 +203,7 @@ mlfq_aging(uint64 now)
       boosted = 1;
     }
 
-    p->time_slice_remaining = mlfq_base_quantum[p->priority];
+    p->time_slice_remaining = qm_get_process_quantum(p);
     p->priority_boost_time = now;
 
     if(boosted && p->state == RUNNABLE)

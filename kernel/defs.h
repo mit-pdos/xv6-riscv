@@ -125,6 +125,18 @@ int             mlfq_queue_empty(int priority);
 int             mlfq_queue_size(int priority);
 void            mlfq_remove(struct proc *p);
 
+// quantum.c
+void            qm_init(void);
+void            qm_tick(uint64 now_tick);
+int             count_runnable_processes(void);
+int             qm_get_system_load(void);
+int             qm_get_loadavg_x1000(void);
+uint64          qm_get_time_quantum(int level);
+uint64          qm_get_process_quantum(struct proc *p);
+void            qm_track_context_switch(int voluntary);
+int             qm_get_context_switch_rate_x1000(void);
+void            qm_get_context_switch_counts(uint64 *total, uint64 *voluntary, uint64 *involuntary);
+
 // swtch.S
 void            swtch(struct context*, struct context*);
 

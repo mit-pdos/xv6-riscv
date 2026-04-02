@@ -14,6 +14,7 @@ OBJS = \
   $K/vm.o \
   $K/proc.o \
   $K/mlfq.o \
+  $K/quantum.o \
   $K/swtch.o \
   $K/trampoline.o \
   $K/trap.o \

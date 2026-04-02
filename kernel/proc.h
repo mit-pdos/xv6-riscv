@@ -81,6 +81,8 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+enum proc_behavior_type { PROC_MIXED = 0, PROC_IO_BOUND = 1, PROC_CPU_BOUND = 2 };
+
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -125,6 +127,9 @@ struct proc {
   uint64 io_count;             // Number of I/O operations
   uint64 voluntary_yields;     // Voluntary context switches
   uint64 cpu_usage_avg;        // Exponential moving average
+  int behavior_type;           // enum proc_behavior_type
+  uint64 last_cpu_time_used;   // For periodic behavior classification
+  uint64 last_io_count;        // For periodic behavior classification
   // Aging support
   uint64 priority_boost_time;  // Last priority boost timestamp
   // Queue management

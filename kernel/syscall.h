@@ -22,3 +22,5 @@
 #define SYS_close  21
 #define SYS_getschedstats 22
 #define SYS_yield  23
+#define SYS_getload 24
+#define SYS_getcsstats 25

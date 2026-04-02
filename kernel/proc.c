@@ -154,13 +154,16 @@ found:
 
   // Initialize MLFQ fields.
   p->priority = 0;
-  p->time_slice_remaining = mlfq_base_quantum[0];
+  p->time_slice_remaining = qm_get_time_quantum(0);
   p->cpu_time_used = 0;
   p->last_run_time = 0;
   p->wait_time = 0;
   p->io_count = 0;
   p->voluntary_yields = 0;
   p->cpu_usage_avg = 0;
+  p->behavior_type = PROC_MIXED;
+  p->last_cpu_time_used = 0;
+  p->last_io_count = 0;
   p->priority_boost_time = 0;
   p->mlfq_next = 0;
   p->mlfq_prev = 0;
@@ -232,6 +235,9 @@ freeproc(struct proc *p)
   p->voluntary_yields = 0;
   p->sleep_start_tick = 0;
   p->sleeping_for_io = 0;
+  p->behavior_type = PROC_MIXED;
+  p->last_cpu_time_used = 0;
+  p->last_io_count = 0;
   p->mlfq_next = 0;
   p->mlfq_level = -1;
   p->state = UNUSED;
@@ -595,6 +601,12 @@ sched(void)
     panic("sched interruptible");
 
   intena = mycpu()->intena;
+
+  int voluntary = 1;
+  if(p->state == RUNNABLE && p->time_slice_remaining == 0)
+    voluntary = 0;
+  qm_track_context_switch(voluntary);
+
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
 }
@@ -724,11 +736,11 @@ wakeup(void *chan)
         p->sleeping_for_io = 0;
 
         // Boost priority after I/O-style sleep wakeup (reward interactive behavior).
-        if(MLFQ_IO_WAKE_BOOST > 0 && p->priority > 0) {
+        if(MLFQ_IO_WAKE_BOOST > 0){
           int np = p->priority - MLFQ_IO_WAKE_BOOST;
           p->priority = np < 0 ? 0 : np;
         }
-        p->time_slice_remaining = mlfq_base_quantum[p->priority];
+        p->time_slice_remaining = qm_get_process_quantum(p);
         p->priority_boost_time = now;
 
         p->state = RUNNABLE;

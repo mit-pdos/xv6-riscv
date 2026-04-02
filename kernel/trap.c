@@ -195,6 +195,8 @@ clockintr()
     wakeup(&ticks);
     release(&tickslock);
 
+    qm_tick(t);
+
     if(MLFQ_AGING_INTERVAL > 0 &&
        t - last_mlfq_aging_tick >= (uint64)MLFQ_AGING_INTERVAL){
       mlfq_aging(t);
