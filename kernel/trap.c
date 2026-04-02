@@ -9,6 +9,9 @@
 struct spinlock tickslock;
 uint ticks;
 
+// Last tick when global MLFQ aging ran (CPU 0 only).
+static uint64 last_mlfq_aging_tick;
+
 extern char trampoline[], uservec[];
 
 // in kernelvec.S, calls kerneltrap().
@@ -188,8 +191,15 @@ clockintr()
   if(cpuid() == 0){
     acquire(&tickslock);
     ticks++;
+    uint64 t = ticks;
     wakeup(&ticks);
     release(&tickslock);
+
+    if(MLFQ_AGING_INTERVAL > 0 &&
+       t - last_mlfq_aging_tick >= (uint64)MLFQ_AGING_INTERVAL){
+      mlfq_aging(t);
+      last_mlfq_aging_tick = t;
+    }
   }
 
   // ask for the next timer interrupt. this also clears

@@ -24,6 +24,8 @@ int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
+int getschedstats(uint64*, uint64*, uint64*);
+void yield(void);
 
 // ulib.c
 int stat(const char*, struct stat*);

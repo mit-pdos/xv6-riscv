@@ -105,6 +105,9 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
+  // Scheduling behavior counters.
+  uint64 sleep_start_tick;     // Tick when process entered SLEEPING
+  int sleeping_for_io;         // 1 while blocked in an I/O-style sleep
   // Process scheduling metrics
   uint creation_time;          // Time (in ticks) when process was created
   uint first_run_time;         // Time (in ticks) when process first ran
@@ -133,3 +136,6 @@ struct proc {
   int mlfq_level;
   
 };
+
+extern struct proc proc[NPROC];
+

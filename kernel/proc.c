@@ -6,7 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 
-static const uint64 base_time_quantum[MLFQ_LEVELS] = { 5, 10, 20, 40, 80 };
+static const uint64 base_time_quantum[MLFQ_LEVELS] __attribute__((unused)) = { 5, 10, 20, 40, 80 };
 
 struct cpu cpus[NCPU];
 
@@ -148,11 +148,13 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->sleep_start_tick = 0;
+  p->sleeping_for_io = 0;
   p->mlfq_level = -1;
 
   // Initialize MLFQ fields.
   p->priority = 0;
-  p->time_slice_remaining = base_time_quantum[0];
+  p->time_slice_remaining = mlfq_base_quantum[0];
   p->cpu_time_used = 0;
   p->last_run_time = 0;
   p->wait_time = 0;
@@ -211,6 +213,7 @@ found:
 static void
 freeproc(struct proc *p)
 {
+  mlfq_remove(p);
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
@@ -224,6 +227,11 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->io_count = 0;
+  p->wait_time = 0;
+  p->voluntary_yields = 0;
+  p->sleep_start_tick = 0;
+  p->sleeping_for_io = 0;
   p->mlfq_next = 0;
   p->mlfq_level = -1;
   p->state = UNUSED;
@@ -285,10 +293,9 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  mlfq_enqueue(p, p->priority);
   
   release(&p->lock);
-
-  mlfq_enqueue(p, 0);
 }
 
 // Grow or shrink user memory by n bytes.
@@ -360,10 +367,8 @@ kfork(void)
 
   acquire(&np->lock);
   np->state = RUNNABLE;
-  int prio = np->priority;
+  mlfq_enqueue(np, np->priority);
   release(&np->lock);
-
-  mlfq_enqueue(np, prio);
 
   return pid;
 }
@@ -513,66 +518,52 @@ scheduler(void)
     intr_off();
 
     int found = 0;
-    for(int level = 0; level < MLFQ_LEVELS; level++){
-      p = mlfq_dequeue(level);
-      if(p == 0)
-        continue;
+    for(int lvl = 0; lvl < MLFQ_LEVELS && !found; lvl++){
+      while((p = mlfq_dequeue(lvl)) != 0){
+        acquire(&p->lock);
+        if(p->state != RUNNABLE){
+          release(&p->lock);
+          continue;
+        }
+        // Switch to chosen process.  It is the process's job
+        // to release its lock and then reacquire it
+        // before jumping back to us.
 
-      acquire(&p->lock);
-      if(p->state != RUNNABLE) {
-        // Process changed state after enqueue (defensive check).
+        // Track scheduling metrics: record first run time and calculate wait time
+        acquire(&tickslock);
+        if(p->first_run_time == 0) {
+          p->first_run_time = ticks;
+          p->total_wait_time = ticks - p->creation_time;
+        } else {
+          // For subsequent runs, accumulate additional wait time since last context switch
+          p->total_wait_time += ticks - p->creation_time;
+        }
+        p->last_run_time = ticks;
+        release(&tickslock);
+
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+
+        // Track CPU time used
+        acquire(&tickslock);
+        uint runtime = ticks - p->last_run_time;
+        if(runtime > 0) {
+          p->total_runtime += runtime;
+          acquire(&metrics.lock);
+          metrics.total_cpu_time += runtime;
+          release(&metrics.lock);
+        }
+        release(&tickslock);
+
+        c->proc = 0;
+        found = 1;
         release(&p->lock);
-        continue;
+        break;
       }
-
-      // Set time quantum appropriate for this priority level.
-      p->time_slice_remaining = base_time_quantum[level];
-
-      // Track scheduling metrics: record first run time and calculate wait time
-      acquire(&tickslock);
-      if(p->first_run_time == 0) {
-        p->first_run_time = ticks;
-        p->total_wait_time = ticks - p->creation_time;
-      } else {
-        // For subsequent runs, accumulate additional wait time since last context switch
-        p->total_wait_time += ticks - p->creation_time;
-      }
-      p->last_run_time = ticks;
-      release(&tickslock);
-
-      p->state = RUNNING;
-      c->proc = p;
-      swtch(&c->context, &p->context);
-
-      // Process is done running for now.
-      // p->lock is held (acquired by the process before swtch back).
-
-      // Track CPU time used
-      acquire(&tickslock);
-      uint runtime = ticks - p->last_run_time;
-      if(runtime > 0) {
-        p->total_runtime += runtime;
-        acquire(&metrics.lock);
-        metrics.total_cpu_time += runtime;
-        release(&metrics.lock);
-      }
-      release(&tickslock);
-
-      c->proc = 0;
-
-      // Re-enqueue if the process yielded (still RUNNABLE).
-      // Sleeping or zombie processes are NOT re-enqueued;
-      // wakeup() will enqueue them when they become runnable again.
-      int requeue = (p->state == RUNNABLE);
-      int prio = p->priority;
-      release(&p->lock);
-
-      if(requeue) {
-        mlfq_enqueue(p, prio);
-      }
-
-      found = 1;
-      break;  // Restart from highest priority level.
     }
     if(found == 0) {
       // nothing to run; stop running on this core until an interrupt.
@@ -614,8 +605,10 @@ yield(void)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
+  p->voluntary_yields++;
   p->state = RUNNABLE;
-  
+  mlfq_enqueue(p, p->priority);
+
   // Track context switch
   p->context_switches++;
   
@@ -684,9 +677,24 @@ sleep(void *chan, struct spinlock *lk)
 
   // Go to sleep.
   p->chan = chan;
+  p->io_count++;
+  p->sleeping_for_io = 1;
+  acquire(&tickslock);
+  p->sleep_start_tick = ticks;
+  release(&tickslock);
   p->state = SLEEPING;
 
   sched();
+
+  // If wakeup() didn't account for this sleep interval (e.g., killed wakeup),
+  // account for it here before clearing the sleep metadata.
+  if(p->sleep_start_tick != 0){
+    acquire(&tickslock);
+    p->wait_time += (ticks - p->sleep_start_tick);
+    release(&tickslock);
+  }
+  p->sleeping_for_io = 0;
+  p->sleep_start_tick = 0;
 
   // Tidy up.
   p->chan = 0;
@@ -702,15 +710,30 @@ void
 wakeup(void *chan)
 {
   struct proc *p;
+  // Safe without tickslock: uint read is atomic; may be called from
+  // clockintr() which already holds tickslock.
+  uint now = ticks;
 
   for(p = proc; p < &proc[NPROC]; p++) {
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
+        if(p->sleep_start_tick != 0)
+          p->wait_time += (now - p->sleep_start_tick);
+        p->sleep_start_tick = 0;
+        p->sleeping_for_io = 0;
+
+        // Boost priority after I/O-style sleep wakeup (reward interactive behavior).
+        if(MLFQ_IO_WAKE_BOOST > 0 && p->priority > 0) {
+          int np = p->priority - MLFQ_IO_WAKE_BOOST;
+          p->priority = np < 0 ? 0 : np;
+        }
+        p->time_slice_remaining = mlfq_base_quantum[p->priority];
+        p->priority_boost_time = now;
+
         p->state = RUNNABLE;
-        int prio = p->priority;
+        mlfq_enqueue(p, p->priority);
         release(&p->lock);
-        mlfq_enqueue(p, prio);
       } else {
         release(&p->lock);
       }
@@ -733,9 +756,8 @@ kkill(int pid)
       if(p->state == SLEEPING){
         // Wake process from sleep() and enqueue in MLFQ.
         p->state = RUNNABLE;
-        int prio = p->priority;
+        mlfq_enqueue(p, p->priority);
         release(&p->lock);
-        mlfq_enqueue(p, prio);
         return 0;
       }
       release(&p->lock);
