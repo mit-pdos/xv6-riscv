@@ -79,6 +79,8 @@ struct trapframe {
   /* 280 */ uint64 t6;
 };
 
+#include "mlfq.h"
+
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
@@ -110,4 +112,9 @@ struct proc {
   uint64 wait_time;            // ticks spent SLEEPING (until wakeup/kill)
   uint64 voluntary_yields;     // yield(1): explicit yield syscall only
   uint64 sleep_start_tick;     // ticks when current sleep began (or 0)
+
+  // MLFQ and CPU usage tracking
+  int priority;                // Current priority level (0 = highest)
+  uint64 time_slice_remaining; // Remaining time in current quantum
+  float cpu_usage_avg;         // Exponential moving average of CPU usage
 };

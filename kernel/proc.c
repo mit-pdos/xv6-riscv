@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "mlfq.h"
 
 struct cpu cpus[NCPU];
 
@@ -17,6 +18,14 @@ struct spinlock pid_lock;
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
+
+// Base time quantum per priority level
+static const uint64 base_time_quantum[NPRIO] = {
+  BASE_QUANTUM_0,
+  BASE_QUANTUM_1,
+  BASE_QUANTUM_2,
+  BASE_QUANTUM_3
+};
 
 extern char trampoline[]; // trampoline.S
 
@@ -128,6 +137,11 @@ found:
   p->wait_time = 0;
   p->voluntary_yields = 0;
   p->sleep_start_tick = 0;
+  
+  // Initialize MLFQ fields
+  p->priority = 0;              // Start at highest priority
+  p->time_slice_remaining = base_time_quantum[0];
+  p->cpu_usage_avg = 0.0f;      // Initialize EMA to zero
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -177,6 +191,43 @@ freeproc(struct proc *p)
   p->voluntary_yields = 0;
   p->sleep_start_tick = 0;
   p->state = UNUSED;
+}
+
+// Update CPU usage using exponential moving average
+void
+update_cpu_usage(struct proc *p, uint64 time_used)
+{
+  float alpha = ALPHA;  // 0.3 from mlfq.h
+
+  // Exponential moving average
+  p->cpu_usage_avg = alpha * (float)time_used +
+                     (1.0 - alpha) * p->cpu_usage_avg;
+}
+
+// Handle quantum expiration and behavior classification
+void
+handle_quantum_expiration(struct proc *p)
+{
+  uint64 time_used = base_time_quantum[p->priority] -
+                     p->time_slice_remaining;
+
+  update_cpu_usage(p, time_used);
+
+  // Classify behavior based on average
+  if(p->cpu_usage_avg > QUANTUM_THRESHOLD_HIGH) {
+    // CPU-bound: demote more aggressively
+    if(p->priority < NPRIO - 1) {
+      p->priority++;
+    }
+  } else if(p->cpu_usage_avg < QUANTUM_THRESHOLD_LOW) {
+    // I/O-bound: promote to higher priority
+    if(p->priority > 0) {
+      p->priority--;
+    }
+  }
+  
+  // Reset time slice for new quantum
+  p->time_slice_remaining = base_time_quantum[p->priority];
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -507,6 +558,16 @@ yield(int voluntary)
   acquire(&p->lock);
   if(voluntary)
     p->voluntary_yields++;
+  else {
+    // Timer preemption - decrement time slice
+    if(p->time_slice_remaining > 0)
+      p->time_slice_remaining--;
+    
+    // Check if quantum expired
+    if(p->time_slice_remaining == 0) {
+      handle_quantum_expiration(p);
+    }
+  }
   p->state = RUNNABLE;
   sched();
   release(&p->lock);
@@ -727,7 +788,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    printf("%d %s %s", p->pid, state, p->name);
+    printf("%d %s %s pri=%d cpu=%.2f", p->pid, state, p->name, p->priority, p->cpu_usage_avg);
     printf("\n");
   }
 }
