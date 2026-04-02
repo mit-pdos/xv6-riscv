@@ -6,6 +6,9 @@
 #include "defs.h"
 #include "mlfq.h"
 
+#define MIN_QUANTUM 2
+#define MAX_QUANTUM 500
+
 struct quantum_manager {
   uint64 base_quantum[MLFQ_LEVELS];
   uint64 current_quantum[MLFQ_LEVELS];
@@ -26,6 +29,29 @@ struct quantum_manager {
 };
 
 static struct quantum_manager qm;
+
+static uint64
+validate_quantum(uint64 quantum)
+{
+  static int warned_small = 0;
+  static int warned_large = 0;
+
+  if(quantum < (uint64)MIN_QUANTUM){
+    if(warned_small < 10){
+      printf("WARNING: Quantum too small (%d), using MIN_QUANTUM\n", (int)quantum);
+      warned_small++;
+    }
+    return (uint64)MIN_QUANTUM;
+  }
+  if(quantum > (uint64)MAX_QUANTUM){
+    if(warned_large < 10){
+      printf("WARNING: Quantum too large (%d), using MAX_QUANTUM\n", (int)quantum);
+      warned_large++;
+    }
+    return (uint64)MAX_QUANTUM;
+  }
+  return quantum;
+}
 
 static void
 classify_process_behavior(struct proc *p)
@@ -57,7 +83,7 @@ uint64
 qm_get_process_quantum(struct proc *p)
 {
   if(p == 0)
-    return 2;
+    return (uint64)MIN_QUANTUM;
 
   uint64 base = qm_get_time_quantum(p->priority);
   int mult_x1000 = 1000;
@@ -70,10 +96,9 @@ qm_get_process_quantum(struct proc *p)
       mult_x1000 = 1000;
   }
 
-  uint64 q = (base * (uint64)mult_x1000) / 1000ULL;
-  if(q < 2)
-    q = 2;
-  return q;
+  uint64 prod = base * (uint64)mult_x1000;
+  uint64 q = (prod + 999ULL) / 1000ULL;
+  return validate_quantum(q);
 }
 
 void
@@ -81,8 +106,8 @@ qm_init(void)
 {
   initlock(&qm.lock, "quantum_manager");
   for(int i = 0; i < MLFQ_LEVELS; i++){
-    qm.base_quantum[i] = mlfq_base_quantum[i];
-    qm.current_quantum[i] = mlfq_base_quantum[i];
+    qm.base_quantum[i] = validate_quantum(mlfq_base_quantum[i]);
+    qm.current_quantum[i] = qm.base_quantum[i];
   }
   qm.system_load = 0;
   qm.last_adjustment = 0;
@@ -133,9 +158,7 @@ adjust_quantum_by_load_locked(int load)
 
   for(int i = 0; i < MLFQ_LEVELS; i++){
     uint64 q = (qm.base_quantum[i] * (uint64)qm.quantum_factor_x1000) / 1000ULL;
-    if(q < 2)
-      q = 2;
-    qm.current_quantum[i] = q;
+    qm.current_quantum[i] = validate_quantum(q);
   }
 }
 
@@ -286,7 +309,7 @@ qm_get_time_quantum(int level)
   acquire(&qm.lock);
   uint64 q = qm.current_quantum[level];
   release(&qm.lock);
-  return q;
+  return validate_quantum(q);
 }
 
 int
