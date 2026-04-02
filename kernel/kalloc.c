@@ -23,10 +23,18 @@ struct {
   struct run *freelist;
 } kmem;
 
+// Per-page reference counts for CoW support.
+// Index by pa/PGSIZE; array sized for all physical pages up to PHYSTOP.
+struct {
+  struct spinlock lock;
+  int count[PHYSTOP / PGSIZE];
+} pageref;
+
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  initlock(&pageref.lock, "pageref");
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -50,6 +58,17 @@ kfree(void *pa)
 
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
+
+  // Decrement reference count. Only free when it reaches 0.
+  // During boot (freerange), counts are 0; handle gracefully.
+  acquire(&pageref.lock);
+  if(pageref.count[(uint64)pa / PGSIZE] > 0)
+    pageref.count[(uint64)pa / PGSIZE]--;
+  int remaining = pageref.count[(uint64)pa / PGSIZE];
+  release(&pageref.lock);
+
+  if(remaining > 0)
+    return;
 
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
@@ -76,7 +95,28 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
+  if(r){
     memset((char*)r, 5, PGSIZE); // fill with junk
+    // Initialize reference count to 1 for the new allocation.
+    acquire(&pageref.lock);
+    pageref.count[(uint64)r / PGSIZE] = 1;
+    release(&pageref.lock);
+  }
   return (void*)r;
+}
+
+// Increment the reference count for a physical page.
+void
+ref_incr(uint64 pa)
+{
+  acquire(&pageref.lock);
+  pageref.count[pa / PGSIZE]++;
+  release(&pageref.lock);
+}
+
+// Return the reference count for a physical page.
+int
+ref_count(uint64 pa)
+{
+  return pageref.count[pa / PGSIZE];
 }
