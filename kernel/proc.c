@@ -6,7 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 
-static const uint64 base_time_quantum[MLFQ_LEVELS] = { 5, 10, 20, 40, 80 };
+static const uint64 base_time_quantum[MLFQ_LEVELS] __attribute__((unused)) = { 5, 10, 20, 40, 80 };
 
 struct cpu cpus[NCPU];
 
@@ -296,8 +296,6 @@ userinit(void)
   mlfq_enqueue(p, p->priority);
   
   release(&p->lock);
-
-  mlfq_enqueue(p, 0);
 }
 
 // Grow or shrink user memory by n bytes.
@@ -370,10 +368,7 @@ kfork(void)
   acquire(&np->lock);
   np->state = RUNNABLE;
   mlfq_enqueue(np, np->priority);
-  int prio = np->priority;
   release(&np->lock);
-
-  mlfq_enqueue(np, prio);
 
   return pid;
 }
@@ -738,9 +733,7 @@ wakeup(void *chan)
 
         p->state = RUNNABLE;
         mlfq_enqueue(p, p->priority);
-        int prio = p->priority;
         release(&p->lock);
-        mlfq_enqueue(p, prio);
       } else {
         release(&p->lock);
       }
@@ -764,9 +757,7 @@ kkill(int pid)
         // Wake process from sleep() and enqueue in MLFQ.
         p->state = RUNNABLE;
         mlfq_enqueue(p, p->priority);
-        int prio = p->priority;
         release(&p->lock);
-        mlfq_enqueue(p, prio);
         return 0;
       }
       release(&p->lock);
