@@ -71,6 +71,43 @@ usertrap(void)
   } else if((r_scause() == 15 || r_scause() == 13) &&
             vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) != 0) {
     // page fault on lazily-allocated page
+  } else if(r_scause() == 15) {
+    // Store page fault — check for CoW
+    uint64 va = r_stval();
+
+    if(va >= MAXVA || va == 0){
+      setkilled(p);
+    } else {
+      uint64 page = PGROUNDDOWN(va);
+      pte_t *pte = walk(p->pagetable, page, 0);
+
+      // Check PTE exists, is valid, user-accessible, and is a CoW page.
+      if(pte == 0
+         || (*pte & PTE_V) == 0
+         || (*pte & PTE_U) == 0
+         || (*pte & PTE_COW) == 0){
+        // Not a CoW fault — genuine illegal write. Kill the process.
+        setkilled(p);
+      } else {
+        // Allocate a new physical page.
+        char *mem = kalloc();
+        if(mem == 0){
+          // Out of memory — kill the process.
+          setkilled(p);
+        } else {
+          // Copy the shared page into the new private page.
+          uint64 old_pa = PTE2PA(*pte);
+          memmove(mem, (char*)old_pa, PGSIZE);
+
+          // Update PTE: point to new page, restore PTE_W, clear PTE_COW.
+          uint flags = (PTE_FLAGS(*pte) & ~PTE_COW) | PTE_W;
+          *pte = PA2PTE((uint64)mem) | flags;
+
+          // Release the reference to the old shared page.
+          kfree((void*)old_pa);
+        }
+      }
+    }
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
