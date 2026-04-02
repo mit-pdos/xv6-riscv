@@ -421,6 +421,23 @@ kwait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+static void
+cpu_idle_halt(void)
+{
+  struct cpu *c = mycpu();
+
+  acquire(&tickslock);
+  c->idle_halt_count++;
+  c->idle_start_ticks = ticks;
+  release(&tickslock);
+
+  intr_on();
+  asm volatile("wfi");
+
+  acquire(&tickslock);
+  c->idle_ticks_total += ticks - c->idle_start_ticks;
+  release(&tickslock);
+}
 void
 scheduler(void)
 {
@@ -456,9 +473,9 @@ scheduler(void)
       release(&p->lock);
     }
     if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      asm volatile("wfi");
-    }
+  // nothing to run; stop running on this core until an interrupt.
+  cpu_idle_halt();
+}
   }
 }
 
@@ -686,6 +703,19 @@ procdump(void)
       state = "???";
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
+  }
+}
+void
+print_idle_stats(void)
+{
+  struct cpu *c;
+
+  printf("\nCPU idle halt statistics:\n");
+  for(c = cpus; c < &cpus[NCPU]; c++){
+    printf("cpu %d: halt_count=%lu idle_ticks=%lu\n",
+           (int)(c - cpus),
+           c->idle_halt_count,
+           c->idle_ticks_total);
   }
 }
 

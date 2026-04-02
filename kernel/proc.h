@@ -24,6 +24,10 @@ struct cpu {
   struct context context;     // swtch() here to enter scheduler().
   int noff;                   // Depth of push_off() nesting.
   int intena;                 // Were interrupts enabled before push_off()?
+
+  uint64 idle_halt_count;     // number of times this CPU entered idle halt
+  uint64 idle_start_ticks;    // tick value when idle halt started
+  uint64 idle_ticks_total;    // total ticks spent idle
 };
 
 extern struct cpu cpus[NCPU];
