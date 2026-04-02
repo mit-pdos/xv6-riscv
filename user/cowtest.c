@@ -13,6 +13,8 @@
 //   6. copyout_cow           - kernel copyout path on CoW page (pipe read)
 //   7. ref_cleanup           - pages freed correctly after process exits
 //   8. large_fork            - fork after >50% RAM alloc (CoW prevents OOM)
+//   9. lazy_cow              - prove copy deferred to write: reads don't
+//                              consume pages, writes consume exactly 1 each
 
 #include "kernel/types.h"
 #include "kernel/stat.h"
@@ -506,6 +508,136 @@ test_large_fork(void)
 }
 
 // -----------------------------------------------------------------------
+// TEST 9: lazy_cow
+// Proves the copy is deferred until the write, using freemem() to count
+// free physical pages at three precise moments:
+//
+//   A. Immediately after fork (child measures) — expect: same as parent had
+//      (pages are SHARED, no new physical pages allocated by fork itself)
+//
+//   B. After child reads every shared page — expect: same as A
+//      (reads do NOT trigger CoW copies; pages remain shared)
+//
+//   C. After child writes N pages one by one, measuring after each write —
+//      expect: free count drops by exactly 1 per write
+//      (each write triggers exactly 1 CoW copy, no more, no less)
+// -----------------------------------------------------------------------
+static void
+test_lazy_cow(void)
+{
+  const char *name = "lazy_cow";
+  const int NPAGES = 64;  // 64 pages = 256 KB: large enough to be decisive
+
+  printf("  setup: wire %d pages, fork, measure free pages after fork/read/write\n", NPAGES);
+
+  char *buf = sbrk(NPAGES * PGSIZE);
+  if(buf == SBRK_ERROR) { fail(name, "sbrk failed"); return; }
+
+  // Wire every page (write to each to force physical allocation via lazy alloc)
+  for(int i = 0; i < NPAGES; i++)
+    buf[i * PGSIZE] = (char)(i & 0xFF);
+
+  int free_before_fork = freemem();
+  printf("  free pages before fork: %d\n", free_before_fork);
+
+  // p[0]: parent reads from, p[1]: child writes to
+  // We send 3 measurements from child: after_fork, after_reads, then NPAGES write-pairs
+  int p[2];
+  pipe(p);
+
+  int pid = fork();
+  if(pid == 0) {
+    close(p[0]);
+
+    // --- MEASUREMENT A: right after fork, before any access ---
+    int after_fork = freemem();
+    pipe_send(p[1], after_fork);
+
+    // --- MEASUREMENT B: after reading every shared page ---
+    volatile int sink = 0;
+    for(int i = 0; i < NPAGES; i++)
+      sink += buf[i * PGSIZE];  // read-only access, CoW must NOT trigger
+    (void)sink;
+    int after_reads = freemem();
+    pipe_send(p[1], after_reads);
+
+    // --- MEASUREMENT C: write pages one at a time, measure after each ---
+    for(int i = 0; i < NPAGES; i++) {
+      buf[i * PGSIZE] = (char)(i + 1);  // write triggers 1 CoW copy
+      pipe_send(p[1], freemem());
+    }
+
+    close(p[1]);
+    exit(0);
+  }
+
+  close(p[1]);
+
+  int after_fork  = pipe_recv(p[0]);
+  int after_reads = pipe_recv(p[0]);
+
+  // Collect per-write free counts
+  int after_write[NPAGES];
+  for(int i = 0; i < NPAGES; i++)
+    after_write[i] = pipe_recv(p[0]);
+
+  close(p[0]);
+  int status = 0; wait(&status);
+
+  printf("  [A] free after fork  = %d  (want ~%d, no pages copied by fork)\n",
+         after_fork, free_before_fork);
+  printf("  [B] free after reads = %d  (want ~%d, reads must NOT trigger copies)\n",
+         after_reads, after_fork);
+
+  // Show first few and last write measurements
+  printf("  [C] free after each write (first 4 and last 4 of %d):\n", NPAGES);
+  for(int i = 0; i < NPAGES && i < 4; i++)
+    printf("      write[%d]: %d (expected %d)\n",
+           i, after_write[i], after_fork - (i + 1));
+  printf("      ...\n");
+  for(int i = NPAGES - 4; i < NPAGES; i++)
+    printf("      write[%d]: %d (expected %d)\n",
+           i, after_write[i], after_fork - (i + 1));
+
+  // Tolerance: allow ±2 for kernel scheduling/overhead
+  int tol = 2;
+
+  // Check A: fork should not consume any data pages
+  // (allows a few pages for child process overheads: kernel stack, page tables)
+  int fork_overhead = free_before_fork - after_fork;
+  int a_ok = (fork_overhead >= 0 && fork_overhead <= 10);
+
+  // Check B: reads must not consume any physical pages at all
+  int b_ok = (after_reads >= after_fork - tol && after_reads <= after_fork + tol);
+
+  // Check C: each write should drop free count by exactly 1
+  int c_ok = 1;
+  for(int i = 0; i < NPAGES; i++) {
+    int expected = after_fork - (i + 1);
+    if(after_write[i] < expected - tol || after_write[i] > expected + tol) {
+      printf("  write[%d]: got %d expected ~%d (deviation > %d)\n",
+             i, after_write[i], expected, tol);
+      c_ok = 0;
+    }
+  }
+
+  printf("  fork overhead: %d pages (want 0-10)\n", fork_overhead);
+  printf("  reads caused new allocs: %d (want 0)\n", after_fork - after_reads);
+  printf("  each write consumed exactly 1 page: %s\n", c_ok ? "YES" : "NO");
+
+  if(!a_ok)
+    fail(name, "fork consumed too many pages (eager copy suspected)");
+  else if(!b_ok)
+    fail(name, "reads after fork consumed pages (CoW triggered too early!)");
+  else if(!c_ok)
+    fail(name, "writes did not consume exactly 1 page each");
+  else
+    pass(name);
+
+  sbrk(-NPAGES * PGSIZE);
+}
+
+// -----------------------------------------------------------------------
 // Main
 // -----------------------------------------------------------------------
 
@@ -529,6 +661,8 @@ main(void)
     { "6. copyout_cow           (kernel pipe read into CoW page via copyout)",test_copyout_cow           },
     { "7. ref_cleanup           (refcount correct after many quick exits)",   test_ref_cleanup           },
     { "8. large_fork            (40 MB alloc + fork, no OOM thanks to CoW)", test_large_fork            },
+    { "9. lazy_cow              (freemem proves: fork=0 new pages, reads=0 new pages, each write=1)",
+                                                                              test_lazy_cow              },
   };
 
   int ntests = sizeof(tests) / sizeof(tests[0]);

@@ -118,3 +118,10 @@ sys_getprocs(void)
   argint(1, &nmax);
   return getprocs(addr, nmax);
 }
+
+// Return the number of free physical pages currently in the freelist.
+uint64
+sys_freemem(void)
+{
+  return kmem_freepages();
+}

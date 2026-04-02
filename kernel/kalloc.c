@@ -114,9 +114,22 @@ ref_incr(uint64 pa)
   release(&pageref.lock);
 }
 
-// Return the reference count for a physical page.
+// Return the current reference count for a physical page.
 int
 ref_count(uint64 pa)
 {
   return pageref.count[pa / PGSIZE];
+}
+
+// Count free physical pages by walking the freelist.
+int
+kmem_freepages(void)
+{
+  struct run *r;
+  int count = 0;
+  acquire(&kmem.lock);
+  for(r = kmem.freelist; r; r = r->next)
+    count++;
+  release(&kmem.lock);
+  return count;
 }
