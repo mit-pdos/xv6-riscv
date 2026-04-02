@@ -150,6 +150,8 @@ UPROGS=\
 	$U/_cpubound\
 	$U/_iobound\
 	$U/_agingtest\
+	$U/_gamingtest\
+	$U/_legitimate_io\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

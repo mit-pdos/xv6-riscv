@@ -143,6 +143,11 @@ found:
   p->time_slice_remaining = base_time_quantum[0];
   p->cpu_usage_avg = 0.0f;      // Initialize EMA to zero
   p->priority_boost_time = ticks; // Initialize boost timestamp
+  
+  // Initialize allotments
+  for(int i = 0; i < NPRIO; i++) {
+    p->allotment[i] = 0;
+  }
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -564,6 +569,9 @@ yield(int voluntary)
     if(p->time_slice_remaining > 0)
       p->time_slice_remaining--;
     
+    // Check allotment limits
+    check_allotment(p);
+    
     // Check if quantum expired
     if(p->time_slice_remaining == 0) {
       handle_quantum_expiration(p);
@@ -789,7 +797,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    printf("%d %s %s pri=%d cpu=%.2f", p->pid, state, p->name, p->priority, p->cpu_usage_avg);
+    printf("%d %s %s pri=%d cpu=%.2f all=%lu", p->pid, state, p->name, p->priority, p->cpu_usage_avg, p->allotment[p->priority]);
     printf("\n");
   }
 }

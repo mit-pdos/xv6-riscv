@@ -18,4 +18,10 @@
 // Aging configuration
 #define AGING_INTERVAL     100    // Aging interval in ticks (configurable)
 
+// Allotment limits (in ticks) - maximum time allowed at each priority level
+#define MAX_ALLOTMENT_0    100    // Priority 0 (highest)
+#define MAX_ALLOTMENT_1    200    // Priority 1
+#define MAX_ALLOTMENT_2    400    // Priority 2
+#define MAX_ALLOTMENT_3    800    // Priority 3 (lowest)
+
 #endif
