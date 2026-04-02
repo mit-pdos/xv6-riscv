@@ -4,6 +4,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "mlfq.h"
 
 struct quantum_manager {
   uint64 base_quantum[MLFQ_LEVELS];
@@ -13,6 +14,7 @@ struct quantum_manager {
   int context_switch_rate_x1000;
   int quantum_factor_x1000;
   uint64 last_quantum_adjust_tick;
+  uint64 last_behavior_update_tick;
   uint64 total_context_switches;
   uint64 voluntary_context_switches;
   uint64 involuntary_context_switches;
@@ -24,6 +26,55 @@ struct quantum_manager {
 };
 
 static struct quantum_manager qm;
+
+static void
+classify_process_behavior(struct proc *p)
+{
+  uint64 cpu_delta = p->cpu_time_used - p->last_cpu_time_used;
+  uint64 io_delta = p->io_count - p->last_io_count;
+
+  uint64 denom = cpu_delta + 1;
+  uint64 io_ratio_x1000 = (io_delta * 1000ULL) / denom;
+
+  const uint64 alpha_num = 3;
+  const uint64 alpha_den = 10;
+  uint64 cpu_delta_x1000 = cpu_delta * 1000ULL;
+  p->cpu_usage_avg = (p->cpu_usage_avg * (alpha_den - alpha_num) + cpu_delta_x1000 * alpha_num) / alpha_den;
+
+  if(io_ratio_x1000 > 500 || p->cpu_usage_avg < (uint64)(QUANTUM_THRESHOLD_LOW * 1000)){
+    p->behavior_type = PROC_IO_BOUND;
+  } else if(p->cpu_usage_avg > (uint64)(QUANTUM_THRESHOLD_HIGH * 1000)){
+    p->behavior_type = PROC_CPU_BOUND;
+  } else {
+    p->behavior_type = PROC_MIXED;
+  }
+
+  p->last_cpu_time_used = p->cpu_time_used;
+  p->last_io_count = p->io_count;
+}
+
+uint64
+qm_get_process_quantum(struct proc *p)
+{
+  if(p == 0)
+    return 2;
+
+  uint64 base = qm_get_time_quantum(p->priority);
+  int mult_x1000 = 1000;
+  if(p->behavior_type == PROC_IO_BOUND){
+    mult_x1000 = 800;
+  } else if(p->behavior_type == PROC_CPU_BOUND){
+    if(p->priority >= (MLFQ_LEVELS - 2))
+      mult_x1000 = 1200;
+    else
+      mult_x1000 = 1000;
+  }
+
+  uint64 q = (base * (uint64)mult_x1000) / 1000ULL;
+  if(q < 2)
+    q = 2;
+  return q;
+}
 
 void
 qm_init(void)
@@ -38,6 +89,7 @@ qm_init(void)
   qm.context_switch_rate_x1000 = 0;
   qm.quantum_factor_x1000 = 1000;
   qm.last_quantum_adjust_tick = 0;
+  qm.last_behavior_update_tick = 0;
   qm.total_context_switches = 0;
   qm.voluntary_context_switches = 0;
   qm.involuntary_context_switches = 0;
@@ -155,6 +207,24 @@ qm_tick(uint64 now_tick)
     qm.last_quantum_adjust_tick = now_tick;
   }
   release(&qm.lock);
+
+  const uint64 behavior_update_interval_ticks = 200;
+  int do_behavior = 0;
+  acquire(&qm.lock);
+  if(qm.last_behavior_update_tick == 0 || now_tick - qm.last_behavior_update_tick >= behavior_update_interval_ticks){
+    qm.last_behavior_update_tick = now_tick;
+    do_behavior = 1;
+  }
+  release(&qm.lock);
+
+  if(do_behavior){
+    for(struct proc *p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+      if(p->state != UNUSED)
+        classify_process_behavior(p);
+      release(&p->lock);
+    }
+  }
 
   const uint64 update_interval_ticks = 100;
   const int ticks_per_sec = 10;

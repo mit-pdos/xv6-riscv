@@ -161,6 +161,9 @@ found:
   p->io_count = 0;
   p->voluntary_yields = 0;
   p->cpu_usage_avg = 0;
+  p->behavior_type = PROC_MIXED;
+  p->last_cpu_time_used = 0;
+  p->last_io_count = 0;
   p->priority_boost_time = 0;
   p->mlfq_next = 0;
   p->mlfq_prev = 0;
@@ -232,6 +235,9 @@ freeproc(struct proc *p)
   p->voluntary_yields = 0;
   p->sleep_start_tick = 0;
   p->sleeping_for_io = 0;
+  p->behavior_type = PROC_MIXED;
+  p->last_cpu_time_used = 0;
+  p->last_io_count = 0;
   p->mlfq_next = 0;
   p->mlfq_level = -1;
   p->state = UNUSED;
@@ -734,7 +740,7 @@ wakeup(void *chan)
           int np = p->priority - MLFQ_IO_WAKE_BOOST;
           p->priority = np < 0 ? 0 : np;
         }
-        p->time_slice_remaining = qm_get_time_quantum(p->priority);
+        p->time_slice_remaining = qm_get_process_quantum(p);
         p->priority_boost_time = now;
 
         p->state = RUNNABLE;
