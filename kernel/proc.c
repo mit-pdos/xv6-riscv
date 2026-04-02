@@ -17,6 +17,8 @@ struct spinlock pid_lock;
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
+static void free_hib_pages(struct proc *p, int free_phys);
+static int restore_hib_pages(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
@@ -155,6 +157,7 @@ found:
 static void
 freeproc(struct proc *p)
 {
+  free_hib_pages(p, 1);
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
@@ -167,8 +170,50 @@ freeproc(struct proc *p)
   p->name[0] = 0;
   p->chan = 0;
   p->killed = 0;
+  p->suspend_pending = 0;
+  p->hibernated = 0;
   p->xstate = 0;
+  p->hib_pages = 0;
   p->state = UNUSED;
+}
+
+static void
+free_hib_pages(struct proc *p, int free_phys)
+{
+  struct hib_page *hp = p->hib_pages;
+  while(hp){
+    if(free_phys){
+      for(int i = 0; i < hp->used; i++){
+        kfree((void*)PTE2PA(hp->ents[i].pte));
+      }
+    }
+    struct hib_page *next = hp->next;
+    kfree((void*)hp);
+    hp = next;
+  }
+  p->hib_pages = 0;
+  p->hibernated = 0;
+}
+
+static int
+restore_hib_pages(struct proc *p)
+{
+  struct hib_page *hp;
+  pte_t *pte;
+
+  for(hp = p->hib_pages; hp; hp = hp->next){
+    for(int i = 0; i < hp->used; i++){
+      pte = walk(p->pagetable, hp->ents[i].va, 1);
+      if(pte == 0)
+        return -1;
+      if(*pte & PTE_V)
+        return -1;
+      *pte = hp->ents[i].pte;
+    }
+  }
+  sfence_vma();
+  free_hib_pages(p, 0);
+  return 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -512,7 +557,12 @@ yield(void)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
-  p->state = RUNNABLE;
+  if(p->suspend_pending){
+    p->state = SUSPENDED;
+    p->suspend_pending = 0;
+  } else {
+    p->state = RUNNABLE;
+  }
   sched();
   release(&p->lock);
 }
@@ -596,7 +646,12 @@ wakeup(void *chan)
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
-        p->state = RUNNABLE;
+        if(p->suspend_pending){
+          p->state = SUSPENDED;
+          p->suspend_pending = 0;
+        } else {
+          p->state = RUNNABLE;
+        }
       }
       release(&p->lock);
     }
@@ -615,9 +670,14 @@ kkill(int pid)
     acquire(&p->lock);
     if(p->pid == pid){
       p->killed = 1;
-      if(p->state == SLEEPING){
+      if(p->state == SLEEPING || p->state == SUSPENDED){
+        if(p->hibernated && restore_hib_pages(p) < 0){
+          release(&p->lock);
+          return -1;
+        }
         // Wake process from sleep().
         p->state = RUNNABLE;
+        p->suspend_pending = 0;
       }
       release(&p->lock);
       return 0;
@@ -633,6 +693,141 @@ setkilled(struct proc *p)
   acquire(&p->lock);
   p->killed = 1;
   release(&p->lock);
+}
+
+int
+ksuspend(int pid)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid == pid){
+      if(p->state == UNUSED || p->state == ZOMBIE){
+        release(&p->lock);
+        return -1;
+      }
+      if(p->state == SUSPENDED || p->suspend_pending){
+        release(&p->lock);
+        return 0;
+      }
+      if(p->state == RUNNABLE){
+        p->state = SUSPENDED;
+        release(&p->lock);
+        return 0;
+      }
+      // For RUNNING and SLEEPING, delay transition until deschedule/wakeup.
+      p->suspend_pending = 1;
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+
+int
+kresume(int pid)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid == pid){
+      if(p->state == SUSPENDED){
+        if(p->hibernated && restore_hib_pages(p) < 0){
+          release(&p->lock);
+          return -1;
+        }
+        p->suspend_pending = 0;
+        p->state = RUNNABLE;
+        release(&p->lock);
+        return 0;
+      }
+      if(p->suspend_pending){
+        p->suspend_pending = 0;
+        release(&p->lock);
+        return 0;
+      }
+      release(&p->lock);
+      return -1;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+
+int
+khibernate(int pid)
+{
+  struct proc *p;
+  uint64 va, sz;
+  pte_t *pte;
+  struct hib_page *head = 0, *tail = 0, *cur = 0;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid != pid){
+      release(&p->lock);
+      continue;
+    }
+
+    if(p->state != SUSPENDED || p->hibernated){
+      release(&p->lock);
+      return -1;
+    }
+
+    sz = PGROUNDUP(p->sz);
+    for(va = 0; va < sz; va += PGSIZE){
+      pte = walk(p->pagetable, va, 0);
+      if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
+        continue;
+
+      if(cur == 0 || cur->used >= NELEM(cur->ents)){
+        struct hib_page *newp = (struct hib_page *)kalloc();
+        if(newp == 0){
+          goto rollback;
+        }
+        memset(newp, 0, PGSIZE);
+        if(head == 0)
+          head = newp;
+        else
+          tail->next = newp;
+        tail = newp;
+        cur = newp;
+      }
+
+      cur->ents[cur->used].va = va;
+      cur->ents[cur->used].pte = *pte;
+      cur->used++;
+      *pte = 0;
+    }
+
+    sfence_vma();
+    p->hib_pages = head;
+    p->hibernated = 1;
+    release(&p->lock);
+    return 0;
+
+rollback:
+    for(struct hib_page *hp = head; hp; hp = hp->next){
+      for(int i = 0; i < hp->used; i++){
+        pte = walk(p->pagetable, hp->ents[i].va, 0);
+        if(pte)
+          *pte = hp->ents[i].pte;
+      }
+    }
+    sfence_vma();
+    while(head){
+      struct hib_page *next = head->next;
+      kfree((void*)head);
+      head = next;
+    }
+    release(&p->lock);
+    return -1;
+  }
+
+  return -1;
 }
 
 int
@@ -688,6 +883,7 @@ procdump(void)
   [SLEEPING]  "sleep ",
   [RUNNABLE]  "runble",
   [RUNNING]   "run   ",
+  [SUSPENDED] "suspend",
   [ZOMBIE]    "zombie"
   };
   struct proc *p;

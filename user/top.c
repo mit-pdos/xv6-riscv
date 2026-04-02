@@ -5,13 +5,13 @@
 #define REFRESH_TICKS 10
 
 static char *statenames[] = {
-  "unused", "used", "sleep", "runble", "run", "zombie"
+  "unused", "used", "sleep", "runble", "run", "suspend", "zombie"
 };
 
 static char*
 statename(int s)
 {
-  if(s >= 0 && s <= 5)
+  if(s >= 0 && s <= 6)
     return statenames[s];
   return "???";
 }

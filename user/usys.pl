@@ -44,3 +44,6 @@ entry("pause");
 entry("uptime");
 entry("getprocs");
 entry("freemem");
+entry("suspend");
+entry("resume");
+entry("hibernate");

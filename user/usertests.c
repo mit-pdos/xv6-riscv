@@ -818,6 +818,134 @@ killstatus(char *s)
   exit(0);
 }
 
+void
+suspendresume(char *s)
+{
+  int xst;
+  int pid;
+
+  // Suspend and resume a running process.
+  pid = fork();
+  if(pid < 0){
+    printf("%s: fork failed\n", s);
+    exit(1);
+  }
+  if(pid == 0){
+    while(1)
+      getpid();
+    exit(0);
+  }
+
+  pause(1);
+  if(suspend(pid) < 0){
+    printf("%s: suspend failed\n", s);
+    kill(pid);
+    wait(0);
+    exit(1);
+  }
+  pause(2);
+  if(resume(pid) < 0){
+    printf("%s: resume failed\n", s);
+    kill(pid);
+    wait(0);
+    exit(1);
+  }
+  if(kill(pid) < 0){
+    printf("%s: kill failed after resume\n", s);
+    wait(0);
+    exit(1);
+  }
+  if(wait(&xst) != pid || xst != -1){
+    printf("%s: wait status mismatch after resume path\n", s);
+    exit(1);
+  }
+
+  // Suspend a sleeping process (pending suspend) and verify kill still works.
+  pid = fork();
+  if(pid < 0){
+    printf("%s: second fork failed\n", s);
+    exit(1);
+  }
+  if(pid == 0){
+    pause(1000);
+    exit(0);
+  }
+  pause(1);
+  if(suspend(pid) < 0){
+    printf("%s: suspend sleeping process failed\n", s);
+    kill(pid);
+    wait(0);
+    exit(1);
+  }
+  if(kill(pid) < 0){
+    printf("%s: kill failed on suspended sleeper\n", s);
+    wait(0);
+    exit(1);
+  }
+  if(wait(&xst) != pid || xst != -1){
+    printf("%s: wait status mismatch for suspended sleeper\n", s);
+    exit(1);
+  }
+
+  exit(0);
+}
+
+void
+hibernate_resume(char *s)
+{
+  int pid, xst;
+
+  pid = fork();
+  if(pid < 0){
+    printf("%s: fork failed\n", s);
+    exit(1);
+  }
+  if(pid == 0){
+    while(1)
+      getpid();
+    exit(0);
+  }
+
+  pause(1);
+  if(hibernate(pid) == 0){
+    printf("%s: hibernate should fail without suspend\n", s);
+    kill(pid);
+    wait(0);
+    exit(1);
+  }
+  if(suspend(pid) < 0){
+    printf("%s: suspend failed\n", s);
+    kill(pid);
+    wait(0);
+    exit(1);
+  }
+  pause(2);
+  if(hibernate(pid) < 0){
+    printf("%s: hibernate failed\n", s);
+    kill(pid);
+    wait(0);
+    exit(1);
+  }
+  pause(2);
+  if(resume(pid) < 0){
+    printf("%s: resume after hibernate failed\n", s);
+    kill(pid);
+    wait(0);
+    exit(1);
+  }
+  if(kill(pid) < 0){
+    printf("%s: kill failed after hibernate resume\n", s);
+    wait(0);
+    exit(1);
+  }
+  if(wait(&xst) != pid || xst != -1){
+    printf("%s: wait status mismatch after hibernate resume\n", s);
+    exit(1);
+  }
+
+  exit(0);
+}
+
 // meant to be run w/ at most two CPUs
 void
 preempt(char *s)
@@ -2772,6 +2900,8 @@ struct test {
   {exectest, "exectest"},
   {pipe1, "pipe1"},
   {killstatus, "killstatus"},
+  {suspendresume, "suspendresume"},
+  {hibernate_resume, "hibernate_resume"},
   {preempt, "preempt"},
   {exitwait, "exitwait"},
   {reparent, "reparent" },

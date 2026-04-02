@@ -147,6 +147,9 @@ UPROGS=\
 	$U/_dorphan\
 	$U/_top\
 	$U/_cowtest\
+	$U/_suspend\
+	$U/_resume\
+	$U/_hibernate\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

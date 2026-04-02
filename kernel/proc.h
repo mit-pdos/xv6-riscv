@@ -83,9 +83,21 @@ struct trapframe {
   /* 280 */ uint64 t6;
 };
 
-enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, SUSPENDED, ZOMBIE };
 
 #define PNAMESIZE 16
+
+struct hib_entry {
+  uint64 va;
+  uint64 pte;
+};
+
+struct hib_page {
+  struct hib_page *next;
+  int used;
+  struct hib_entry ents[(PGSIZE - sizeof(struct hib_page *) - sizeof(int)) /
+                        sizeof(struct hib_entry)];
+};
 
 struct pinfo {
   int pid;
@@ -103,6 +115,8 @@ struct proc {
   enum procstate state;        // Process state
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
+  int suspend_pending;         // If non-zero, suspend when next descheduled
+  int hibernated;              // If non-zero, user mappings are hibernated
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
 
@@ -119,4 +133,5 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   uint64 ticks_total;          // Total timer ticks while running
+  struct hib_page *hib_pages;  // Metadata describing hibernated mappings
 };

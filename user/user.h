@@ -36,6 +36,9 @@ int pause(int);
 int uptime(void);
 int getprocs(struct pinfo*, int);
 int freemem(void);
+int suspend(int);
+int resume(int);
+int hibernate(int);
 
 // ulib.c
 int stat(const char*, struct stat*);

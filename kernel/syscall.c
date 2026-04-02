@@ -103,6 +103,9 @@ extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_getprocs(void);
 extern uint64 sys_freemem(void);
+extern uint64 sys_suspend(void);
+extern uint64 sys_resume(void);
+extern uint64 sys_hibernate(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -130,6 +133,9 @@ static uint64 (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_getprocs] sys_getprocs,
 [SYS_freemem]  sys_freemem,
+[SYS_suspend]  sys_suspend,
+[SYS_resume]   sys_resume,
+[SYS_hibernate] sys_hibernate,
 };
 
 void

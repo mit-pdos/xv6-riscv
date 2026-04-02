@@ -125,3 +125,30 @@ sys_freemem(void)
 {
   return kmem_freepages();
 }
+
+uint64
+sys_suspend(void)
+{
+  int pid;
+
+  argint(0, &pid);
+  return ksuspend(pid);
+}
+
+uint64
+sys_resume(void)
+{
+  int pid;
+
+  argint(0, &pid);
+  return kresume(pid);
+}
+
+uint64
+sys_hibernate(void)
+{
+  int pid;
+
+  argint(0, &pid);
+  return khibernate(pid);
+}
