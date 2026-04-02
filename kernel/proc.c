@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
+static const uint64 base_time_quantum[MLFQ_LEVELS] = { 5, 10, 20, 40, 80 };
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -292,8 +294,10 @@ userinit(void)
 
   p->state = RUNNABLE;
   mlfq_enqueue(p, p->priority);
-
+  
   release(&p->lock);
+
+  mlfq_enqueue(p, 0);
 }
 
 // Grow or shrink user memory by n bytes.
@@ -366,7 +370,10 @@ kfork(void)
   acquire(&np->lock);
   np->state = RUNNABLE;
   mlfq_enqueue(np, np->priority);
+  int prio = np->priority;
   release(&np->lock);
+
+  mlfq_enqueue(np, prio);
 
   return pid;
 }
@@ -490,13 +497,15 @@ kwait(uint64 addr)
   }
 }
 
-// Per-CPU process scheduler.
+// Per-CPU MLFQ scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
-//  - choose a process to run.
-//  - swtch to start running that process.
-//  - eventually that process transfers control
-//    via swtch back to the scheduler.
+//  - iterate priority levels from highest (0) to lowest (MLFQ_LEVELS-1).
+//  - dequeue first runnable process from highest non-empty queue.
+//  - set time quantum for the process's priority level.
+//  - context switch to the selected process.
+//  - on return, re-enqueue if the process is still runnable.
+//  - if all queues are empty, wait for interrupt.
 void
 scheduler(void)
 {
@@ -729,8 +738,12 @@ wakeup(void *chan)
 
         p->state = RUNNABLE;
         mlfq_enqueue(p, p->priority);
+        int prio = p->priority;
+        release(&p->lock);
+        mlfq_enqueue(p, prio);
+      } else {
+        release(&p->lock);
       }
-      release(&p->lock);
     }
   }
 }
@@ -748,9 +761,13 @@ kkill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       if(p->state == SLEEPING){
-        // Wake process from sleep().
+        // Wake process from sleep() and enqueue in MLFQ.
         p->state = RUNNABLE;
         mlfq_enqueue(p, p->priority);
+        int prio = p->priority;
+        release(&p->lock);
+        mlfq_enqueue(p, prio);
+        return 0;
       }
       release(&p->lock);
       return 0;

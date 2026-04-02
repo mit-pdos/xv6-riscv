@@ -83,9 +83,20 @@ usertrap(void)
   if(killed(p))
     kexit(-1);
 
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
+  // give up the CPU if this is a timer interrupt
+  // and the process has exhausted its time quantum.
+  if(which_dev == 2){
+    // Track time slice usage for MLFQ scheduling.
+    p->cpu_time_used++;
+    if(p->time_slice_remaining > 0)
+      p->time_slice_remaining--;
+    // If time slice exhausted, demote priority and yield.
+    if(p->time_slice_remaining == 0){
+      if(p->priority < MLFQ_LEVELS - 1)
+        p->priority++;
+      yield();
+    }
+  }
 
   prepare_return();
 
@@ -154,9 +165,19 @@ kerneltrap()
     panic("kerneltrap");
   }
 
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0)
-    yield();
+  // give up the CPU if this is a timer interrupt
+  // and the process has exhausted its time quantum.
+  if(which_dev == 2 && myproc() != 0){
+    struct proc *p = myproc();
+    p->cpu_time_used++;
+    if(p->time_slice_remaining > 0)
+      p->time_slice_remaining--;
+    if(p->time_slice_remaining == 0){
+      if(p->priority < MLFQ_LEVELS - 1)
+        p->priority++;
+      yield();
+    }
+  }
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
