@@ -2,6 +2,9 @@
 #define T_FILE    2   // File
 #define T_DEVICE  3   // Device
 
+#define CONSOLE    1
+#define PSEUDODEV  2
+
 struct stat {
   int dev;     // File system's disk device
   uint ino;    // Inode number

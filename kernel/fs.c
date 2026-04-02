@@ -492,23 +492,28 @@ stati(struct inode *ip, struct stat *st)
 // If user_dst==1, then dst is a user virtual address;
 // otherwise, dst is a kernel address.
 int
-readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n)
+readi(struct inode* ip, int user_dst, uint64 dst, uint off, uint n)
 {
   uint tot, m;
-  struct buf *bp;
+  struct buf* bp;
 
-  if(off > ip->size || off + n < off)
+  if (ip->type == T_DEVICE) {
+    if (ip->major < 0 || ip->major >= NDEV || devsw[ip->major].read == 0)
+      return -1;
+    return devsw[ip->major].read(ip->minor, user_dst, dst, n);
+  }
+  if (off > ip->size || off + n < off)
     return 0;
-  if(off + n > ip->size)
+  if (off + n > ip->size)
     n = ip->size - off;
 
-  for(tot=0; tot<n; tot+=m, off+=m, dst+=m){
-    uint addr = bmap(ip, off/BSIZE);
-    if(addr == 0)
+  for (tot = 0; tot < n; tot += m, off += m, dst += m) {
+    uint addr = bmap(ip, off / BSIZE);
+    if (addr == 0)
       break;
     bp = bread(ip->dev, addr);
-    m = min(n - tot, BSIZE - off%BSIZE);
-    if(either_copyout(user_dst, dst, bp->data + (off % BSIZE), m) == -1) {
+    m = min(n - tot, BSIZE - off % BSIZE);
+    if (either_copyout(user_dst, dst, bp->data + (off % BSIZE), m) == -1) {
       brelse(bp);
       tot = -1;
       break;
@@ -531,6 +536,12 @@ writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
   uint tot, m;
   struct buf *bp;
 
+  if(ip->type == T_DEVICE){
+    if(ip->major < 0 || ip->major >= NDEV || devsw[ip->major].write == 0)
+      return -1;
+    return devsw[ip->major].write(ip->minor, user_src, src, n);
+  }
+
   if(off > ip->size || off + n < off)
     return -1;
   if(off + n > MAXFILE*BSIZE)
@@ -542,7 +553,7 @@ writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
       break;
     bp = bread(ip->dev, addr);
     m = min(n - tot, BSIZE - off%BSIZE);
-    if(either_copyin(bp->data + (off % BSIZE), user_src, src, m) == -1) {
+    if(either_copyin(bp->data + (off % BSIZE), user_src, src, m) == -1){
       brelse(bp);
       break;
     }
@@ -553,11 +564,7 @@ writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
   if(off > ip->size)
     ip->size = off;
 
-  // write the i-node back to disk even if the size didn't change
-  // because the loop above might have called bmap() and added a new
-  // block to ip->addrs[].
   iupdate(ip);
-
   return tot;
 }
 

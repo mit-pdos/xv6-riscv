@@ -9,6 +9,14 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+int consolewrite(short minor, int user_src, uint64 src, int n);
+int consoleread(short minor, int user_dst, uint64 dst, int n);
+
+void pseudodevinit(void);
+int pseudodevread(short minor, int user_dst, uint64 dst, int n);
+int pseudodevwrite(short minor, int user_src, uint64 src, int n);
+
+void pseudodevregister(void);
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
