@@ -13,6 +13,8 @@
 #include "stat.h"
 #include "proc.h"
 
+int total_access_counter = 0;
+
 struct devsw devsw[NDEV];
 struct {
   struct spinlock lock;
@@ -120,7 +122,19 @@ fileread(struct file *f, uint64 addr, int n)
   } else if(f->type == FD_INODE){
     ilock(f->ip);
     if((r = readi(f->ip, 1, addr, f->off, n)) > 0)
-      f->off += r;
+    { f->off += r;
+
+      // per-file access count
+      f->ip->access_count++;
+
+      // global access count
+      access_counter++;
+
+      // rebalance trigger
+      if(access_counter % 20 == 0)
+        ptfs_rebalance();
+
+    }
     iunlock(f->ip);
   } else {
     panic("fileread");
@@ -159,8 +173,18 @@ filewrite(struct file *f, uint64 addr, int n)
 
       begin_op();
       ilock(f->ip);
-      if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)
-        f->off += r;
+      if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0){
+        f->off += r;        
+        // per-file access count
+        f->ip->access_count++;
+
+      // global access count
+      access_counter++;
+
+         // rebalance trigger
+        if(access_counter % 20 == 0)
+        ptfs_rebalance();
+      }
       iunlock(f->ip);
       end_op();
 

@@ -70,3 +70,5 @@ struct dirent {
   char name[DIRSIZ] __attribute__((nonstring));
 };
 
+void ptfs_rebalance(void);
+
