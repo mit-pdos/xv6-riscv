@@ -103,6 +103,8 @@ struct hib_page {
 struct pinfo {
   int pid;
   int state;
+  int hibernated;
+  int hibernating;
   uint64 sz;
   uint64 ticks;
   char name[PNAMESIZE];

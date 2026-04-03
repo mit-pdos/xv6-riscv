@@ -1058,6 +1058,8 @@ getprocs(uint64 addr, int nmax)
     if(p->state != UNUSED){
       pi.pid = p->pid;
       pi.state = p->state;
+      pi.hibernated = p->hibernated;
+      pi.hibernating = p->hibernating;
       pi.sz = p->sz;
       pi.ticks = p->ticks_total;
       strncpy(pi.name, p->name, PNAMESIZE);
