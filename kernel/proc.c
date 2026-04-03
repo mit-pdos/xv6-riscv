@@ -242,8 +242,8 @@ free_hib_storage(struct proc *p)
     itrunc(ip);
     iupdate(ip);
     iunlock(ip);
-    end_op();
     iput(ip);
+    end_op();
   }
 
   p->hib_inode = 0;
@@ -333,8 +333,8 @@ rollback:
   itrunc(ip);
   iupdate(ip);
   iunlock(ip);
-  end_op();
   iput(ip);
+  end_op();
 
   while(head){
     struct hib_page *next = head->next;
