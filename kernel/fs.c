@@ -718,3 +718,42 @@ nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
 }
+
+// add new tag to file and also check if adding is possible
+// if MAX_TAGS is reached , return -1
+int add_tag(struct inode *ip,char *tag){
+  if(ip->tag_count >=MAX_TAGS) return -1;
+
+  safestrcpy(ip->tags[ip->tag_count], tag, TAG_LEN);
+  ip->tag_count++;
+}
+
+//check is the file already have the given tag
+int has_tag(struct inode *ip, char *tag)
+{
+  for(int i=0;i<ip->tag_count;i++){
+    if(strcmp(ip->tags[i], tag) == 0)
+      return 1;
+  }
+  return 0;
+}
+
+// remove a given tag , return -1 if tag not exsist with the file
+int remove_tag(struct inode *ip, char *tag)
+{
+  for(int i=0;i<ip->tag_count;i++){
+    if(strcmp(ip->tags[i], tag) == 0){
+
+      for(int j=i;j<ip->tag_count-1;j++){
+        safestrcpy(ip->tags[j],
+                   ip->tags[j+1],
+                   TAG_LEN);
+      }
+
+      ip->tag_count--;
+      return 0;
+    }
+  }
+
+  return -1;
+}
