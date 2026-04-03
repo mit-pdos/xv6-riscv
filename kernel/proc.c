@@ -2,7 +2,9 @@
 #include "param.h"
 #include "memlayout.h"
 #include "riscv.h"
+#include "stat.h"
 #include "spinlock.h"
+#include "fs.h"
 #include "proc.h"
 #include "defs.h"
 
@@ -17,8 +19,10 @@ struct spinlock pid_lock;
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
-static void free_hib_pages(struct proc *p, int free_phys);
+static void free_hib_pages(struct proc *p);
+static void free_hib_storage(struct proc *p);
 static int restore_hib_pages(struct proc *p);
+static int hibernate_pages(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
@@ -157,7 +161,7 @@ found:
 static void
 freeproc(struct proc *p)
 {
-  free_hib_pages(p, 1);
+  free_hib_pages(p);
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
@@ -172,48 +176,172 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->suspend_pending = 0;
   p->hibernated = 0;
+  p->hibernating = 0;
   p->xstate = 0;
   p->hib_pages = 0;
+  p->hib_inode = 0;
   p->state = UNUSED;
 }
 
 static void
-free_hib_pages(struct proc *p, int free_phys)
+free_hib_pages(struct proc *p)
 {
   struct hib_page *hp = p->hib_pages;
   while(hp){
-    if(free_phys){
-      for(int i = 0; i < hp->used; i++){
-        kfree((void*)PTE2PA(hp->ents[i].pte));
-      }
-    }
     struct hib_page *next = hp->next;
     kfree((void*)hp);
     hp = next;
   }
   p->hib_pages = 0;
-  p->hibernated = 0;
 }
 
 static int
 restore_hib_pages(struct proc *p)
 {
   struct hib_page *hp;
-  pte_t *pte;
+  char *mem;
+  int n;
+
+  if(p->hib_inode == 0)
+    return -1;
 
   for(hp = p->hib_pages; hp; hp = hp->next){
     for(int i = 0; i < hp->used; i++){
-      pte = walk(p->pagetable, hp->ents[i].va, 1);
-      if(pte == 0)
+      mem = kalloc();
+      if(mem == 0)
         return -1;
-      if(*pte & PTE_V)
+      begin_op();
+      ilock(p->hib_inode);
+      n = readi(p->hib_inode, 0, (uint64)mem, hp->ents[i].off, PGSIZE);
+      iunlock(p->hib_inode);
+      end_op();
+      if(n != PGSIZE){
+        kfree(mem);
         return -1;
-      *pte = hp->ents[i].pte;
+      }
+      if(mappages(p->pagetable, hp->ents[i].va, PGSIZE,
+                  (uint64)mem, hp->ents[i].flags) < 0){
+        kfree(mem);
+        return -1;
+      }
     }
   }
   sfence_vma();
-  free_hib_pages(p, 0);
+  free_hib_storage(p);
   return 0;
+}
+
+static void
+free_hib_storage(struct proc *p)
+{
+  struct inode *ip = p->hib_inode;
+
+  if(ip){
+    begin_op();
+    ilock(ip);
+    itrunc(ip);
+    iupdate(ip);
+    iunlock(ip);
+    end_op();
+    iput(ip);
+  }
+
+  p->hib_inode = 0;
+  free_hib_pages(p);
+  p->hibernated = 0;
+}
+
+static int
+hibernate_pages(struct proc *p)
+{
+  uint64 va, sz, off = 0;
+  pte_t *pte;
+  struct hib_page *head = 0, *tail = 0, *cur = 0;
+  struct inode *ip = 0;
+  int n;
+
+  begin_op();
+  ip = ialloc(ROOTDEV, T_FILE);
+  end_op();
+  if(ip == 0)
+    return -1;
+
+  sz = PGROUNDUP(p->sz);
+  for(va = 0; va < sz; va += PGSIZE){
+    pte = walk(p->pagetable, va, 0);
+    if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
+      continue;
+
+    if(cur == 0 || cur->used >= NELEM(cur->ents)){
+      struct hib_page *newp = (struct hib_page *)kalloc();
+      if(newp == 0)
+        goto rollback;
+      memset(newp, 0, PGSIZE);
+      if(head == 0)
+        head = newp;
+      else
+        tail->next = newp;
+      tail = newp;
+      cur = newp;
+    }
+
+    begin_op();
+    ilock(ip);
+    n = writei(ip, 0, PTE2PA(*pte), off, PGSIZE);
+    iunlock(ip);
+    end_op();
+    if(n != PGSIZE)
+      goto rollback;
+
+    cur->ents[cur->used].va = va;
+    cur->ents[cur->used].flags = PTE_FLAGS(*pte) & ~PTE_V;
+    cur->ents[cur->used].off = off;
+    cur->used++;
+    off += PGSIZE;
+
+    uvmunmap(p->pagetable, va, 1, 1);
+  }
+
+  sfence_vma();
+  p->hib_pages = head;
+  p->hib_inode = ip;
+  p->hibernated = 1;
+  return 0;
+
+rollback:
+  for(struct hib_page *hp = head; hp; hp = hp->next){
+    for(int i = 0; i < hp->used; i++){
+      char *mem = kalloc();
+      if(mem == 0)
+        continue;
+      begin_op();
+      ilock(ip);
+      n = readi(ip, 0, (uint64)mem, hp->ents[i].off, PGSIZE);
+      iunlock(ip);
+      end_op();
+      if(n != PGSIZE){
+        kfree(mem);
+        continue;
+      }
+      mappages(p->pagetable, hp->ents[i].va, PGSIZE, (uint64)mem, hp->ents[i].flags);
+    }
+  }
+  sfence_vma();
+
+  begin_op();
+  ilock(ip);
+  itrunc(ip);
+  iupdate(ip);
+  iunlock(ip);
+  end_op();
+  iput(ip);
+
+  while(head){
+    struct hib_page *next = head->next;
+    kfree((void*)head);
+    head = next;
+  }
+  return -1;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -670,12 +798,35 @@ kkill(int pid)
     acquire(&p->lock);
     if(p->pid == pid){
       p->killed = 1;
-      if(p->state == SLEEPING || p->state == SUSPENDED){
-        if(p->hibernated && restore_hib_pages(p) < 0){
+      if(p->hibernating){
+        release(&p->lock);
+        return 0;
+      }
+      if(p->state == SLEEPING){
+        p->state = RUNNABLE;
+        p->suspend_pending = 0;
+        release(&p->lock);
+        return 0;
+      }
+      if(p->state == SUSPENDED && p->hibernated){
+        p->hibernating = 1;
+        release(&p->lock);
+        if(restore_hib_pages(p) < 0){
+          acquire(&p->lock);
+          p->hibernating = 0;
           release(&p->lock);
           return -1;
         }
-        // Wake process from sleep().
+        acquire(&p->lock);
+        p->hibernating = 0;
+        if(p->state == SUSPENDED){
+          p->state = RUNNABLE;
+          p->suspend_pending = 0;
+        }
+        release(&p->lock);
+        return 0;
+      }
+      if(p->state == SUSPENDED){
         p->state = RUNNABLE;
         p->suspend_pending = 0;
       }
@@ -734,10 +885,26 @@ kresume(int pid)
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     if(p->pid == pid){
+      if(p->hibernating){
+        release(&p->lock);
+        return -1;
+      }
       if(p->state == SUSPENDED){
-        if(p->hibernated && restore_hib_pages(p) < 0){
+        if(p->hibernated){
+          p->hibernating = 1;
           release(&p->lock);
-          return -1;
+          if(restore_hib_pages(p) < 0){
+            acquire(&p->lock);
+            p->hibernating = 0;
+            release(&p->lock);
+            return -1;
+          }
+          acquire(&p->lock);
+          p->hibernating = 0;
+          if(p->state != SUSPENDED){
+            release(&p->lock);
+            return -1;
+          }
         }
         p->suspend_pending = 0;
         p->state = RUNNABLE;
@@ -761,9 +928,6 @@ int
 khibernate(int pid)
 {
   struct proc *p;
-  uint64 va, sz;
-  pte_t *pte;
-  struct hib_page *head = 0, *tail = 0, *cur = 0;
 
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
@@ -772,59 +936,26 @@ khibernate(int pid)
       continue;
     }
 
-    if(p->state != SUSPENDED || p->hibernated){
+    if(p->state != SUSPENDED || p->hibernated || p->hibernating){
       release(&p->lock);
       return -1;
     }
+    p->hibernating = 1;
+    release(&p->lock);
 
-    sz = PGROUNDUP(p->sz);
-    for(va = 0; va < sz; va += PGSIZE){
-      pte = walk(p->pagetable, va, 0);
-      if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
-        continue;
-
-      if(cur == 0 || cur->used >= NELEM(cur->ents)){
-        struct hib_page *newp = (struct hib_page *)kalloc();
-        if(newp == 0){
-          goto rollback;
-        }
-        memset(newp, 0, PGSIZE);
-        if(head == 0)
-          head = newp;
-        else
-          tail->next = newp;
-        tail = newp;
-        cur = newp;
-      }
-
-      cur->ents[cur->used].va = va;
-      cur->ents[cur->used].pte = *pte;
-      cur->used++;
-      *pte = 0;
+    int rv = hibernate_pages(p);
+    acquire(&p->lock);
+    p->hibernating = 0;
+    if(rv < 0){
+      release(&p->lock);
+      return -1;
     }
-
-    sfence_vma();
-    p->hib_pages = head;
-    p->hibernated = 1;
+    if(p->state != SUSPENDED){
+      release(&p->lock);
+      return -1;
+    }
     release(&p->lock);
     return 0;
-
-rollback:
-    for(struct hib_page *hp = head; hp; hp = hp->next){
-      for(int i = 0; i < hp->used; i++){
-        pte = walk(p->pagetable, hp->ents[i].va, 0);
-        if(pte)
-          *pte = hp->ents[i].pte;
-      }
-    }
-    sfence_vma();
-    while(head){
-      struct hib_page *next = head->next;
-      kfree((void*)head);
-      head = next;
-    }
-    release(&p->lock);
-    return -1;
   }
 
   return -1;

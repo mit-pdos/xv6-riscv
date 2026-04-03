@@ -89,7 +89,8 @@ enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, SUSPENDED, ZOMBIE };
 
 struct hib_entry {
   uint64 va;
-  uint64 pte;
+  uint64 flags;
+  uint64 off;
 };
 
 struct hib_page {
@@ -117,6 +118,7 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int suspend_pending;         // If non-zero, suspend when next descheduled
   int hibernated;              // If non-zero, user mappings are hibernated
+  int hibernating;             // If non-zero, hibernate/restore in progress
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
 
@@ -134,4 +136,5 @@ struct proc {
   char name[16];               // Process name (debugging)
   uint64 ticks_total;          // Total timer ticks while running
   struct hib_page *hib_pages;  // Metadata describing hibernated mappings
+  struct inode *hib_inode;     // Backing inode for hibernated pages
 };
