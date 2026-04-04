@@ -24,3 +24,4 @@
 #define SYS_yield  23
 #define SYS_getload 24
 #define SYS_getcsstats 25
+#define SYS_sleep 26

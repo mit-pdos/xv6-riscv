@@ -149,6 +149,7 @@ UPROGS=\
 	$U/_dorphan\
 	$U/_iostatstest\
 	$U/_cpubench\
+	$U/_iobench\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

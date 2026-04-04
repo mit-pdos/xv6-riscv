@@ -28,6 +28,7 @@ int getschedstats(uint64*, uint64*, uint64*);
 void yield(void);
 int getload(uint64*, uint64*);
 int getcsstats(uint64*, uint64*, uint64*, uint64*);
+int sleep(int);
 
 // ulib.c
 int stat(const char*, struct stat*);

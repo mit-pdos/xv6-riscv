@@ -105,7 +105,7 @@ extern uint64 sys_getschedstats(void);
 extern uint64 sys_yield(void);
 extern uint64 sys_getload(void);
 extern uint64 sys_getcsstats(void);
-
+extern uint64 sys_sleep(void);
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
@@ -134,6 +134,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_yield]   sys_yield,
 [SYS_getload] sys_getload,
 [SYS_getcsstats] sys_getcsstats,
+[SYS_sleep] sys_sleep,
 };
 
 void
