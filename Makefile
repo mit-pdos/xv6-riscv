@@ -10,6 +10,7 @@ OBJS = \
   $K/kalloc.o \
   $K/spinlock.o \
   $K/string.o \
+  $K/elog.o \
   $K/main.o \
   $K/vm.o \
   $K/proc.o \
@@ -142,6 +143,7 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
+	$U/_sustainlog\
 	$U/_logstress\
 	$U/_forphan\
 	$U/_dorphan\

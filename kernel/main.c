@@ -3,6 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
+#include "elog.h"
 
 volatile static int started = 0;
 
@@ -28,6 +29,7 @@ main()
     iinit();         // inode table
     fileinit();      // file table
     virtio_disk_init(); // emulated hard disk
+    eloginit();      // initialize logging system
     userinit();      // first user process
     __sync_synchronize();
     started = 1;
@@ -41,5 +43,5 @@ main()
     plicinithart();   // ask PLIC for device interrupts
   }
 
-  scheduler();        
+  scheduler();
 }

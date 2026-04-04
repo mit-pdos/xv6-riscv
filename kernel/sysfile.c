@@ -15,6 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "elog.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -502,4 +503,46 @@ sys_pipe(void)
     return -1;
   }
   return 0;
+}
+
+uint64
+sys_logevent(void)
+{
+  int event_type, sensor_id, value;
+
+  argint(0, &event_type);
+  argint(1, &sensor_id);
+  argint(2, &value);
+
+  if(event_type < EVENT_SENSOR_UPDATE || event_type > EVENT_INVALID_READING)
+    return -1;
+  if(sensor_id < SENSOR_TEMPERATURE || sensor_id > SENSOR_WATER_USAGE)
+    return -1;
+
+  elogadd(event_type, sensor_id, value);
+  return 0;
+}
+
+uint64
+sys_getlogs(void)
+{
+  uint64 dst;
+  int max, n;
+  struct proc *p = myproc();
+  struct elog_entry entries[ELOG_SIZE];
+
+  argaddr(0, &dst);
+  argint(1, &max);
+
+  if(max < 0)
+    return -1;
+  if(max > ELOG_SIZE)
+    max = ELOG_SIZE;
+
+  n = elogread(entries, max);
+  if(n > 0 && copyout(p->pagetable, dst, (char *)entries,
+                       n * sizeof(struct elog_entry)) < 0)
+    return -1;
+
+  return n;
 }

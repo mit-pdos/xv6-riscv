@@ -1,6 +1,7 @@
 #define SBRK_ERROR ((char *)-1)
 
 struct stat;
+struct elog_entry;
 
 // system calls
 int fork(void);
@@ -24,6 +25,8 @@ int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
+int logevent(int event_type, int sensor_id, int value);
+int getlogs(struct elog_entry *dst, int max);
 
 // ulib.c
 int stat(const char*, struct stat*);
