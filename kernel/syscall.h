@@ -22,3 +22,5 @@
 #define SYS_close    21
 #define SYS_logevent 22
 #define SYS_getlogs  23
+#define SYS_setalert 24
+#define SYS_getalerts 25

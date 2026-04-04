@@ -16,6 +16,7 @@
 #include "file.h"
 #include "fcntl.h"
 #include "elog.h"
+#include "alert.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -520,6 +521,11 @@ sys_logevent(void)
     return -1;
 
   elogadd(event_type, sensor_id, value);
+
+  // Auto-check thresholds on normal sensor updates
+  if(event_type == EVENT_SENSOR_UPDATE)
+    alertcheck(sensor_id, value);
+
   return 0;
 }
 
@@ -542,6 +548,42 @@ sys_getlogs(void)
   n = elogread(entries, max);
   if(n > 0 && copyout(p->pagetable, dst, (char *)entries,
                        n * sizeof(struct elog_entry)) < 0)
+    return -1;
+
+  return n;
+}
+
+uint64
+sys_setalert(void)
+{
+  int sensor_id, min_val, max_val;
+
+  argint(0, &sensor_id);
+  argint(1, &min_val);
+  argint(2, &max_val);
+
+  return alertsetthreshold(sensor_id, min_val, max_val);
+}
+
+uint64
+sys_getalerts(void)
+{
+  uint64 dst;
+  int max, n;
+  struct proc *p = myproc();
+  struct alert_entry entries[ALERT_BUF_SIZE];
+
+  argaddr(0, &dst);
+  argint(1, &max);
+
+  if(max < 0)
+    return -1;
+  if(max > ALERT_BUF_SIZE)
+    max = ALERT_BUF_SIZE;
+
+  n = alertgetpending(entries, max);
+  if(n > 0 && copyout(p->pagetable, dst, (char *)entries,
+                       n * sizeof(struct alert_entry)) < 0)
     return -1;
 
   return n;
