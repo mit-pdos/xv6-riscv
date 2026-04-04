@@ -104,4 +104,10 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // these fields help track energy usage of a process
+  uint cpu_ticks;              // Ticks spent running
+  uint runnable_ticks;         // Ticks spent waiting to be run
+  uint sleep_ticks;            // Ticks spend sleeping
+  uint energy_used;            // simulated energy total
 };

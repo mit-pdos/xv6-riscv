@@ -107,3 +107,11 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_getenergyinfo(void)
+{
+  uint64 addr;
+  argaddr(0, &addr);
+  return getenergyinfo(addr);
+}
