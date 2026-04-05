@@ -211,6 +211,7 @@ devintr()
   } else if(scause == 0x8000000000000005L){
     // timer interrupt.
     clockintr();
+    update_energy_accounting(); // update energy accounting after ticks are incremented
     return 2;
   } else {
     return 0;

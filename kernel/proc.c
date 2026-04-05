@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "energy.h"
 
 struct cpu cpus[NCPU];
 
@@ -124,6 +125,12 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+
+  // Initialize energy usage counters
+  p->cpu_ticks = 0;
+  p->runnable_ticks = 0;
+  p->sleep_ticks = 0;
+  p->energy_used = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -687,4 +694,60 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Helper function to update the energy counters each tick for each process
+// The actualy increment value is arbitrary, I'd imagine some testing of actual energy expenditure
+// of those processes is needed to come with an accurate value
+void
+update_energy_accounting(void)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+
+    if(p->state == RUNNING){
+      p->cpu_ticks++;
+      p->energy_used += 3; // Arbitrary value
+    } else if(p->state == RUNNABLE){
+      p->runnable_ticks++;
+      p->energy_used += 1; // Arbitrary value
+    } else if(p->state == SLEEPING){
+      p->sleep_ticks++;
+    }
+
+    release(&p->lock);
+  }
+}
+
+// Aquire energy info in a system call
+
+int
+getenergyinfo(uint64 addr)
+{
+  struct proc *p;
+  struct energyinfo info[NPROC];
+  int i = 0;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+
+    info[i].inuse = (p->state != UNUSED);
+    info[i].pid = p->pid;
+    info[i].state = p->state;
+    info[i].cpu_ticks = p->cpu_ticks;
+    info[i].runnable_ticks = p->runnable_ticks;
+    info[i].sleep_ticks = p->sleep_ticks;
+    info[i].energy_used = p->energy_used;
+    safestrcpy(info[i].name, p->name, sizeof(info[i].name));
+
+    release(&p->lock);
+    i++;
+  }
+
+  if(copyout(myproc()->pagetable, addr, (char *)info, sizeof(info)) < 0)
+    return -1;
+
+  return 0;
 }
