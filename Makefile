@@ -151,6 +151,7 @@ UPROGS=\
 	$U/_cpubench\
 	$U/_iobench\
 	$U/_mixedbench\
+	$U/_stresstest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
