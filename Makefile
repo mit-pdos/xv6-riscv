@@ -150,6 +150,7 @@ UPROGS=\
 	$U/_iostatstest\
 	$U/_cpubench\
 	$U/_iobench\
+	$U/_mixedbench\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
