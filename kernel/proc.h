@@ -110,4 +110,8 @@ struct proc {
   uint runnable_ticks;         // Ticks spent waiting to be run
   uint sleep_ticks;            // Ticks spend sleeping
   uint energy_used;            // simulated energy total
+
+  // field to remember how many cpu ticks this process had
+  uint recent_cpu_ticks;
+  
 };

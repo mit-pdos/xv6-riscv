@@ -27,14 +27,15 @@ main(void)
     exit(1);
   }
 
-  printf("PID\tSTATE\tCPU\tRUNNABLE\tSLEEP\tENERGY\tNAME\n");
+  printf("PID\tSTATE\tCPU\tRECENT\tRUNNABLE\tSLEEP\tENERGY\tNAME\n");
 
   for(int i = 0; i < NPROC; i++){
     if(info[i].inuse){
-      printf("%d\t%s\t%d\t\t%d\t%d\t%d\t%s\n",
+      printf("%d\t%s\t%d\t%d\t\t%d\t%d\t%d\t%s\n",
         info[i].pid,
         statestr(info[i].state),
         info[i].cpu_ticks,
+        info[i].recent_cpu_ticks,
         info[i].runnable_ticks,
         info[i].sleep_ticks,
         info[i].energy_used,

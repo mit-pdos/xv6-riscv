@@ -209,10 +209,19 @@ devintr()
 
     return 1;
   } else if(scause == 0x8000000000000005L){
-    // timer interrupt.
-    clockintr();
-    update_energy_accounting(); // update energy accounting after ticks are incremented
-    return 2;
+  // timer interrupt.
+  static int decay_counter = 0;
+
+  clockintr();
+  update_energy_accounting();
+
+  decay_counter++;
+  if(decay_counter >= 50){
+    decay_recent_cpu();
+    decay_counter = 0;
+  }
+
+  return 2;
   } else {
     return 0;
   }
