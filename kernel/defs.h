@@ -103,6 +103,9 @@ int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 int             getenergyinfo(uint64);
 void            decay_recent_cpu(void);
+void            update_system_metrics(void);
+extern int      system_load;
+extern int      simulated_temperature;
 
 // swtch.S
 void            swtch(struct context*, struct context*);

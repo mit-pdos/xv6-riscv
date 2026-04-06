@@ -214,6 +214,7 @@ devintr()
 
   clockintr();
   update_energy_accounting();
+  update_system_metrics();
 
   decay_counter++;
   if(decay_counter >= 50){

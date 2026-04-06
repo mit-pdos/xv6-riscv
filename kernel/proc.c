@@ -16,6 +16,9 @@ struct proc *initproc;
 int nextpid = 1;
 struct spinlock pid_lock;
 
+int system_load = 0;
+int simulated_temperature = 0;
+
 extern void forkret(void);
 static void freeproc(struct proc *p);
 
@@ -135,6 +138,8 @@ found:
   // Initialize cpu tick tracker
   p->recent_cpu_ticks = 0;
 
+  p->green_class = GREEN_CLASS_NORMAL;
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -180,6 +185,7 @@ freeproc(struct proc *p)
   p->xstate = 0;
   p->state = UNUSED;
   p->recent_cpu_ticks = 0;
+  p->green_class = GREEN_CLASS_NORMAL;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -300,6 +306,8 @@ kfork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+
+  np->green_class = p->green_class;
 
   pid = np->pid;
 
@@ -427,6 +435,8 @@ kwait(uint64 addr)
 
 // Pick the RUNNABLE process with the lowest recent CPU usage.
 // Break ties using PID for deterministic behavior.
+// When system load or temperature is high, skip green batch processes
+// (second pass allows them if no interactive process is available).
 void
 scheduler(void)
 {
@@ -438,12 +448,19 @@ scheduler(void)
   for(;;){
     intr_on();
 
+    int stressed = (system_load >= LOAD_THRESHOLD ||
+                    simulated_temperature >= TEMPERATURE_THRESHOLD);
+
     best = 0;
 
     for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
 
       if(p->state == RUNNABLE){
+        if(stressed && p->green_class == GREEN_CLASS_BATCH){
+          release(&p->lock);
+          continue;
+        }
         if(best == 0 ||
            p->recent_cpu_ticks < best->recent_cpu_ticks ||
            (p->recent_cpu_ticks == best->recent_cpu_ticks && p->pid < best->pid)){
@@ -458,6 +475,26 @@ scheduler(void)
       }
     }
 
+    // Fallback: if only batch processes are runnable, run them anyway
+    if(best == 0 && stressed){
+      for(p = proc; p < &proc[NPROC]; p++){
+        acquire(&p->lock);
+        if(p->state == RUNNABLE){
+          if(best == 0 ||
+             p->recent_cpu_ticks < best->recent_cpu_ticks ||
+             (p->recent_cpu_ticks == best->recent_cpu_ticks && p->pid < best->pid)){
+            if(best != 0)
+              release(&best->lock);
+            best = p;
+          } else {
+            release(&p->lock);
+          }
+        } else {
+          release(&p->lock);
+        }
+      }
+    }
+
     if(best != 0){
       best->state = RUNNING;
       c->proc = best;
@@ -465,9 +502,6 @@ scheduler(void)
       c->proc = 0;
       release(&best->lock);
     } else {
-      // No runnable process — halt until next interrupt
-      // Mirror what the original xv6 does: briefly disable interrupts
-      // around wfi so we don't miss a wakeup, then re-enable after
       asm volatile("wfi");
     }
   }
@@ -726,33 +760,37 @@ update_energy_accounting(void)
   }
 }
 
-// Aquire energy info in a system call
+// Acquire energy info in a system call.
+// Copy one entry at a time to avoid overflowing the 4KB kernel stack.
 int
 getenergyinfo(uint64 addr)
 {
   struct proc *p;
-  struct energyinfo info[NPROC];
+  struct energyinfo ei;
   int i = 0;
 
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
 
-    info[i].inuse = (p->state != UNUSED);
-    info[i].pid = p->pid;
-    info[i].state = p->state;
-    info[i].cpu_ticks = p->cpu_ticks;
-    info[i].runnable_ticks = p->runnable_ticks;
-    info[i].sleep_ticks = p->sleep_ticks;
-    info[i].energy_used = p->energy_used;
-    info[i].recent_cpu_ticks = p->recent_cpu_ticks;
-    safestrcpy(info[i].name, p->name, sizeof(info[i].name));
+    ei.inuse = (p->state != UNUSED);
+    ei.pid = p->pid;
+    ei.state = p->state;
+    ei.cpu_ticks = p->cpu_ticks;
+    ei.runnable_ticks = p->runnable_ticks;
+    ei.sleep_ticks = p->sleep_ticks;
+    ei.energy_used = p->energy_used;
+    ei.recent_cpu_ticks = p->recent_cpu_ticks;
+    ei.green_class = p->green_class;
+    ei.system_load = system_load;
+    ei.simulated_temperature = simulated_temperature;
+    safestrcpy(ei.name, p->name, sizeof(ei.name));
 
     release(&p->lock);
+
+    if(copyout(myproc()->pagetable, addr + i * sizeof(ei), (char *)&ei, sizeof(ei)) < 0)
+      return -1;
     i++;
   }
-
-  if(copyout(myproc()->pagetable, addr, (char *)info, sizeof(info)) < 0)
-    return -1;
 
   return 0;
 }
@@ -770,4 +808,24 @@ decay_recent_cpu(void)
     }
     release(&p->lock);
   }
+}
+
+void
+update_system_metrics(void)
+{
+  struct proc *p;
+  int running = 0;
+  int runnable = 0;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state == RUNNING)
+      running++;
+    else if(p->state == RUNNABLE)
+      runnable++;
+    release(&p->lock);
+  }
+
+  system_load = running + runnable;
+  simulated_temperature = simulated_temperature * 95 / 100 + running * 2;
 }

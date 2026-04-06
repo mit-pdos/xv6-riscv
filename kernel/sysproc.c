@@ -115,3 +115,17 @@ sys_getenergyinfo(void)
   argaddr(0, &addr);
   return getenergyinfo(addr);
 }
+
+uint64
+sys_setgreenclass(void)
+{
+  int class;
+  argint(0, &class);
+  if(class != GREEN_CLASS_NORMAL && class != GREEN_CLASS_BATCH)
+    return -1;
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  p->green_class = class;
+  release(&p->lock);
+  return 0;
+}

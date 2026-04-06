@@ -33,7 +33,7 @@ static char               acc_name[NPROC][16];
 static void
 record_snapshot(void)
 {
-  struct energyinfo info[NPROC];
+  static struct energyinfo info[NPROC];
 
   if(getenergyinfo(info) < 0){
     fprintf(2, "energytest: getenergyinfo failed\n");
@@ -61,7 +61,7 @@ record_snapshot(void)
 static void
 print_final_snapshot(void)
 {
-  struct energyinfo info[NPROC];
+  static struct energyinfo info[NPROC];
 
   if(getenergyinfo(info) < 0){
     fprintf(2, "energytest: getenergyinfo failed\n");

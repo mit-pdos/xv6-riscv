@@ -14,6 +14,9 @@ struct energyinfo {
   uint energy_used;
   char name[16];
   uint recent_cpu_ticks;
+  int green_class;
+  int system_load;
+  int simulated_temperature;
 };
 
 #endif

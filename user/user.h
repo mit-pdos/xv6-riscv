@@ -26,6 +26,7 @@ char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
 int getenergyinfo(struct energyinfo *);
+int setgreenclass(int);
 
 // ulib.c
 int stat(const char*, struct stat*);

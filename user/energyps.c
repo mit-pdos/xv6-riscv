@@ -20,19 +20,23 @@ statestr(int state)
 int
 main(void)
 {
-  struct energyinfo info[NPROC];
+  static struct energyinfo info[NPROC];
 
   if(getenergyinfo(info) < 0){
     fprintf(2, "energyps: getenergyinfo failed\n");
     exit(1);
   }
 
-  printf("PID\tSTATE\tCPU\tRECENT\tRUNNABLE\tSLEEP\tENERGY\tNAME\n");
+  printf("System load: %d  Temperature: %d\n\n",
+    info[0].system_load, info[0].simulated_temperature);
+
+  printf("PID\tCLASS\tSTATE\tCPU\tRECENT\tRUNNABLE\tSLEEP\tENERGY\tNAME\n");
 
   for(int i = 0; i < NPROC; i++){
     if(info[i].inuse){
-      printf("%d\t%s\t%d\t%d\t\t%d\t%d\t%d\t%s\n",
+      printf("%d\t%s\t%s\t%d\t%d\t\t%d\t%d\t%d\t%s\n",
         info[i].pid,
+        info[i].green_class ? "batch" : "normal",
         statestr(info[i].state),
         info[i].cpu_ticks,
         info[i].recent_cpu_ticks,
