@@ -44,3 +44,6 @@ entry("pause");
 entry("uptime");
 entry("getenergyinfo");
 entry("setgreenclass");
+entry("setheatclass");
+entry("gettemp");
+

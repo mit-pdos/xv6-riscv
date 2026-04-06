@@ -12,4 +12,8 @@
 #define FSSIZE       2000  // size of file system in blocks
 #define MAXPATH      128   // maximum file path name
 #define USERSTACK    1     // user stack pages
-
+#define TEMP_NORMAL    50   // below this: normal scheduling
+#define TEMP_WARM      80   // 50–80: penalize CPU-heavy processes
+#define TEMP_HOT       100  // above 80: throttle heaviest class
+#define TEMP_COOL_RATE  1   // degrees cooled per idle tick
+#define TEMP_HEAT_RATE  2   // degrees gained per running process tick

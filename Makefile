@@ -148,6 +148,7 @@ UPROGS=\
 	$U/_energyps\
 	$U/_energytest\
 	$U/_greentest\
+        $U/_thermaltest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

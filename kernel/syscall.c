@@ -103,6 +103,8 @@ extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_getenergyinfo(void);
 extern uint64 sys_setgreenclass(void);
+extern uint64 sys_setheatclass(void);
+extern uint64 sys_gettemp(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -130,6 +132,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_getenergyinfo] sys_getenergyinfo,
 [SYS_setgreenclass] sys_setgreenclass,
+[SYS_setheatclass] sys_setheatclass,
+[SYS_gettemp]      sys_gettemp
 };
 
 void

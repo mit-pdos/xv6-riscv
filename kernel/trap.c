@@ -208,23 +208,23 @@ devintr()
       plic_complete(irq);
 
     return 1;
-  } else if(scause == 0x8000000000000005L){
-  // timer interrupt.
-  static int decay_counter = 0;
+ } else if(scause == 0x8000000000000005L){
+    // timer interrupt.
+    static int decay_counter = 0;
 
-  clockintr();
-  update_energy_accounting();
-  update_system_metrics();
+    clockintr();
+    update_energy_accounting();
+    update_system_metrics();
+    update_thermal();
 
-  decay_counter++;
-  if(decay_counter >= 50){
-    decay_recent_cpu();
-    decay_counter = 0;
-  }
+    decay_counter++;
+    if(decay_counter >= 50){
+      decay_recent_cpu();
+      decay_counter = 0;
+    }
 
-  return 2;
+    return 2;
   } else {
     return 0;
   }
 }
-

@@ -106,6 +106,9 @@ void            decay_recent_cpu(void);
 void            update_system_metrics(void);
 extern int      system_load;
 extern int      simulated_temperature;
+extern int cpu_temp;
+extern int running_count;
+void update_thermal(void);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

@@ -129,3 +129,20 @@ sys_setgreenclass(void)
   release(&p->lock);
   return 0;
 }
+
+uint64
+sys_setheatclass(void)
+{
+  int class;
+  argint(0, &class);
+  if(class < 0 || class > 2) return -1;
+  myproc()->heatclass = class;
+  return 0;
+}
+
+uint64
+sys_gettemp(void)
+{
+  return cpu_temp;
+}
+

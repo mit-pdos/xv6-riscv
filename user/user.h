@@ -4,6 +4,8 @@ struct stat;
 struct energyinfo;
 
 // system calls
+int setheatclass(int);
+int gettemp(void);
 int fork(void);
 int exit(int) __attribute__((noreturn));
 int wait(int*);

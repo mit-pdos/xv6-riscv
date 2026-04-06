@@ -22,3 +22,5 @@
 #define SYS_close  21
 #define SYS_getenergyinfo 22
 #define SYS_setgreenclass 23
+#define SYS_setheatclass  24
+#define SYS_gettemp       25

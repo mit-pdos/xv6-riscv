@@ -14,6 +14,8 @@ struct proc proc[NPROC];
 struct proc *initproc;
 
 int nextpid = 1;
+int cpu_temp = 30;
+int running_count=0;
 struct spinlock pid_lock;
 
 int system_load = 0;
@@ -161,6 +163,8 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+p->heatclass = 1;
+p->skipcount = 0;
   return p;
 }
 
@@ -457,10 +461,25 @@ scheduler(void)
       acquire(&p->lock);
 
       if(p->state == RUNNABLE){
+        // Skip stressed batch processes
         if(stressed && p->green_class == GREEN_CLASS_BATCH){
           release(&p->lock);
           continue;
         }
+
+        // Thermal throttling
+        if(cpu_temp >= TEMP_HOT && p->heatclass == 2){
+          release(&p->lock);
+          continue;
+        }
+        if(cpu_temp >= TEMP_NORMAL && cpu_temp < TEMP_HOT && p->heatclass == 2){
+          p->skipcount = (p->skipcount + 1) % 3;
+          if(p->skipcount != 0){
+            release(&p->lock);
+            continue;
+          }
+        }
+
         if(best == 0 ||
            p->recent_cpu_ticks < best->recent_cpu_ticks ||
            (p->recent_cpu_ticks == best->recent_cpu_ticks && p->pid < best->pid)){
@@ -498,7 +517,9 @@ scheduler(void)
     if(best != 0){
       best->state = RUNNING;
       c->proc = best;
+      running_count++;
       swtch(&c->context, &best->context);
+      running_count--;
       c->proc = 0;
       release(&best->lock);
     } else {
@@ -506,6 +527,20 @@ scheduler(void)
     }
   }
 }
+
+
+void
+update_thermal(void)
+{
+  if(running_count > 0)
+    cpu_temp += running_count * TEMP_HEAT_RATE;
+  else
+    cpu_temp -= TEMP_COOL_RATE;
+
+  if(cpu_temp < 0)   cpu_temp = 0;
+  if(cpu_temp > 110) cpu_temp = 110;
+}
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -829,3 +864,4 @@ update_system_metrics(void)
   system_load = running + runnable;
   simulated_temperature = simulated_temperature * 95 / 100 + running * 2;
 }
+
