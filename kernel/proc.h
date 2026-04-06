@@ -113,5 +113,12 @@ struct proc {
 
   // field to remember how many cpu ticks this process had
   uint recent_cpu_ticks;
-  
+
+  int green_class;               // 0 = normal/interactive, 1 = green batch
 };
+
+#define GREEN_CLASS_NORMAL  0
+#define GREEN_CLASS_BATCH   1
+
+#define LOAD_THRESHOLD        2
+#define TEMPERATURE_THRESHOLD 30
