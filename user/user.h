@@ -1,6 +1,8 @@
 #define SBRK_ERROR ((char *)-1)
 
 struct stat;
+struct procstat;
+struct sysstats;
 
 // system calls
 int fork(void);
@@ -29,6 +31,8 @@ void yield(void);
 int getload(uint64*, uint64*);
 int getcsstats(uint64*, uint64*, uint64*, uint64*);
 int sleep(int);
+int getprocstat(int, struct procstat*);
+int getsysstats(struct sysstats*);
 
 // ulib.c
 int stat(const char*, struct stat*);

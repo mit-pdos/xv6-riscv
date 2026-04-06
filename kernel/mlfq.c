@@ -7,8 +7,14 @@
 #include "proc.h"
 
 // Time quanta per MLFQ level (must match scheduler expectations in proc.c).
+// Level 0 (highest priority): short quantum → fast IO response, rapid CPU demotion.
+// Each lower level doubles+ the quantum, letting long CPU jobs run with fewer switches.
 const uint64 mlfq_base_quantum[MLFQ_LEVELS] = {
-  1, 2, 4, 8, 16,
+  2,    // Level 0: 2 ticks  — IO-bound processes stay here
+  5,    // Level 1: 5 ticks
+  15,   // Level 2: 15 ticks
+  40,   // Level 3: 40 ticks
+  100,  // Level 4: 100 ticks — CPU-bound processes sink here
 };
 
 struct mlfq_queue {

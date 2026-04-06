@@ -109,6 +109,7 @@ struct proc {
 
   // Scheduling behavior counters.
   uint64 sleep_start_tick;     // Tick when process entered SLEEPING
+  uint64 runnable_since;       // Tick when process last became RUNNABLE (0 if not queued)
   int sleeping_for_io;         // 1 while blocked in an I/O-style sleep
   // Process scheduling metrics
   uint creation_time;          // Time (in ticks) when process was created

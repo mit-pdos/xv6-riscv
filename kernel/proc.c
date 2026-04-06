@@ -5,6 +5,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "procstat.h"
+
 
 static const uint64 base_time_quantum[MLFQ_LEVELS] __attribute__((unused)) = { 5, 10, 20, 40, 80 };
 
@@ -149,6 +151,7 @@ found:
   p->pid = allocpid();
   p->state = USED;
   p->sleep_start_tick = 0;
+  p->runnable_since = 0;
   p->sleeping_for_io = 0;
   p->mlfq_level = -1;
 
@@ -234,6 +237,7 @@ freeproc(struct proc *p)
   p->wait_time = 0;
   p->voluntary_yields = 0;
   p->sleep_start_tick = 0;
+  p->runnable_since = 0;
   p->sleeping_for_io = 0;
   p->behavior_type = PROC_MIXED;
   p->last_cpu_time_used = 0;
@@ -298,9 +302,12 @@ userinit(void)
   
   p->cwd = namei("/");
 
+  p->runnable_since = ticks;
   p->state = RUNNABLE;
+#if SCHED_TYPE != SCHED_RR
   mlfq_enqueue(p, p->priority);
-  
+#endif
+
   release(&p->lock);
 }
 
@@ -372,8 +379,11 @@ kfork(void)
   release(&wait_lock);
 
   acquire(&np->lock);
+  np->runnable_since = ticks;
   np->state = RUNNABLE;
+#if SCHED_TYPE != SCHED_RR
   mlfq_enqueue(np, np->priority);
+#endif
   release(&np->lock);
 
   return pid;
@@ -498,6 +508,61 @@ kwait(uint64 addr)
   }
 }
 
+#if SCHED_TYPE == SCHED_RR
+// Per-CPU round-robin scheduler.
+// Iterates the proc table in round-robin order, giving each RUNNABLE process
+// a fixed time slice of RR_QUANTUM ticks before switching to the next.
+void
+scheduler(void)
+{
+  struct cpu *c = mycpu();
+  int next = 0; // round-robin cursor: index of next proc to check
+
+  c->proc = 0;
+  for(;;){
+    intr_on();
+    intr_off();
+
+    int found = 0;
+    for(int i = 0; i < NPROC && !found; i++){
+      struct proc *p = &proc[(next + i) % NPROC];
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
+        acquire(&tickslock);
+        if(p->first_run_time == 0)
+          p->first_run_time = ticks;
+        if(p->runnable_since != 0)
+          p->total_wait_time += ticks - p->runnable_since;
+        p->runnable_since = 0;
+        p->last_run_time = ticks;
+        release(&tickslock);
+
+        p->time_slice_remaining = RR_QUANTUM;
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+
+        acquire(&tickslock);
+        uint runtime = ticks - p->last_run_time;
+        if(runtime > 0){
+          p->total_runtime += runtime;
+          acquire(&metrics.lock);
+          metrics.total_cpu_time += runtime;
+          release(&metrics.lock);
+        }
+        release(&tickslock);
+
+        c->proc = 0;
+        next = ((p - proc) + 1) % NPROC; // advance cursor past this process
+        found = 1;
+      }
+      release(&p->lock);
+    }
+    if(!found)
+      asm volatile("wfi");
+  }
+}
+#else
 // Per-CPU MLFQ scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -521,6 +586,15 @@ scheduler(void)
     // to avoid a possible race between an interrupt
     // and wfi.
     intr_on();
+    // if (ticks == 0) {  // print only once at boot
+    //     #if SCHED_TYPE == SCHED_RR
+    //         cprintf("Running Round Robin scheduler\n");
+    //     #elif SCHED_TYPE == SCHED_MLFQ
+    //         cprintf("Running MLFQ scheduler (fixed quantum)\n");
+    //     #elif SCHED_TYPE == SCHED_MLFQ_AQ
+    //         cprintf("Running MLFQ scheduler (adaptive quantum)\n");
+    //     #endif
+    // }
     intr_off();
 
     int found = 0;
@@ -535,18 +609,18 @@ scheduler(void)
         // to release its lock and then reacquire it
         // before jumping back to us.
 
-        // Track scheduling metrics: record first run time and calculate wait time
+        // Track scheduling metrics: record first run time and accumulate wait time.
         acquire(&tickslock);
-        if(p->first_run_time == 0) {
+        if(p->first_run_time == 0)
           p->first_run_time = ticks;
-          p->total_wait_time = ticks - p->creation_time;
-        } else {
-          // For subsequent runs, accumulate additional wait time since last context switch
-          p->total_wait_time += ticks - p->creation_time;
-        }
+        // Accumulate time spent RUNNABLE-but-not-RUNNING since last enqueue.
+        if(p->runnable_since != 0)
+          p->total_wait_time += ticks - p->runnable_since;
+        p->runnable_since = 0;
         p->last_run_time = ticks;
         release(&tickslock);
 
+        p->time_slice_remaining = qm_get_process_quantum(p);
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
@@ -577,6 +651,7 @@ scheduler(void)
     }
   }
 }
+#endif // SCHED_TYPE != SCHED_RR
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -618,8 +693,11 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->voluntary_yields++;
+  p->runnable_since = ticks;
   p->state = RUNNABLE;
+#if SCHED_TYPE != SCHED_RR
   mlfq_enqueue(p, p->priority);
+#endif
 
   // Track context switch
   p->context_switches++;
@@ -696,6 +774,12 @@ sleep(void *chan, struct spinlock *lk)
   release(&tickslock);
   p->state = SLEEPING;
 
+  // Track this as a context switch (voluntary block).
+  p->context_switches++;
+  acquire(&metrics.lock);
+  metrics.total_context_switches++;
+  release(&metrics.lock);
+
   sched();
 
   // If wakeup() didn't account for this sleep interval (e.g., killed wakeup),
@@ -743,8 +827,11 @@ wakeup(void *chan)
         p->time_slice_remaining = qm_get_process_quantum(p);
         p->priority_boost_time = now;
 
+        p->runnable_since = now;
         p->state = RUNNABLE;
+#if SCHED_TYPE != SCHED_RR
         mlfq_enqueue(p, p->priority);
+#endif
         release(&p->lock);
       } else {
         release(&p->lock);
@@ -766,9 +853,11 @@ kkill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       if(p->state == SLEEPING){
-        // Wake process from sleep() and enqueue in MLFQ.
+        p->runnable_since = ticks;
         p->state = RUNNABLE;
+#if SCHED_TYPE != SCHED_RR
         mlfq_enqueue(p, p->priority);
+#endif
         release(&p->lock);
         return 0;
       }
@@ -1112,11 +1201,38 @@ proc_print_system_csv(void)
   printf("%d,total_context_switches,%d,count\n", ticks, metrics.total_context_switches);
   printf("%d,total_cpu_time,%d,ticks\n", ticks, metrics.total_cpu_time);
   release(&metrics.lock);
-  
+
   if(elapsed > 0) {
     uint util = proc_cpu_utilization();
     printf("%d,cpu_utilization,%d,percent\n", ticks, util);
     printf("%d,throughput,%d,count\n", ticks, proc_throughput());
   }
   printf("\n");
+}
+
+// Fill *st with a snapshot of system-wide scheduling statistics.
+// Called by sys_getsysstats() in sysproc.c.
+void
+proc_fill_sysstats(struct sysstats *st)
+{
+  int active = 0;
+  for(struct proc *p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state != UNUSED)
+      active++;
+    release(&p->lock);
+  }
+
+  acquire(&metrics.lock);
+  st->total_processes_created   = metrics.total_processes_created;
+  st->total_processes_completed = metrics.total_processes_completed;
+  st->total_context_switches    = metrics.total_context_switches;
+  st->total_cpu_time            = metrics.total_cpu_time;
+  release(&metrics.lock);
+
+  acquire(&tickslock);
+  st->elapsed_time = (metrics.boot_time > 0) ? ticks - metrics.boot_time : 0;
+  release(&tickslock);
+
+  st->active_processes = active;
 }

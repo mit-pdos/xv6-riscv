@@ -8,6 +8,8 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct procstat;
+struct sysstats;
 
 // bio.c
 void            binit(void);
@@ -114,6 +116,7 @@ void            proc_print_extended_metrics(void);
 void            proc_print_csv_header(void);
 void            proc_print_csv_data(void);
 void            proc_print_system_csv(void);
+void            proc_fill_sysstats(struct sysstats *st);
 
 // mlfq.c
 extern const uint64 mlfq_base_quantum[];

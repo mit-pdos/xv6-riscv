@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "procstat.h"
 
 uint64
 sys_exit(void)
@@ -189,6 +190,87 @@ sys_getload(void)
     return -1;
   return 0;
 }
+// Fill *st with a snapshot of process statistics for the given pid.
+// If pid < 0, uses the calling process.
+// Returns 0 on success, -1 if pid not found.
+uint64
+sys_getprocstat(void)
+{
+  int pid;
+  uint64 addr;
+  struct proc *caller = myproc();
+
+  argint(0, &pid);
+  argaddr(1, &addr);
+
+  // Resolve target process.
+  struct proc *target = 0;
+  if(pid < 0){
+    target = caller;
+  } else {
+    for(struct proc *p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+      if(p->state != UNUSED && p->pid == pid){
+        target = p;
+        // Keep lock held across snapshot — released below.
+        break;
+      }
+      release(&p->lock);
+    }
+    if(target == 0)
+      return -1;
+  }
+
+  // Take a locked snapshot of the fields we need.
+  if(target != caller)
+    ; // lock already held from the search loop above
+  else
+    acquire(&target->lock);
+
+  struct procstat st;
+  st.pid            = target->pid;
+  safestrcpy(st.name, target->name, sizeof(st.name));
+  st.state          = (int)target->state;
+  st.priority       = target->priority;
+  st.behavior_type  = target->behavior_type;
+  st.creation_time  = target->creation_time;
+  st.first_run_time = target->first_run_time;
+  st.finish_time    = target->finish_time;
+  st.response_time  = (target->first_run_time > 0)
+                        ? target->first_run_time - target->creation_time : 0;
+  st.turnaround_time = (target->finish_time > 0)
+                        ? target->finish_time - target->creation_time
+                        : (ticks > target->creation_time ? ticks - target->creation_time : 0);
+  st.total_wait_time   = target->total_wait_time;
+  st.total_runtime     = target->total_runtime;
+  st.context_switches  = target->context_switches;
+  st.io_count          = target->io_count;
+  st.voluntary_yields  = target->voluntary_yields;
+
+  release(&target->lock);
+
+  if(copyout(caller->pagetable, addr, (char *)&st, sizeof(st)) < 0)
+    return -1;
+  return 0;
+}
+
+// Fill *st with a snapshot of system-wide scheduling statistics.
+uint64
+sys_getsysstats(void)
+{
+  uint64 addr;
+  struct proc *caller = myproc();
+
+  argaddr(0, &addr);
+
+  struct sysstats st;
+  proc_fill_sysstats(&st);
+
+  if(copyout(caller->pagetable, addr, (char *)&st, sizeof(st)) < 0)
+    return -1;
+  return 0;
+}
+
 uint64
 sys_sleep(void)
 {
