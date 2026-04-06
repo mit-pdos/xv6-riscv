@@ -13,6 +13,7 @@ struct energyinfo {
   uint sleep_ticks;
   uint energy_used;
   char name[16];
+  uint recent_cpu_ticks;
 };
 
 #endif

@@ -132,6 +132,9 @@ found:
   p->sleep_ticks = 0;
   p->energy_used = 0;
 
+  // Initialize cpu tick tracker
+  p->recent_cpu_ticks = 0;
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -176,6 +179,7 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->recent_cpu_ticks = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -421,49 +425,49 @@ kwait(uint64 addr)
   }
 }
 
-// Per-CPU process scheduler.
-// Each CPU calls scheduler() after setting itself up.
-// Scheduler never returns.  It loops, doing:
-//  - choose a process to run.
-//  - swtch to start running that process.
-//  - eventually that process transfers control
-//    via swtch back to the scheduler.
+// Pick the RUNNABLE process with the lowest recent CPU usage.
+// Break ties using PID for deterministic behavior.
 void
 scheduler(void)
 {
   struct proc *p;
+  struct proc *best;
   struct cpu *c = mycpu();
 
   c->proc = 0;
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
-    intr_off();
 
-    int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
+    best = 0;
+
+    for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+      if(p->state == RUNNABLE){
+        if(best == 0 ||
+           p->recent_cpu_ticks < best->recent_cpu_ticks ||
+           (p->recent_cpu_ticks == best->recent_cpu_ticks && p->pid < best->pid)){
+          if(best != 0)
+            release(&best->lock);
+          best = p;
+        } else {
+          release(&p->lock);
+        }
+      } else {
+        release(&p->lock);
       }
-      release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
+
+    if(best != 0){
+      best->state = RUNNING;
+      c->proc = best;
+      swtch(&c->context, &best->context);
+      c->proc = 0;
+      release(&best->lock);
+    } else {
+      // No runnable process — halt until next interrupt
+      // Mirror what the original xv6 does: briefly disable interrupts
+      // around wfi so we don't miss a wakeup, then re-enable after
       asm volatile("wfi");
     }
   }
@@ -709,6 +713,7 @@ update_energy_accounting(void)
 
     if(p->state == RUNNING){
       p->cpu_ticks++;
+      p->recent_cpu_ticks++;
       p->energy_used += 3; // Arbitrary value
     } else if(p->state == RUNNABLE){
       p->runnable_ticks++;
@@ -722,7 +727,6 @@ update_energy_accounting(void)
 }
 
 // Aquire energy info in a system call
-
 int
 getenergyinfo(uint64 addr)
 {
@@ -740,6 +744,7 @@ getenergyinfo(uint64 addr)
     info[i].runnable_ticks = p->runnable_ticks;
     info[i].sleep_ticks = p->sleep_ticks;
     info[i].energy_used = p->energy_used;
+    info[i].recent_cpu_ticks = p->recent_cpu_ticks;
     safestrcpy(info[i].name, p->name, sizeof(info[i].name));
 
     release(&p->lock);
@@ -750,4 +755,19 @@ getenergyinfo(uint64 addr)
     return -1;
 
   return 0;
+}
+
+// if a process is not unused halve its recent cpu ticks
+void
+decay_recent_cpu(void)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state != UNUSED){
+      p->recent_cpu_ticks /= 2;
+    }
+    release(&p->lock);
+  }
 }
