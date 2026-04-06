@@ -306,10 +306,18 @@ qm_get_time_quantum(int level)
   if(level >= MLFQ_LEVELS)
     level = MLFQ_LEVELS - 1;
 
+#if SCHED_TYPE == SCHED_MLFQ
+  // Fixed quanta — no load-based adjustment.
+  acquire(&qm.lock);
+  uint64 q = qm.base_quantum[level];
+  release(&qm.lock);
+  return validate_quantum(q);
+#else
   acquire(&qm.lock);
   uint64 q = qm.current_quantum[level];
   release(&qm.lock);
   return validate_quantum(q);
+#endif
 }
 
 int

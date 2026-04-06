@@ -10,7 +10,9 @@ struct spinlock tickslock;
 uint ticks;
 
 // Last tick when global MLFQ aging ran (CPU 0 only).
+#if SCHED_TYPE != SCHED_RR
 static uint64 last_mlfq_aging_tick;
+#endif
 
 extern char trampoline[], uservec[];
 
@@ -86,14 +88,15 @@ usertrap(void)
   // give up the CPU if this is a timer interrupt
   // and the process has exhausted its time quantum.
   if(which_dev == 2){
-    // Track time slice usage for MLFQ scheduling.
     p->cpu_time_used++;
     if(p->time_slice_remaining > 0)
       p->time_slice_remaining--;
-    // If time slice exhausted, demote priority and yield.
     if(p->time_slice_remaining == 0){
+#if SCHED_TYPE != SCHED_RR
+      // MLFQ: demote priority when quantum exhausted (CPU-bound behaviour)
       if(p->priority < MLFQ_LEVELS - 1)
         p->priority++;
+#endif
       yield();
     }
   }
@@ -173,8 +176,10 @@ kerneltrap()
     if(p->time_slice_remaining > 0)
       p->time_slice_remaining--;
     if(p->time_slice_remaining == 0){
+#if SCHED_TYPE != SCHED_RR
       if(p->priority < MLFQ_LEVELS - 1)
         p->priority++;
+#endif
       yield();
     }
   }
@@ -191,10 +196,13 @@ clockintr()
   if(cpuid() == 0){
     acquire(&tickslock);
     ticks++;
+#if SCHED_TYPE != SCHED_RR
     uint64 t = ticks;
+#endif
     wakeup(&ticks);
     release(&tickslock);
 
+#if SCHED_TYPE != SCHED_RR
     qm_tick(t);
 
     if(MLFQ_AGING_INTERVAL > 0 &&
@@ -202,6 +210,7 @@ clockintr()
       mlfq_aging(t);
       last_mlfq_aging_tick = t;
     }
+#endif
   }
 
   // ask for the next timer interrupt. this also clears

@@ -46,3 +46,6 @@ entry("getschedstats");
 entry("yield");
 entry("getload");
 entry("getcsstats");
+entry("sleep");
+entry("getprocstat");
+entry("getsysstats");

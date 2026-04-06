@@ -63,7 +63,18 @@ LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
+# Scheduler selection: RR | MLFQ | MLFQ_AQ (default)
+SCHEDULER ?= MLFQ_AQ
+ifeq ($(SCHEDULER),RR)
+  SCHED_NUM := 0
+else ifeq ($(SCHEDULER),MLFQ)
+  SCHED_NUM := 1
+else
+  SCHED_NUM := 2
+endif
+
 CFLAGS = -Wall -Werror -Wno-unknown-attributes -O -fno-omit-frame-pointer -ggdb -gdwarf-2
+CFLAGS += -DSCHED_TYPE=$(SCHED_NUM)
 CFLAGS += -march=rv64gc
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
@@ -128,6 +139,7 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h $K/mlfq.h
 .PRECIOUS: %.o
 
 UPROGS=\
+	$U/_benchsched\
 	$U/_cat\
 	$U/_echo\
 	$U/_forktest\
@@ -148,6 +160,10 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_iostatstest\
+	$U/_cpubench\
+	$U/_iobench\
+	$U/_mixedbench\
+	$U/_stresstest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
@@ -180,6 +196,15 @@ QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 qemu: check-qemu-version $K/kernel fs.img
 	$(QEMU) $(QEMUOPTS)
 
+qemu-rr: clean
+	$(MAKE) SCHEDULER=RR qemu
+
+qemu-mlfq: clean
+	$(MAKE) SCHEDULER=MLFQ qemu
+
+qemu-mlfq-aq: clean
+	$(MAKE) SCHEDULER=MLFQ_AQ qemu
+
 .gdbinit: .gdbinit.tmpl-riscv
 	sed "s/:1234/:$(GDBPORT)/" < $^ > $@
 
@@ -196,3 +221,36 @@ check-qemu-version:
 		echo "ERROR: Need qemu version >= $(MIN_QEMU_VERSION)"; \
 		exit 1; \
 	fi
+
+.PHONY: benchmark_all
+
+# Adjust these parameters as needed
+BENCH_ARGS = 4 4 1000000 3   # CPU workers, IO workers, CPU iters, IO rounds
+BOOT_DELAY = 5               # seconds to wait for xv6 shell
+
+benchmark_all:
+	@echo "================ Benchmarking All Schedulers ================"
+	@for sched in RR MLFQ MLFQ_AQ; do \
+		echo ""; \
+		echo ">>> Building xv6 with $$sched"; \
+		$(MAKE) clean > /dev/null 2>&1; \
+		$(MAKE) SCHED_TYPE=$$sched > /dev/null 2>&1; \
+		$(MAKE) SCHED_TYPE=$$sched fs.img > /dev/null 2>&1; \
+		echo ">>> Running benchmark for $$sched..."; \
+		$(eval OUTPUT_FILE := $$sched.txt) ; \
+		{ sleep $(BOOT_DELAY); echo "benchsched $(BENCH_ARGS)"; sleep 60; } | \
+		qemu-system-riscv64 -machine virt -bios none -kernel kernel/kernel -m 128M -smp 1 -nographic \
+			-drive file=fs.img,format=raw,if=virtio -serial mon:stdio > $$OUTPUT_FILE 2>&1 || true ; \
+		echo ">>> Done $$sched"; \
+	done; \
+	echo ""; \
+	echo "================ Scheduler Metrics Comparison ================"; \
+	printf "%-20s %-10s %-10s %-10s\n" "Metric" "RR" "MLFQ" "MLFQ_AQ"; \
+	for metric in "CPU Avg response" "CPU Avg turnaround" "CPU Avg wait" \
+		"IO Avg response" "IO Avg turnaround" "IO Avg wait" "Elapsed" \
+		"Throughput" "Total CPU time"; do \
+		rr_val=$$(grep "$$metric" RR.txt | awk '{print $$NF}'); \
+		mlfq_val=$$(grep "$$metric" MLFQ.txt | awk '{print $$NF}'); \
+		aq_val=$$(grep "$$metric" MLFQ_AQ.txt | awk '{print $$NF}'); \
+		printf "%-20s %-10s %-10s %-10s\n" "$$metric" "$$rr_val" "$$mlfq_val" "$$aq_val"; \
+	done
