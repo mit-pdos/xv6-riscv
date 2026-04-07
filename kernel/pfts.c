@@ -21,3 +21,10 @@ static int tag_table_count;
 
 static struct spinlock ptfs_lock;
 static int ptfs_lock_ready;
+
+static void ptfs_init_lock(void) {
+  if (ptfs_lock_ready)
+    return;
+  initlock(&ptfs_lock, "ptfs");
+  ptfs_lock_ready = 1;
+}
