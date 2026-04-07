@@ -28,3 +28,22 @@ static void ptfs_init_lock(void) {
   initlock(&ptfs_lock, "ptfs");
   ptfs_lock_ready = 1;
 }
+
+int get_tag_priority(char *tag) {
+  int i;
+
+  if (tag == 0)
+    return 0;
+
+  ptfs_init_lock();
+  acquire(&ptfs_lock);
+  for (i = 0; i < tag_table_count; i++) {
+    if (strncmp(tag_table[i].tag, tag, TAG_LENGTH) == 0) {
+      int pr = tag_table[i].priority;
+      release(&ptfs_lock);
+      return pr;
+    }
+  }
+  release(&ptfs_lock);
+  return 0;
+}
