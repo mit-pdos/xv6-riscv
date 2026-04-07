@@ -47,3 +47,23 @@ int get_tag_priority(char *tag) {
   release(&ptfs_lock);
   return 0;
 }
+
+void parse_tag_config(void) {
+  struct inode *ip;
+  char buf[BSIZE];
+  int n;
+  int i;
+
+  ptfs_init_lock();
+
+  acquire(&ptfs_lock);
+  tag_table_count = 0;
+  memset(tag_table, 0, sizeof(tag_table));
+  release(&ptfs_lock);
+
+  begin_op();
+  ip = namei("/.config_tag");
+  if (ip == 0) {
+    end_op();
+    return;
+  }
