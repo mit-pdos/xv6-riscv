@@ -344,6 +344,15 @@ sfence_vma()
   asm volatile("sfence.vma zero, zero");
 }
 
+// Wait For Interrupt — puts CPU into low-power idle state.
+// CPU halts until the next interrupt (timer tick, I/O, etc.).
+// This is the RISC-V equivalent of x86's HLT instruction.
+static inline void
+wfi(void)
+{
+  asm volatile("wfi");
+}
+
 typedef uint64 pte_t;
 typedef uint64 *pagetable_t; // 512 PTEs
 

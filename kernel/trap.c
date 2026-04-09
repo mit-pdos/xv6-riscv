@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "powerstate.h"  // Feature 2: CPU Power States
 
 struct spinlock tickslock;
 uint ticks;
@@ -80,10 +81,14 @@ usertrap(void)
   if(killed(p))
     kexit(-1);
 
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2){
-    energy_tick_running(p);
-    yield();
+  if(which_dev == 2) {
+    p->tickCount++;
+
+    if((ticks % 8) == 0)
+      update_power_state();
+
+    if(p->tickCount >= get_timeslice_for_state())
+      yield();
   }
 
   prepare_return();
@@ -153,10 +158,15 @@ kerneltrap()
     panic("kerneltrap");
   }
 
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0){
-    energy_tick_running(myproc());
-    yield();
+  if(which_dev == 2 && myproc() != 0) {
+    struct proc *kp = myproc();
+    kp->tickCount++;
+
+    if((ticks % 8) == 0)
+      update_power_state();
+
+    if(kp->tickCount >= get_timeslice_for_state())
+      yield();
   }
 
   // the yield() may have caused some traps to occur,
@@ -173,9 +183,6 @@ clockintr()
     ticks++;
     wakeup(&ticks);
     release(&tickslock);
-
-    // reset budgets periodically so exhausted procs can recover.
-    energy_tick_reset_all();
   }
 
   // ask for the next timer interrupt. this also clears

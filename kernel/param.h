@@ -12,6 +12,8 @@
 #define FSSIZE       2000  // size of file system in blocks
 #define MAXPATH      128   // maximum file path name
 #define USERSTACK    1     // user stack pages
+#define TIMESLICE    5     // time slice for SJF scheduling
+#define AGING_FACTOR 10   // scheduler passes before effective burst drops by 1
 
 // feature 3: per-process energy budgeting
 #define ENERGY_BUDGET_DEFAULT      16
