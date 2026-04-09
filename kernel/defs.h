@@ -102,6 +102,8 @@ int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 void            get_idle_ticks(uint64*, uint64*, uint64*);
+void            proc_energy_refresh(struct proc*, uint);
+void            proc_energy_on_tick(struct proc*);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

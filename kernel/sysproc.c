@@ -6,6 +6,19 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "powerstate.h"
+
+extern struct proc proc[];
+
+struct energystat_row {
+  int pid;
+  int state;
+  int energy_used;
+  int energy_budget;
+  int estimated_burst;
+  int power_state;
+  char name[16];
+};
 
 uint64
 sys_exit(void)
@@ -149,4 +162,53 @@ sys_idlestat(void)
   }
 
   return 0;
+}
+
+// Feature 3/5: expose per-process energy budgeting metrics to user space.
+// arg0: pointer to user buffer (array of struct energystat_row)
+// arg1: max number of rows to copy (capped at NPROC)
+// Returns number of rows copied, or -1 on error.
+uint64
+sys_energystat(void)
+{
+  uint64 uaddr;
+  int maxrows;
+  int copied = 0;
+  struct proc *cur = myproc();
+
+  argaddr(0, &uaddr);
+  argint(1, &maxrows);
+
+  if(maxrows <= 0 || maxrows > NPROC)
+    maxrows = NPROC;
+
+  for(struct proc *p = proc; p < &proc[NPROC] && copied < maxrows; p++){
+    struct energystat_row row;
+
+    acquire(&p->lock);
+    if(p->state == UNUSED){
+      release(&p->lock);
+      continue;
+    }
+
+    proc_energy_refresh(p, ticks);
+    row.pid = p->pid;
+    row.state = p->state;
+    row.energy_used = p->energy_used;
+    row.energy_budget = p->energy_budget;
+    row.estimated_burst = p->estimatedBurstTime;
+    row.power_state = (int)current_power_state;
+    safestrcpy(row.name, p->name, sizeof(row.name));
+    release(&p->lock);
+
+    if(copyout(cur->pagetable,
+               uaddr + copied * sizeof(struct energystat_row),
+               (char*)&row,
+               sizeof(struct energystat_row)) < 0)
+      return -1;
+
+    copied++;
+  }
+
+  return copied;
 }

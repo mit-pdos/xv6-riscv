@@ -83,6 +83,7 @@ usertrap(void)
 
   if(which_dev == 2) {
     p->tickCount++;
+    proc_energy_on_tick(p);
 
     if((ticks % 8) == 0)
       update_power_state();
@@ -161,6 +162,7 @@ kerneltrap()
   if(which_dev == 2 && myproc() != 0) {
     struct proc *kp = myproc();
     kp->tickCount++;
+    proc_energy_on_tick(kp);
 
     if((ticks % 8) == 0)
       update_power_state();

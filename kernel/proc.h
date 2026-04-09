@@ -101,6 +101,9 @@ struct proc {
   int tickCount;               // Number of ticks the process has been running for
   int lastBurstTime;           // Last burst time for SJF scheduling
   int waitTicks;               // Ticks spent waiting in RUNNABLE state (for aging)
+  int energy_budget;           // Remaining budget (ticks) in current reset window
+  int energy_used;             // Ticks consumed in current reset window
+  uint energy_window;          // Last observed global reset window index
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process

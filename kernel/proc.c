@@ -27,6 +27,34 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+#define ENERGY_EXHAUST_PENALTY 4
+
+static uint
+energy_window_for_tick(uint now_ticks)
+{
+  return now_ticks / ENERGY_BUDGET_RESET_TICKS;
+}
+
+void
+proc_energy_refresh(struct proc *p, uint now_ticks)
+{
+  uint window = energy_window_for_tick(now_ticks);
+  if(p->energy_window != window){
+    p->energy_window = window;
+    p->energy_budget = ENERGY_BUDGET_DEFAULT;
+    p->energy_used = 0;
+  }
+}
+
+void
+proc_energy_on_tick(struct proc *p)
+{
+  proc_energy_refresh(p, ticks);
+  if(p->energy_budget > 0)
+    p->energy_budget--;
+  p->energy_used++;
+}
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -131,6 +159,9 @@ found:
   p->tickCount = 0;
   p->lastBurstTime = 0;
   p->waitTicks = 0;
+  p->energy_budget = ENERGY_BUDGET_DEFAULT;
+  p->energy_used = 0;
+  p->energy_window = energy_window_for_tick(ticks);
 
    // Allocate a trapframe page.
 
@@ -185,6 +216,9 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->energy_budget = 0;
+  p->energy_used = 0;
+  p->energy_window = 0;
   p->state = UNUSED;
 }
 
@@ -463,17 +497,27 @@ scheduler(void)
     c->total_ticks++;
 
     int found = 0;
-    int minEffectiveBurst = __INT_MAX__;
+    int minScore = __INT_MAX__;
+    int maxBudget = -1;
     struct proc *selectedProc = 0;
+    uint now_ticks = ticks;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
+        proc_energy_refresh(p, now_ticks);
+
         // Age the process: the longer it waits, the lower its effective burst.
         p->waitTicks++;
         int effectiveBurst = p->estimatedBurstTime - p->waitTicks / AGING_FACTOR;
         if(effectiveBurst < 0) effectiveBurst = 0;
-        if(effectiveBurst < minEffectiveBurst) {
-          minEffectiveBurst = effectiveBurst;
+
+        int score = effectiveBurst;
+        if(p->energy_budget <= 0)
+          score += ENERGY_EXHAUST_PENALTY;
+
+        if(score < minScore || (score == minScore && p->energy_budget > maxBudget)) {
+          minScore = score;
+          maxBudget = p->energy_budget;
           selectedProc = p;
           found = 1;
         }
