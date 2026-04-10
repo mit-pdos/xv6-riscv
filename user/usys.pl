@@ -44,3 +44,4 @@ entry("pause");
 entry("uptime");
 entry("idlestat");
 entry("energystat");
+entry("setprocname");

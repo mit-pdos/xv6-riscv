@@ -164,6 +164,22 @@ sys_idlestat(void)
   return 0;
 }
 
+// Set the name of the calling process (visible in energytop/energystat).
+// arg0: pointer to null-terminated name string (max 15 chars + NUL).
+// Returns 0 on success, -1 on error.
+uint64
+sys_setprocname(void)
+{
+  char name[16];
+  if(argstr(0, name, sizeof(name)) < 0)
+    return -1;
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  safestrcpy(p->name, name, sizeof(p->name));
+  release(&p->lock);
+  return 0;
+}
+
 // Feature 3/5: expose per-process energy budgeting metrics to user space.
 // arg0: pointer to user buffer (array of struct energystat_row)
 // arg1: max number of rows to copy (capped at NPROC)
@@ -181,6 +197,11 @@ sys_energystat(void)
 
   if(maxrows <= 0 || maxrows > NPROC)
     maxrows = NPROC;
+
+  // Force a live count before reading current_power_state, so the
+  // snapshot always reflects the actual runnable process count right now
+  // rather than waiting for the next 8-tick timer interrupt sample.
+  update_power_state();
 
   for(struct proc *p = proc; p < &proc[NPROC] && copied < maxrows; p++){
     struct energystat_row row;

@@ -26,6 +26,7 @@ int pause(int);
 int uptime(void);
 int idlestat(void*, int);
 int energystat(void*, int);
+int setprocname(const char*);
 
 // ulib.c
 int stat(const char*, struct stat*);

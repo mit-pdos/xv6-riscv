@@ -148,7 +148,14 @@ UPROGS=\
 	$U/_dorphan\
 	$U/_powertest\
 	$U/_idlestat\
+	$U/_demo_idle\
 	$U/_testidle\
+	$U/_energytop\
+	$U/_energytest\
+	$U/_demo_balanced\
+	$U/_demo_high\
+	$U/_demo_sjf\
+	$U/_demo_budget\
 
 TXTFILES=$(wildcard $U/*.txt)
 

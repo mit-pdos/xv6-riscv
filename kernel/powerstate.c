@@ -151,13 +151,13 @@ get_timeslice_for_state(void)
 {
   switch(current_power_state) {
   case POWER_LOW:
-    return 1;
-  case POWER_BALANCED:
     return 2;
+  case POWER_BALANCED:
+    return 5;
   case POWER_HIGH:
-    return 4;
+    return 10;
   default:
-    return 1;  // Safe fallback: behave like LOW if state is undefined.
+    return 2;  // Safe fallback: behave like LOW if state is undefined.
   }
 }
 

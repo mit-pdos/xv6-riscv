@@ -22,3 +22,4 @@
 #define SYS_close  21
 #define SYS_idlestat 22
 #define SYS_energystat 23
+#define SYS_setprocname 24

@@ -501,9 +501,11 @@ scheduler(void)
     int maxBudget = -1;
     struct proc *selectedProc = 0;
     uint now_ticks = ticks;
-    for(p = proc; p < &proc[NPROC]; p++) {
+    int runnable_count = 0;
+    for(p = proc; p < &proc[NPROC]; p++) { 
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
+        runnable_count++;
         proc_energy_refresh(p, now_ticks);
 
         // Age the process: the longer it waits, the lower its effective burst.
@@ -523,6 +525,16 @@ scheduler(void)
         }
       }
       release(&p->lock);
+    }
+
+    // Log SJF decision once per tick per CPU when there is real contention.
+    static uint sjf_last_log[NCPU] = {0};
+    int cid = cpuid();
+    if(found && runnable_count > 1 && now_ticks != sjf_last_log[cid]) {
+      sjf_last_log[cid] = now_ticks;
+      printf("[sjf t%d cpu%d] picked %s(est=%d)  %d other(s) deferred\n",
+             now_ticks, cid, selectedProc->name,
+             selectedProc->estimatedBurstTime, runnable_count - 1);
     }
 
     if(found == 1){

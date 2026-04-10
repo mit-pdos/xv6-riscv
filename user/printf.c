@@ -47,7 +47,8 @@ printptr(int fd, uint64 x) {
     putc(fd, digits[x >> (sizeof(uint64) * 8 - 4)]);
 }
 
-// Print to the given fd. Only understands %d, %x, %p, %c, %s.
+// Print to the given fd. Understands %d, %x, %p, %c, %s, %ld, %lu, %lx,
+// and optional width + left-align flag, e.g. %-6s, %7d, %-14s.
 void
 vprintf(int fd, const char *fmt, va_list ap)
 {
@@ -64,16 +65,61 @@ vprintf(int fd, const char *fmt, va_list ap)
         putc(fd, c0);
       }
     } else if(state == '%'){
+      // Parse optional left-align flag
+      int left = 0;
+      if(c0 == '-'){
+        left = 1;
+        i++;
+        c0 = fmt[i] & 0xff;
+      }
+      // Parse optional width
+      int width = 0;
+      while(c0 >= '0' && c0 <= '9'){
+        width = width * 10 + (c0 - '0');
+        i++;
+        c0 = fmt[i] & 0xff;
+      }
+
       c1 = c2 = 0;
       if(c0) c1 = fmt[i+1] & 0xff;
       if(c1) c2 = fmt[i+2] & 0xff;
+
       if(c0 == 'd'){
-        printint(fd, va_arg(ap, int), 10, 1);
+        // Convert int to string to measure length for padding
+        char buf[22]; int blen = 0;
+        long long v = va_arg(ap, int);
+        int neg = 0;
+        if(v < 0){ neg = 1; v = -v; }
+        do { buf[blen++] = '0' + (v % 10); v /= 10; } while(v);
+        if(neg) buf[blen++] = '-';
+        // reverse
+        for(int a=0,b=blen-1; a<b; a++,b--){ char t=buf[a];buf[a]=buf[b];buf[b]=t; }
+        if(!left) for(int k=blen; k<width; k++) putc(fd, ' ');
+        for(int k=0; k<blen; k++) putc(fd, buf[k]);
+        if(left)  for(int k=blen; k<width; k++) putc(fd, ' ');
       } else if(c0 == 'l' && c1 == 'd'){
-        printint(fd, va_arg(ap, uint64), 10, 1);
+        char buf[22]; int blen = 0;
+        long long v = va_arg(ap, uint64);
+        int neg = 0;
+        if(v < 0){ neg = 1; v = -v; }
+        do { buf[blen++] = '0' + (v % 10); v /= 10; } while(v);
+        if(neg) buf[blen++] = '-';
+        for(int a=0,b=blen-1; a<b; a++,b--){ char t=buf[a];buf[a]=buf[b];buf[b]=t; }
+        if(!left) for(int k=blen; k<width; k++) putc(fd, ' ');
+        for(int k=0; k<blen; k++) putc(fd, buf[k]);
+        if(left)  for(int k=blen; k<width; k++) putc(fd, ' ');
         i += 1;
       } else if(c0 == 'l' && c1 == 'l' && c2 == 'd'){
-        printint(fd, va_arg(ap, uint64), 10, 1);
+        char buf[22]; int blen = 0;
+        long long v = va_arg(ap, uint64);
+        int neg = 0;
+        if(v < 0){ neg = 1; v = -v; }
+        do { buf[blen++] = '0' + (v % 10); v /= 10; } while(v);
+        if(neg) buf[blen++] = '-';
+        for(int a=0,b=blen-1; a<b; a++,b--){ char t=buf[a];buf[a]=buf[b];buf[b]=t; }
+        if(!left) for(int k=blen; k<width; k++) putc(fd, ' ');
+        for(int k=0; k<blen; k++) putc(fd, buf[k]);
+        if(left)  for(int k=blen; k<width; k++) putc(fd, ' ');
         i += 2;
       } else if(c0 == 'u'){
         printint(fd, va_arg(ap, uint32), 10, 0);
@@ -98,8 +144,11 @@ vprintf(int fd, const char *fmt, va_list ap)
       } else if(c0 == 's'){
         if((s = va_arg(ap, char*)) == 0)
           s = "(null)";
-        for(; *s; s++)
-          putc(fd, *s);
+        int slen = 0;
+        for(char *p = s; *p; p++) slen++;
+        if(!left) for(int k=slen; k<width; k++) putc(fd, ' ');
+        for(; *s; s++) putc(fd, *s);
+        if(left)  for(int k=slen; k<width; k++) putc(fd, ' ');
       } else if(c0 == '%'){
         putc(fd, '%');
       } else {
