@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-#
-# python script that tests xv6 without having to boot it and type to its shell
-#
-# ./test-xv6.py usertests  (runs usertests)
-# ./test-xv6.py -q usertests (runs the quick tests of usertests)
-#!/usr/bin/env python3
-
 import subprocess
 import time
 import os
