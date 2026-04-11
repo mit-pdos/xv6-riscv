@@ -36,6 +36,10 @@ validate_quantum(uint64 quantum)
   static int warned_small = 0;
   static int warned_large = 0;
 
+  // Quantum of 0 is valid during initialization, just return minimum
+  if(quantum == 0)
+    return (uint64)MIN_QUANTUM;
+
   if(quantum < (uint64)MIN_QUANTUM){
     if(warned_small < 10){
       printf("WARNING: Quantum too small (%d), using MIN_QUANTUM\n", (int)quantum);
@@ -54,6 +58,7 @@ validate_quantum(uint64 quantum)
 }
 
 static void
+__attribute__((unused))
 classify_process_behavior(struct proc *p)
 {
   uint64 cpu_delta = p->cpu_time_used - p->last_cpu_time_used;
@@ -231,23 +236,9 @@ qm_tick(uint64 now_tick)
   }
   release(&qm.lock);
 
-  const uint64 behavior_update_interval_ticks = 200;
-  int do_behavior = 0;
-  acquire(&qm.lock);
-  if(qm.last_behavior_update_tick == 0 || now_tick - qm.last_behavior_update_tick >= behavior_update_interval_ticks){
-    qm.last_behavior_update_tick = now_tick;
-    do_behavior = 1;
-  }
-  release(&qm.lock);
-
-  if(do_behavior){
-    for(struct proc *p = proc; p < &proc[NPROC]; p++){
-      acquire(&p->lock);
-      if(p->state != UNUSED)
-        classify_process_behavior(p);
-      release(&p->lock);
-    }
-  }
+  // Keep AQ adaptation driven by system load and context-switch signals.
+  // Skip periodic per-process behavior scans from timer-interrupt context,
+  // which can introduce heavy lock contention during boot.
 
   const uint64 update_interval_ticks = 100;
   const int ticks_per_sec = 10;

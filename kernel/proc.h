@@ -122,6 +122,7 @@ struct proc {
   int priority;                // Current priority level (0=highest)
   uint64 time_slice_remaining; // Remaining quantum in ticks
   uint64 cpu_time_used;        // Total CPU time consumed
+  uint64 watchdog_counter;     // Watchdog: ticks since last yield (detect hangs)
   uint64 last_run_time;        // Timestamp of last execution
   uint64 wait_time;            // Time spent waiting
   // Behavior tracking
