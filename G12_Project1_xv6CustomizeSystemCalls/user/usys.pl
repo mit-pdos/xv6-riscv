@@ -42,3 +42,6 @@ entry("getpid");
 entry("sbrk");
 entry("pause");
 entry("uptime");
+entry("getprocsinfo");
+entry("getppid");
+entry("sleep2");

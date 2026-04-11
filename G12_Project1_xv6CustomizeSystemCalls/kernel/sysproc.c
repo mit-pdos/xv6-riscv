@@ -6,7 +6,6 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
-
 uint64
 sys_exit(void)
 {
@@ -106,4 +105,52 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+extern struct proc proc[NPROC];
+
+uint64
+sys_getprocsinfo(void)
+{
+    struct proc *p;
+
+    printf("PID\tSTATE\tSIZE\n");
+
+    for(p = proc; p < &proc[NPROC]; p++){
+        if(p->state != UNUSED){
+            printf("%d\t%d\t%ld\n", p->pid, p->state, p->sz);
+        }
+    }
+
+    return 0;
+}
+uint64
+sys_getppid(void)
+{
+    struct proc *p = myproc();
+    if(p->parent)
+        return p->parent->pid;
+    return -1;
+}
+uint64
+sys_sleep2(void)
+{
+    int n;
+    argint(0, &n);
+
+    struct proc *p = myproc();
+
+    acquire(&tickslock);
+    uint ticks0 = ticks;
+
+    while(ticks - ticks0 < n){
+        if(p->killed){
+            release(&tickslock);
+            return -1;
+        }
+        sleep(&ticks, &tickslock);
+    }
+
+    release(&tickslock);
+    return 0;
 }
