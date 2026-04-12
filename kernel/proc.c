@@ -532,14 +532,13 @@ scheduler(void)
       struct proc *p = &proc[(next + i) % NPROC];
       acquire(&p->lock);
       if(p->state == RUNNABLE){
-        acquire(&tickslock);
+        uint now = ticks;
         if(p->first_run_time == 0)
-          p->first_run_time = ticks;
+          p->first_run_time = now;
         if(p->runnable_since != 0)
-          p->total_wait_time += ticks - p->runnable_since;
+          p->total_wait_time += now - p->runnable_since;
         p->runnable_since = 0;
-        p->last_run_time = ticks;
-        release(&tickslock);
+        p->last_run_time = now;
 
         p->time_slice_remaining = RR_QUANTUM;
         p->watchdog_counter = 0;
@@ -549,7 +548,6 @@ scheduler(void)
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
-        acquire(&tickslock);
         uint runtime = ticks - p->last_run_time;
         if(runtime > 0){
           p->total_runtime += runtime;
@@ -557,7 +555,6 @@ scheduler(void)
           metrics.total_cpu_time += runtime;
           release(&metrics.lock);
         }
-        release(&tickslock);
 
         c->proc = 0;
         next = ((p - proc) + 1) % NPROC; // advance cursor past this process
@@ -619,15 +616,14 @@ scheduler(void)
         // before jumping back to us.
 
         // Track scheduling metrics: record first run time and accumulate wait time.
-        acquire(&tickslock);
+        uint now = ticks;
         if(p->first_run_time == 0)
-          p->first_run_time = ticks;
+          p->first_run_time = now;
         // Accumulate time spent RUNNABLE-but-not-RUNNING since last enqueue.
         if(p->runnable_since != 0)
-          p->total_wait_time += ticks - p->runnable_since;
+          p->total_wait_time += now - p->runnable_since;
         p->runnable_since = 0;
-        p->last_run_time = ticks;
-        release(&tickslock);
+        p->last_run_time = now;
 
         p->time_slice_remaining = qm_get_process_quantum(p);
         p->watchdog_counter = 0;  // Reset watchdog when process starts running
@@ -639,7 +635,6 @@ scheduler(void)
         // It should have changed its p->state before coming back.
 
         // Track CPU time used
-        acquire(&tickslock);
         uint runtime = ticks - p->last_run_time;
         if(runtime > 0) {
           p->total_runtime += runtime;
@@ -647,7 +642,6 @@ scheduler(void)
           metrics.total_cpu_time += runtime;
           release(&metrics.lock);
         }
-        release(&tickslock);
 
         c->proc = 0;
         found = 1;
@@ -684,14 +678,13 @@ scheduler(void)
         if(rp->mlfq_level != -1)
           mlfq_remove(rp);
 
-        acquire(&tickslock);
+        uint now = ticks;
         if(rp->first_run_time == 0)
-          rp->first_run_time = ticks;
+          rp->first_run_time = now;
         if(rp->runnable_since != 0)
-          rp->total_wait_time += ticks - rp->runnable_since;
+          rp->total_wait_time += now - rp->runnable_since;
         rp->runnable_since = 0;
-        rp->last_run_time = ticks;
-        release(&tickslock);
+        rp->last_run_time = now;
 
         rp->time_slice_remaining = qm_get_process_quantum(rp);
         rp->watchdog_counter = 0;
@@ -699,7 +692,6 @@ scheduler(void)
         c->proc = rp;
         swtch(&c->context, &rp->context);
 
-        acquire(&tickslock);
         uint rruntime = ticks - rp->last_run_time;
         if(rruntime > 0) {
           rp->total_runtime += rruntime;
@@ -707,7 +699,6 @@ scheduler(void)
           metrics.total_cpu_time += rruntime;
           release(&metrics.lock);
         }
-        release(&tickslock);
 
         c->proc = 0;
         release(&rp->lock);
@@ -845,9 +836,9 @@ sleep(void *chan, struct spinlock *lk)
   p->chan = chan;
   p->io_count++;
   p->sleeping_for_io = 1;
-  acquire(&tickslock);
+  // Avoid taking tickslock while holding p->lock: clockintr()->wakeup()
+  // can run with tickslock held and then acquire p->lock.
   p->sleep_start_tick = ticks;
-  release(&tickslock);
   p->state = SLEEPING;
 
   // Track this as a context switch (voluntary block).
@@ -861,9 +852,7 @@ sleep(void *chan, struct spinlock *lk)
   // If wakeup() didn't account for this sleep interval (e.g., killed wakeup),
   // account for it here before clearing the sleep metadata.
   if(p->sleep_start_tick != 0){
-    acquire(&tickslock);
     p->wait_time += (ticks - p->sleep_start_tick);
-    release(&tickslock);
   }
   p->sleeping_for_io = 0;
   p->sleep_start_tick = 0;
