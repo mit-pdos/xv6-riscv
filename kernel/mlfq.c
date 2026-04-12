@@ -185,6 +185,11 @@ mlfq_remove(struct proc *p)
     if(mlfq_remove_from_q(p, i))
       return;
   }
+
+  // Stale linkage hint: process claims to be queued but was not found.
+  // Clear queue metadata so scheduler repair paths can re-enqueue it.
+  p->mlfq_next = 0;
+  p->mlfq_level = -1;
 }
 
 // Periodic anti-starvation: move every active process one level toward highest

@@ -9,6 +9,10 @@
 struct spinlock tickslock;
 uint ticks;
 
+// Watchdog: maximum ticks a process can run without yielding before we force a yield
+// 1000 ticks ~ 100 seconds, which is very generous for any legitimate workload
+#define MAX_WATCHDOG_TICKS 1000
+
 // Last tick when global MLFQ aging ran (CPU 0 only).
 #if SCHED_TYPE != SCHED_RR
 static uint64 last_mlfq_aging_tick;
@@ -66,16 +70,14 @@ usertrap(void)
     // but we want to return to the next instruction.
     p->trapframe->epc += 4;
 
-    // an interrupt will change sepc, scause, and sstatus,
-    // so enable only now that we're done with those registers.
+    // Allow device interrupts during syscalls.
     intr_on();
-
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if((r_scause() == 15 || r_scause() == 13) &&
+  } else if((r_scause() == 15 || r_scause() == 13 || r_scause() == 12) &&
             vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) != 0) {
-    // page fault on lazily-allocated page
+    // page fault on lazily-allocated page (12=instruction, 13=load, 15=store)
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
@@ -89,6 +91,27 @@ usertrap(void)
   // and the process has exhausted its time quantum.
   if(which_dev == 2){
     p->cpu_time_used++;
+    p->watchdog_counter++;
+
+#if SCHED_TYPE != SCHED_RR
+    if(cpuid() == 0){
+      uint64 t;
+      acquire(&tickslock);
+      t = ticks;
+      release(&tickslock);
+
+#if SCHED_TYPE == SCHED_MLFQ_AQ
+      qm_tick(t);
+#endif
+
+      if(MLFQ_AGING_INTERVAL > 0 &&
+         t - last_mlfq_aging_tick >= (uint64)MLFQ_AGING_INTERVAL){
+        mlfq_aging(t);
+        last_mlfq_aging_tick = t;
+      }
+    }
+#endif
+
     if(p->time_slice_remaining > 0)
       p->time_slice_remaining--;
     if(p->time_slice_remaining == 0){
@@ -97,6 +120,13 @@ usertrap(void)
       if(p->priority < MLFQ_LEVELS - 1)
         p->priority++;
 #endif
+      yield();
+    } else if(p->watchdog_counter >= MAX_WATCHDOG_TICKS){
+      // Watchdog: force yield if process has been running too long
+      // This prevents hangs from quantum miscalculation or scheduler bugs
+      printf("watchdog: pid %d forced yield (ran %d ticks without yielding)\n", 
+             p->pid, (int)p->watchdog_counter);
+      p->watchdog_counter = 0;
       yield();
     }
   }
@@ -168,22 +198,6 @@ kerneltrap()
     panic("kerneltrap");
   }
 
-  // give up the CPU if this is a timer interrupt
-  // and the process has exhausted its time quantum.
-  if(which_dev == 2 && myproc() != 0){
-    struct proc *p = myproc();
-    p->cpu_time_used++;
-    if(p->time_slice_remaining > 0)
-      p->time_slice_remaining--;
-    if(p->time_slice_remaining == 0){
-#if SCHED_TYPE != SCHED_RR
-      if(p->priority < MLFQ_LEVELS - 1)
-        p->priority++;
-#endif
-      yield();
-    }
-  }
-
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
   w_sepc(sepc);
@@ -196,21 +210,8 @@ clockintr()
   if(cpuid() == 0){
     acquire(&tickslock);
     ticks++;
-#if SCHED_TYPE != SCHED_RR
-    uint64 t = ticks;
-#endif
     wakeup(&ticks);
     release(&tickslock);
-
-#if SCHED_TYPE != SCHED_RR
-    qm_tick(t);
-
-    if(MLFQ_AGING_INTERVAL > 0 &&
-       t - last_mlfq_aging_tick >= (uint64)MLFQ_AGING_INTERVAL){
-      mlfq_aging(t);
-      last_mlfq_aging_tick = t;
-    }
-#endif
   }
 
   // ask for the next timer interrupt. this also clears

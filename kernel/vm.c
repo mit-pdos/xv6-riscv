@@ -455,15 +455,19 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
   uint64 mem;
   struct proc *p = myproc();
 
-  if (va >= p->sz)
+  if (va >= p->sz) {
+    printf("vmfault fail: va 0x%lx >= p->sz 0x%lx (pid %d)\n", va, p->sz, p->pid);
     return 0;
+  }
   va = PGROUNDDOWN(va);
   if(ismapped(pagetable, va)) {
     return 0;
   }
   mem = (uint64) kalloc();
-  if(mem == 0)
+  if(mem == 0) {
+    printf("vmfault fail: out of memory (pid %d)\n", p->pid);
     return 0;
+  }
   memset((void *) mem, 0, PGSIZE);
   if (mappages(p->pagetable, va, PGSIZE, mem, PTE_W|PTE_U|PTE_R) != 0) {
     kfree((void *)mem);

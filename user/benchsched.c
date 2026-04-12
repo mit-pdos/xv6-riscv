@@ -24,7 +24,7 @@
 #define DEFAULT_CPU_ITERS 100000000   // 100 million
 #define DEFAULT_IO_ROUNDS 5
 
-// Result written by each worker to the pipe before exiting.
+// Per-worker result collected by parent from proc snapshots.
 // Kept global to avoid blowing xv6's single-page user stack (4KB).
 struct result {
   int  pid;
@@ -42,9 +42,10 @@ static struct result results[MAX_WORKERS];
 // Global to prevent compiler register aliasing with cpu_iters (both are int,
 // compiler may reuse the same register; BSS guarantees zero-init each run).
 static int nresults;
+#define PROC_ZOMBIE 5
 
 static void
-cpu_worker(int iters, int pipefd)
+cpu_worker(int iters)
 {
   // CPU-bound: tight LCG loop — spends many ticks computing, gets preempted
   // repeatedly, and sinks through MLFQ priority levels as its quantum drains.
@@ -53,45 +54,17 @@ cpu_worker(int iters, int pipefd)
     x = x * 6364136223846793005ULL + 1442695040888963407ULL;
   (void)x;
 
-  struct procstat ps;
-  getprocstat(-1, &ps);
-
-  struct result r;
-  r.pid             = ps.pid;
-  r.type            = 0;
-  r.response_time   = ps.response_time;
-  r.turnaround_time = ps.turnaround_time;
-  r.total_wait_time = ps.total_wait_time;
-  r.context_switches= ps.context_switches;
-  r.total_runtime   = ps.total_runtime;
-  r.io_count        = ps.io_count;
-
-  write(pipefd, &r, sizeof(r));
   exit(0);
 }
 
 static void
-io_worker(int rounds, int pipefd)
+io_worker(int rounds)
 {
   // I/O-bound: repeatedly sleep to simulate short I/O bursts.
   // After each sleep the process wakes at high priority (MLFQ boost).
   for(int i = 0; i < rounds; i++)
     sleep(3);
 
-  struct procstat ps;
-  getprocstat(-1, &ps);
-
-  struct result r;
-  r.pid             = ps.pid;
-  r.type            = 1;
-  r.response_time   = ps.response_time;
-  r.turnaround_time = ps.turnaround_time;
-  r.total_wait_time = ps.total_wait_time;
-  r.context_switches= ps.context_switches;
-  r.total_runtime   = ps.total_runtime;
-  r.io_count        = ps.io_count;
-
-  write(pipefd, &r, sizeof(r));
   exit(0);
 }
 
@@ -118,16 +91,18 @@ main(int argc, char *argv[])
   if(argc > 4) io_rounds = xatoi(argv[4]);
 
   int nworkers = ncpu + nio;
+  int pids[MAX_WORKERS];
+  int types[MAX_WORKERS];
+  int collected[MAX_WORKERS];
   if(nworkers > MAX_WORKERS){
     printf("benchsched: too many workers (max %d)\n", MAX_WORKERS);
     exit(1);
   }
 
-  // Create pipe for collecting results.
-  int pipefd[2];
-  if(pipe(pipefd) < 0){
-    printf("benchsched: pipe failed\n");
-    exit(1);
+  for(int i = 0; i < nworkers; i++){
+    pids[i] = -1;
+    types[i] = (i < ncpu) ? 0 : 1;
+    collected[i] = 0;
   }
 
   // Record system state before benchmark.
@@ -147,36 +122,53 @@ main(int argc, char *argv[])
       exit(1);
     }
     if(pid == 0){
-      // Child: close read end, do work, write result, exit.
-      close(pipefd[0]);
       if(i < ncpu)
-        cpu_worker(cpu_iters, pipefd[1]);
+        cpu_worker(cpu_iters);
       else
-        io_worker(io_rounds, pipefd[1]);
+        io_worker(io_rounds);
       // not reached
     }
+    pids[i] = pid;
   }
 
-  // Parent: close write end so we can detect EOF when all children exit.
-  close(pipefd[1]);
-
-  // Interleave wait() and read(): each child writes its result BEFORE calling
-  // exit(), so after wait() returns we can always read one completed result.
-  // This avoids deadlock if the pipe buffer fills up with many workers.
+  // Parent: wait for each child to reach ZOMBIE, snapshot stats, then reap.
   nresults = 0;
-  for(int i = 0; i < nworkers; i++){
-    wait(0);
-    if(nresults < MAX_WORKERS){
-      int n = read(pipefd[0], &results[nresults], sizeof(struct result));
-      if(n == (int)sizeof(struct result))
-        nresults++;
+  while(nresults < nworkers){
+    int progressed = 0;
+    for(int i = 0; i < nworkers; i++){
+      if(collected[i])
+        continue;
+
+      struct procstat ps;
+      if(getprocstat(pids[i], &ps) < 0)
+        continue;
+
+      if(ps.state != PROC_ZOMBIE)
+        continue;
+
+      struct result *r = &results[nresults];
+      r->pid              = ps.pid;
+      r->type             = types[i];
+      r->response_time    = ps.response_time;
+      r->turnaround_time  = ps.turnaround_time;
+      r->total_wait_time  = ps.total_wait_time;
+      r->context_switches = ps.context_switches;
+      r->total_runtime    = ps.total_runtime;
+      r->io_count         = ps.io_count;
+
+      collected[i] = 1;
+      nresults++;
+      progressed = 1;
     }
+    if(!progressed)
+      sleep(1);
   }
+
+  for(int i = 0; i < nworkers; i++)
+    wait(0);
 
   uint t_end = uptime();
   getsysstats(&post);
-
-  close(pipefd[0]);
 
   // --- Print per-process table ---
   printf("PID  TYPE  RESP  TURN  WAIT  CTXSW  RUNTIME  IO\n");

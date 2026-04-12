@@ -170,6 +170,7 @@ found:
   p->priority_boost_time = 0;
   p->mlfq_next = 0;
   p->mlfq_prev = 0;
+  p->watchdog_counter = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -177,6 +178,8 @@ found:
     release(&p->lock);
     return 0;
   }
+  // Zero the trapframe to prevent garbage values in registers
+  memset(p->trapframe, 0, sizeof(struct trapframe));
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
@@ -520,8 +523,9 @@ scheduler(void)
 
   c->proc = 0;
   for(;;){
+    // Enable interrupts to avoid deadlock if all processes are waiting.
+    // This also allows timer interrupts to wake us from wfi.
     intr_on();
-    intr_off();
 
     int found = 0;
     for(int i = 0; i < NPROC && !found; i++){
@@ -538,10 +542,13 @@ scheduler(void)
         release(&tickslock);
 
         p->time_slice_remaining = RR_QUANTUM;
+        p->watchdog_counter = 0;
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
 
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
         acquire(&tickslock);
         uint runtime = ticks - p->last_run_time;
         if(runtime > 0){
@@ -558,8 +565,11 @@ scheduler(void)
       }
       release(&p->lock);
     }
-    if(!found)
+    if(!found) {
+      // Nothing to run; stop running on this core until an interrupt.
+      // Interrupts are already enabled above.
       asm volatile("wfi");
+    }
   }
 }
 #else
@@ -595,7 +605,6 @@ scheduler(void)
     //         cprintf("Running MLFQ scheduler (adaptive quantum)\n");
     //     #endif
     // }
-    intr_off();
 
     int found = 0;
     for(int lvl = 0; lvl < MLFQ_LEVELS && !found; lvl++){
@@ -621,6 +630,7 @@ scheduler(void)
         release(&tickslock);
 
         p->time_slice_remaining = qm_get_process_quantum(p);
+        p->watchdog_counter = 0;  // Reset watchdog when process starts running
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
@@ -646,7 +656,70 @@ scheduler(void)
       }
     }
     if(found == 0) {
+      // Defensive repair: if queue state drifted, recover any RUNNABLE process
+      // that is not currently linked in an MLFQ run queue.
+      int repaired = 0;
+      for(struct proc *rp = proc; rp < &proc[NPROC]; rp++){
+        acquire(&rp->lock);
+        if(rp->state == RUNNABLE && rp->mlfq_level == -1){
+          mlfq_enqueue(rp, rp->priority);
+          repaired = 1;
+        }
+        release(&rp->lock);
+      }
+
+      if(repaired)
+        continue;
+
+      // Strong fallback: if queue bookkeeping is still inconsistent,
+      // run any RUNNABLE process directly from the process table.
+      // This guarantees forward progress and prevents boot stalls.
+      for(struct proc *rp = proc; rp < &proc[NPROC]; rp++){
+        acquire(&rp->lock);
+        if(rp->state != RUNNABLE){
+          release(&rp->lock);
+          continue;
+        }
+
+        if(rp->mlfq_level != -1)
+          mlfq_remove(rp);
+
+        acquire(&tickslock);
+        if(rp->first_run_time == 0)
+          rp->first_run_time = ticks;
+        if(rp->runnable_since != 0)
+          rp->total_wait_time += ticks - rp->runnable_since;
+        rp->runnable_since = 0;
+        rp->last_run_time = ticks;
+        release(&tickslock);
+
+        rp->time_slice_remaining = qm_get_process_quantum(rp);
+        rp->watchdog_counter = 0;
+        rp->state = RUNNING;
+        c->proc = rp;
+        swtch(&c->context, &rp->context);
+
+        acquire(&tickslock);
+        uint rruntime = ticks - rp->last_run_time;
+        if(rruntime > 0) {
+          rp->total_runtime += rruntime;
+          acquire(&metrics.lock);
+          metrics.total_cpu_time += rruntime;
+          release(&metrics.lock);
+        }
+        release(&tickslock);
+
+        c->proc = 0;
+        release(&rp->lock);
+        found = 1;
+        break;
+      }
+
+      if(found)
+        continue;
+
       // nothing to run; stop running on this core until an interrupt.
+      intr_on();
       asm volatile("wfi");
     }
   }
@@ -701,6 +774,9 @@ yield(void)
 
   // Track context switch
   p->context_switches++;
+  
+  // Reset watchdog on voluntary yield
+  p->watchdog_counter = 0;
   
   // Update global context switch counter
   acquire(&metrics.lock);
