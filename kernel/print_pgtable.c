@@ -38,7 +38,7 @@ void print_table(int level, pagetable_t pgt) {
 uint64 sys_print_pgtable() {
     struct proc* myp = myproc();
     pagetable_t pgt = myp->pagetable;
-    printf("PAGETABLE %lx\n", (uint64)pgt);
+    printf("PAGETABLE 0x%lx\n", (uint64)pgt);
     print_table(1, pgt);
     return 0;
 }
@@ -66,6 +66,33 @@ uint64 sys_remove_flags() {
             return -1;
         *pte |= mask;
         *pte ^= mask;
+    }
+    return 0;
+}
+
+
+uint64 sys_check_flags() {
+    struct proc* myp = myproc();
+    uint64 bufVa = myp->trapframe->a0;
+    uint64 bufLen = myp->trapframe->a1;
+    uint64 mask = myp->trapframe->a2;
+    const uint64 PTE_AD = PTE_A | PTE_D;
+    if (((mask | PTE_AD) ^ PTE_AD) != 0)
+        return -1;
+
+    pagetable_t pgt = myp->pagetable;
+
+    uint64 pageVa = PGROUNDDOWN(bufVa);
+    for (; pageVa < bufVa + bufLen; pageVa += PGSIZE) {
+        pte_t *pte;
+        if (pageVa >= MAXVA)
+            return -1;
+        pte = walk(pgt, pageVa, 0);
+        if (pte == 0)
+            return -1;
+        if ((*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
+            return -1;
+        if (*pte & mask) return 1;
     }
     return 0;
 }
