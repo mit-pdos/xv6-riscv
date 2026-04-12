@@ -49,3 +49,4 @@ void* malloc(uint);
 void free(void*);
 
 void print_pgtable();
+uint64 remove_flags(uint64, uint64, uint64);
