@@ -77,16 +77,3 @@ gcc mlfq.c -o mlfq
 * Dynamic priority adjustment (demotion)
 * Clear timeline visualization
 * Performance metrics calculation
-
----
-
-## Note
-
-Promotion (aging) is not implemented for simplicity.
-In real systems, promotion is used to prevent starvation.
-
----
-
-## Conclusion
-
-MLFQ improves responsiveness by prioritizing short processes while still allowing long processes to execute. It balances fairness and efficiency.
