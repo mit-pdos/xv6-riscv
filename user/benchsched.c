@@ -53,7 +53,6 @@ cpu_worker(int iters)
   for(int i = 0; i < iters; i++)
     x = x * 6364136223846793005ULL + 1442695040888963407ULL;
   (void)x;
-
   exit(0);
 }
 
@@ -64,7 +63,6 @@ io_worker(int rounds)
   // After each sleep the process wakes at high priority (MLFQ boost).
   for(int i = 0; i < rounds; i++)
     sleep(3);
-
   exit(0);
 }
 
@@ -131,10 +129,13 @@ main(int argc, char *argv[])
     pids[i] = pid;
   }
 
-  // Parent: wait for each child to reach ZOMBIE, snapshot stats, then reap.
+  // Parent: snapshot each child once it is ZOMBIE.
+  // Important: do not reap until all snapshots are captured, otherwise wait()
+  // may reap an unsnapshotted child and we lose its stats forever.
   nresults = 0;
   while(nresults < nworkers){
     int progressed = 0;
+
     for(int i = 0; i < nworkers; i++){
       if(collected[i])
         continue;
@@ -160,10 +161,12 @@ main(int argc, char *argv[])
       nresults++;
       progressed = 1;
     }
+
     if(!progressed)
       sleep(1);
   }
 
+  // Reap after all stats have been captured.
   for(int i = 0; i < nworkers; i++)
     wait(0);
 

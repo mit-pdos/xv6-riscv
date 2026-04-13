@@ -57,8 +57,8 @@ validate_quantum(uint64 quantum)
   return quantum;
 }
 
+#if SCHED_TYPE == SCHED_MLFQ_AQ
 static void
-__attribute__((unused))
 classify_process_behavior(struct proc *p)
 {
   uint64 cpu_delta = p->cpu_time_used - p->last_cpu_time_used;
@@ -83,6 +83,7 @@ classify_process_behavior(struct proc *p)
   p->last_cpu_time_used = p->cpu_time_used;
   p->last_io_count = p->io_count;
 }
+#endif
 
 uint64
 qm_get_process_quantum(struct proc *p)
@@ -90,15 +91,24 @@ qm_get_process_quantum(struct proc *p)
   if(p == 0)
     return (uint64)MIN_QUANTUM;
 
+#if SCHED_TYPE == SCHED_MLFQ_AQ
+  // Called from scheduler/wakeup paths (not timer interrupt context).
+  // Re-enable behavior classification here to avoid interrupt-hot lock pressure
+  // while still allowing AQ to react to CPU-vs-IO behavior.
+  classify_process_behavior(p);
+#endif
+
   uint64 base = qm_get_time_quantum(p->priority);
   int mult_x1000 = 1000;
   if(p->behavior_type == PROC_IO_BOUND){
-    mult_x1000 = 800;
+    // Keep interactive tasks responsive, but avoid over-shrinking quantum.
+    mult_x1000 = 900;
   } else if(p->behavior_type == PROC_CPU_BOUND){
-    if(p->priority >= (MLFQ_LEVELS - 2))
-      mult_x1000 = 1200;
+    // Give CPU-heavy tasks more contiguous runtime, especially once demoted.
+    if(p->priority >= 2)
+      mult_x1000 = 1300;
     else
-      mult_x1000 = 1000;
+      mult_x1000 = 1100;
   }
 
   uint64 prod = base * (uint64)mult_x1000;
@@ -144,13 +154,18 @@ qm_track_context_switch(int voluntary)
 static int
 target_quantum_factor_x1000(int load)
 {
+  // Benchmark regimes usually sit around medium runnable load (~10-20).
+  // Apply moderate expansion there to reduce context-switch overhead while
+  // still preserving MLFQ priority responsiveness.
   if(load < 5)
-    return 1500;
-  if(load < 20)
+    return 1350;
+  if(load < 16)
+    return 1150;
+  if(load < 28)
     return 1000;
   if(load < 50)
-    return 700;
-  return 500;
+    return 800;
+  return 650;
 }
 
 static void
@@ -165,6 +180,19 @@ adjust_quantum_by_load_locked(int load)
     uint64 q = (qm.base_quantum[i] * (uint64)qm.quantum_factor_x1000) / 1000ULL;
     qm.current_quantum[i] = validate_quantum(q);
   }
+}
+
+static void
+reset_adaptation_locked(uint64 now_tick)
+{
+  qm.quantum_factor_x1000 = 1000;
+  qm.context_switch_rate_x1000 = 0;
+  for(int i = 0; i < MLFQ_LEVELS; i++)
+    qm.current_quantum[i] = qm.base_quantum[i];
+
+  qm.last_quantum_adjust_tick = now_tick;
+  qm.last_cs_count = qm.total_context_switches;
+  qm.last_cs_update_tick = now_tick;
 }
 
 static int
@@ -228,8 +256,17 @@ qm_tick(uint64 now_tick)
   commit_system_load_locked(now_tick, load);
   release(&qm.lock);
 
-  const uint64 quantum_adjust_interval_ticks = 100;
+  const uint64 quantum_adjust_interval_ticks = 10;
   acquire(&qm.lock);
+  // When the system is mostly idle, reset AQ adaptation state so
+  // back-to-back benchmark runs don't inherit stale tuning history.
+  if(load <= 2){
+    reset_adaptation_locked(now_tick);
+    qm.last_behavior_update_tick = now_tick;
+    release(&qm.lock);
+    return;
+  }
+
   if(qm.last_quantum_adjust_tick == 0 || now_tick - qm.last_quantum_adjust_tick >= quantum_adjust_interval_ticks){
     adjust_quantum_by_load_locked(qm.system_load);
     qm.last_quantum_adjust_tick = now_tick;

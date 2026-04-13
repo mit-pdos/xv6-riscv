@@ -1,193 +1,117 @@
 # Scheduler Comparison Report: RR vs MLFQ vs MLFQ_AQ
 
 ## Scope
-This report analyzes scheduler behavior using the benchmark:
 
-- Command: `benchsched 4 8 100000000 5`
-- Workload: 4 CPU-bound + 8 I/O-bound workers
-- Schedulers compared: `RR`, `MLFQ`, `MLFQ_AQ`
+This report summarizes the latest multi-run benchmark campaign across three workloads:
 
-All raw benchmark outputs below were provided after stability fixes.
+- CPU-intensive: `benchsched 10 2 100000000 3`
+- Mixed: `benchsched 4 8 100000000 5`
+- IO-intensive: `benchsched 2 10 50000000 8`
 
----
+Schedulers compared:
+
+- `RR`
+- `MLFQ`
+- `MLFQ_AQ`
+
+## Methodology
+
+- Values are aggregated from the benchmark summary sections you provided.
+- Main comparison metrics are average elapsed ticks (lower is better) and average throughput (higher is better).
+- We also compare CPU-bound and IO-bound latency metrics (response, turnaround, wait).
+- Reported as `mean` with `range` to show run-to-run variability.
+
+## Data Quality Notes
+
+- Most scheduler/workload groups include 5 runs.
+- `RR` mixed workload has 4 complete runs in the provided logs (one run appears missing/truncated), so mixed `RR` aggregates are based on `n=4`.
 
 ## Executive Summary
 
-- `MLFQ` improves system throughput and completion time versus `RR` while preserving similar per-class averages.
-- `MLFQ_AQ` is the best overall in this run:
-  - highest throughput,
-  - lowest elapsed time,
-  - best I/O responsiveness,
-  - best CPU response-time distribution.
+- CPU-intensive: `MLFQ` and `MLFQ_AQ` are effectively tied on elapsed time; `MLFQ` has a tiny throughput edge on average.
+- Mixed: `MLFQ` is the best overall (best elapsed/throughput and best IO latency), `RR` is second, `MLFQ_AQ` is third.
+- IO-intensive: `RR` and `MLFQ_AQ` tie on elapsed/throughput; `MLFQ` is marginally behind.
+- No scheduler dominates all workloads; behavior remains workload-sensitive.
 
-In short: **RR < MLFQ < MLFQ_AQ** for this mixed workload.
+## Aggregated Results
 
----
+### 1) CPU-intensive (`10 CPU + 2 IO`)
 
-## Consolidated Metrics (from benchmark summaries)
+| Scheduler | Runs | Elapsed ticks | Throughput (/100 ticks) | CPU resp/turn/wait | IO resp/turn/wait |
+|---|---:|---:|---:|---:|---:|
+| RR | 5 | 19.6 (19-20) | 61.2 (60-63) | 3.2 / 6.4 / 3.2 | 9.6 / 18.6 / 9.6 |
+| MLFQ | 5 | 17.0 (16-18) | 70.4 (66-75) | 2.4 / 8.4 / 5.6 | 6.6 / 15.8 / 6.8 |
+| MLFQ_AQ | 5 | 17.0 (16-18) | 70.2 (66-75) | 2.2 / 8.2 / 6.0 | 6.6 / 15.6 / 6.6 |
 
-| Metric | RR | MLFQ | MLFQ_AQ | Better Direction |
-|---|---:|---:|---:|---|
-| Elapsed (ticks) | 21 | 20 | 19 | Lower |
-| Throughput (proc / 100 ticks) | 57 | 60 | 63 | Higher |
-| CPU avg response (ticks)
-*(printed)* | 1 | 1 | 0 | Lower |
-| CPU avg turnaround (ticks) | 4 | 4 | 4 | Lower |
-| CPU avg wait (ticks) | 1 | 1 | 1 | Lower |
-| IO avg response (ticks) | 4 | 4 | 3 | Lower |
-| IO avg turnaround (ticks) | 19 | 19 | 18 | Lower |
-| IO avg wait (ticks) | 4 | 4 | 3 | Lower |
-| Ctx switches (all workers) | 120 | 124 | 124 | Depends |
-| Sys ctx switches | 137 | 141 | 141 | Depends |
+CPU-intensive takeaways:
 
----
+- Best elapsed: `MLFQ = MLFQ_AQ` (17.0 avg), both clearly better than `RR` (19.6).
+- Best throughput: `MLFQ` (70.4) by a small margin over `MLFQ_AQ` (70.2).
+- Best IO latency under CPU pressure: `MLFQ_AQ` (slightly better turnaround/wait than `MLFQ`).
 
-## Extra Derived Data (from per-process rows)
+### 2) Mixed (`4 CPU + 8 IO`)
 
-To avoid integer-rounding loss in printed averages, exact means are computed from the PID table:
+| Scheduler | Runs | Elapsed ticks | Throughput (/100 ticks) | CPU resp/turn/wait | IO resp/turn/wait |
+|---|---:|---:|---:|---:|---:|
+| RR | 4 | 19.25 (19-20) | 62.25 (60-63) | 1.0 / 3.25 / 1.0 | 3.0 / 18.0 / 3.0 |
+| MLFQ | 5 | 19.0 (18-20) | 63.0 (60-66) | 0.4 / 3.4 / 0.8 | 2.6 / 17.6 / 2.8 |
+| MLFQ_AQ | 5 | 19.4 (19-20) | 61.8 (60-63) | 0.4 / 4.0 / 1.0 | 3.0 / 18.0 / 3.0 |
 
-### CPU-bound exact means
+Mixed-workload takeaways:
 
-| Metric | RR | MLFQ | MLFQ_AQ |
-|---|---:|---:|---:|
-| Response | 1.50 | 1.50 | 0.50 |
-| Turnaround | 4.75 | 4.75 | 4.75 |
-| Wait | 1.50 | 1.75 | 1.00 |
-| Runtime | 3.25 | 3.00 | 3.75 |
+- Best elapsed and throughput: `MLFQ`.
+- `RR` is close to `MLFQ`, but with slightly weaker throughput and IO latency.
+- `MLFQ_AQ` trails both on this workload profile.
 
-### I/O-bound exact means
+### 3) IO-intensive (`2 CPU + 10 IO`)
 
-| Metric | RR | MLFQ | MLFQ_AQ |
-|---|---:|---:|---:|
-| Response | 4.00 | 4.00 | 3.00 |
-| Turnaround | 19.00 | 19.00 | 18.00 |
-| Wait | 4.00 | 4.00 | 3.00 |
+| Scheduler | Runs | Elapsed ticks | Throughput (/100 ticks) | CPU resp/turn/wait | IO resp/turn/wait |
+|---|---:|---:|---:|---:|---:|
+| RR | 5 | 26.2 (26-27) | 45.6 (44-46) | 0.2 / 1.8 / 0.2 | 0.8 / 24.8 / 0.8 |
+| MLFQ | 5 | 26.6 (26-27) | 44.8 (44-46) | 0.0 / 1.2 / 0.0 | 0.8 / 25.0 / 0.8 |
+| MLFQ_AQ | 5 | 26.2 (26-27) | 45.6 (44-46) | 0.0 / 1.8 / 0.0 | 0.6 / 24.8 / 0.6 |
 
-### Improvement percentages
+IO-intensive takeaways:
 
-- **MLFQ vs RR**
-  - Throughput: **+5.26%**
-  - Elapsed time: **-4.76%**
-- **MLFQ_AQ vs RR**
-  - Throughput: **+10.53%**
-  - Elapsed time: **-9.52%**
-  - IO response: **-25.0%**
-  - IO wait: **-25.0%**
-  - CPU response (exact mean): **-66.7%**
-- **MLFQ_AQ vs MLFQ**
-  - Throughput: **+5.00%**
-  - Elapsed time: **-5.00%**
-  - IO response: **-25.0%**
-  - CPU response (exact mean): **-66.7%**
+- Best elapsed/throughput: `RR` and `MLFQ_AQ` are tied.
+- `MLFQ_AQ` has slightly better IO response/wait than the others.
+- Differences are small overall; all three are close in this regime.
 
----
+## Relative Improvement vs RR (Averages)
 
-## Graphs
+### CPU-intensive
 
-### Throughput (higher is better)
+- `MLFQ`: elapsed `-13.3%`, throughput `+15.0%`.
+- `MLFQ_AQ`: elapsed `-13.3%`, throughput `+14.7%`.
 
-```mermaid
-xychart-beta
-    title "Throughput Comparison"
-    x-axis [RR, MLFQ, MLFQ_AQ]
-    y-axis "proc / 100 ticks" 50 --> 65
-    bar [57, 60, 63]
-```
+### Mixed
 
-### Elapsed Time (lower is better)
+- `MLFQ`: elapsed `-1.3%`, throughput `+1.2%`.
+- `MLFQ_AQ`: elapsed `+0.8%`, throughput `-0.7%`.
 
-```mermaid
-xychart-beta
-    title "Elapsed Time Comparison"
-    x-axis [RR, MLFQ, MLFQ_AQ]
-    y-axis "ticks" 18 --> 22
-    bar [21, 20, 19]
-```
+### IO-intensive
 
-### IO Responsiveness (lower is better)
+- `MLFQ`: elapsed `+1.5%`, throughput `-1.8%`.
+- `MLFQ_AQ`: elapsed `0.0%`, throughput `0.0%`.
 
-```mermaid
-xychart-beta
-    title "I/O Average Response Time"
-    x-axis [RR, MLFQ, MLFQ_AQ]
-    y-axis "ticks" 2 --> 5
-    bar [4, 4, 3]
-```
+## Stability and Variability
 
-### CPU Response (exact mean from PID rows; lower is better)
+- CPU-intensive runs show expected jitter but stable ordering: `RR` is consistently slower on completion time; `MLFQ`/`MLFQ_AQ` cluster together.
+- Mixed runs are stable with narrow ranges; `MLFQ` consistently stays at or near the top.
+- IO-intensive runs are highly stable for all schedulers, with only ±1 tick variation in elapsed time.
 
-```mermaid
-xychart-beta
-    title "CPU Average Response Time (Exact)"
-    x-axis [RR, MLFQ, MLFQ_AQ]
-    y-axis "ticks" 0 --> 2
-    bar [1.5, 1.5, 0.5]
-```
+## Final Ranking by Workload
 
----
-
-## Why MLFQ improves over RR
-
-1. **Priority differentiation**
-   - RR treats all runnable tasks equally.
-   - MLFQ prioritizes interactive/short-burst behavior over long CPU bursts.
-
-2. **Better completion efficiency on mixed loads**
-   - Lower elapsed time (20 vs 21 ticks).
-   - Higher throughput (60 vs 57 proc/100 ticks).
-
-3. **Maintains fairness while reducing wall-clock completion**
-   - Similar class-level average latencies in this specific run, but better aggregate completion rate.
-
----
-
-## Why MLFQ_AQ improves over RR and MLFQ
-
-1. **Adaptive quantum control under load**
-   - AQ dynamically adjusts scheduling quanta based on runtime load signals.
-
-2. **Best overall system efficiency**
-   - Highest throughput: 63 proc/100 ticks.
-   - Lowest elapsed time: 19 ticks.
-
-3. **Best latency for interactive (I/O-bound) tasks**
-   - IO response and wait both improved by 25% versus RR and MLFQ.
-
-4. **Better CPU response distribution**
-   - Exact CPU response mean dropped from 1.5 ticks (RR/MLFQ) to 0.5 ticks.
-
----
-
-## Interpretation Notes
-
-- This is a **single-run snapshot** per scheduler for one mixed workload.
-- Printed averages are integer-truncated by benchmark output; exact means in this report come from raw PID rows.
-- The ranking is clear in this dataset, but confidence should be strengthened with repeated trials.
-
----
-
-## Recommended Additional Runs (for publication-quality evidence)
-
-To further strengthen the claims, run each scheduler 10 times per workload and report mean + stddev:
-
-1. Mixed: `benchsched 4 8 100000000 5`
-2. CPU-heavy: `benchsched 10 2 100000000 3`
-3. IO-heavy: `benchsched 2 10 50000000 8`
-
-Then publish:
-- mean/median/p95 of response, turnaround, wait,
-- throughput distribution (box plot),
-- bootstrap confidence intervals for improvement percentages.
-
----
+- CPU-intensive: **MLFQ ≈ MLFQ_AQ > RR**
+- Mixed: **MLFQ > RR > MLFQ_AQ**
+- IO-intensive: **MLFQ_AQ ≈ RR > MLFQ**
 
 ## Conclusion
 
-For the measured workload and stabilized codebase:
+From this 5-run dataset, the current scheduler behavior is coherent and repeatable:
 
-- **MLFQ is an improvement over RR** in overall completion efficiency.
-- **MLFQ_AQ is an improvement over both RR and MLFQ** in both efficiency and responsiveness.
+- `MLFQ` is the best all-around performer, especially for mixed load.
+- `MLFQ_AQ` is competitive with `MLFQ` on CPU-heavy load and ties `RR` on IO-heavy load, but still underperforms on mixed load.
+- `RR` remains a solid baseline but is not competitive under CPU-heavy contention.
 
-Therefore, the benchmark evidence supports the design progression:
-
-**RR → MLFQ → MLFQ_AQ**.
+If the target is to make `MLFQ_AQ` consistently best, the next tuning focus should be mixed-load behavior (particularly IO latency preservation while retaining CPU-heavy gains).
