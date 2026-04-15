@@ -25,6 +25,11 @@
 #define VIRTIO0 0x10001000
 #define VIRTIO0_IRQ 1
 
+// goldfish RTC, как написано в задании
+#define RTC_BASE 0x101000L
+#define RTC_LOW  (RTC_BASE + 0x0)
+#define RTC_HIGH (RTC_BASE + 0x4)
+
 // qemu puts platform-level interrupt controller (PLIC) here.
 #define PLIC 0x0c000000L
 #define PLIC_PRIORITY (PLIC + 0x0)

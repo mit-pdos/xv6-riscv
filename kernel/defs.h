@@ -9,6 +9,11 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+// rtc.c
+uint32 rtc_read_low(void);
+uint32 rtc_read_high(void);
+uint64 rtc_read_time(void);
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);

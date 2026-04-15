@@ -32,6 +32,9 @@ kvmmake(void)
   // virtio mmio disk interface
   kvmmap(kpgtbl, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
 
+  // RTC registers
+  kvmmap(kpgtbl, RTC_BASE, RTC_BASE, PGSIZE, PTE_R | PTE_W);
+
   // PLIC
   kvmmap(kpgtbl, PLIC, PLIC, 0x4000000, PTE_R | PTE_W);
 

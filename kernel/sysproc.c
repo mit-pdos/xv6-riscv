@@ -7,6 +7,10 @@
 #include "proc.h"
 #include "vm.h"
 
+uint64 sys_rtc(void) {
+  return rtc_read_time();
+}
+
 uint64
 sys_exit(void)
 {
