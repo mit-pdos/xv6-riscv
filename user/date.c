@@ -16,12 +16,13 @@ static void print2(int x) {
 }
 
 static void print9(uint64 x) {
-    uint64 div = 100000000;
-    for(int i = 0; i < 9; i++){
-        printf("%d", (int)(x / div));
-        x %= div;
-        div /= 10;
-    }
+  uint64 div = 100000000;
+
+  for(int i = 0; i < 7; i++){
+    printf("%d", (int)(x / div));
+    x %= div;
+    div /= 10;
+  }
 }
 
 int main(void) {

@@ -14,7 +14,12 @@ uint32 rtc_read_high(void) {
 }
 
 uint64 rtc_read_time(void) {
-    uint32 low = rtc_read_low();
-    uint32 high = rtc_read_high();
-    return ((uint64)high << 32) | low;
+  uint32 low1 = rtc_read_low();
+  uint32 high1 = rtc_read_high();
+  uint32 high2 = rtc_read_high();
+
+  if(high1 != high2)
+    low1 = rtc_read_low();
+
+  return ((uint64)high2 << 32) | low1;
 }
