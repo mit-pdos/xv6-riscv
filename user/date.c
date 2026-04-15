@@ -15,9 +15,8 @@ static void print2(int x) {
     printf("%d", x);
 }
 
-static void print9(uint64 x) {
+static void print7(uint64 x) {
   uint64 div = 100000000;
-
   for(int i = 0; i < 7; i++){
     printf("%d", (int)(x / div));
     x %= div;
@@ -86,7 +85,7 @@ int main(void) {
     print2(sec2);
 
     printf(".");
-    print9(nsec);
+    print7(nsec);
 
     printf("\n");
 

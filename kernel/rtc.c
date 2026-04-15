@@ -1,25 +1,24 @@
 #include "types.h"
 #include "memlayout.h"
 
-#define LOW_IND 0
-#define HIGH_IND 1
-#define RtcReg(i) (*(volatile uint32 *)(RTC_BASE + 4 * (i)))
+#define RtcReg(addr) (*(volatile uint32 *)(addr))
 
 uint32 rtc_read_low(void) {
-    return RtcReg(LOW_IND);
+    return RtcReg(RTC_LOW);
 }
 
 uint32 rtc_read_high(void) {
-    return RtcReg(HIGH_IND);
+    return RtcReg(RTC_HIGH);
 }
 
 uint64 rtc_read_time(void) {
-  uint32 low1 = rtc_read_low();
-  uint32 high1 = rtc_read_high();
-  uint32 high2 = rtc_read_high();
+  uint32 high1, high2, low;
 
-  if(high1 != high2)
-    low1 = rtc_read_low();
+  do {
+    high1 = rtc_read_high();
+    low  = rtc_read_low();
+    high2 = rtc_read_high();
+  } while (high1 != high2);
 
-  return ((uint64)high2 << 32) | low1;
+  return ((uint64)high1 << 32) | low;
 }
