@@ -688,3 +688,19 @@ procdump(void)
     printf("\n");
   }
 }
+
+extern int syscall_counts[];
+
+uint64
+sys_getcnt(void)
+{
+  int target_sys_num;
+
+  argint(0, &target_sys_num);
+
+  if(target_sys_num <= 0 || target_sys_num >= 30) {
+    return -1;
+  }
+
+  return syscall_counts[target_sys_num];
+}

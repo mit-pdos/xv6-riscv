@@ -1,0 +1,87 @@
+diff --git a/Makefile b/Makefile
+index b262c0a..7b5fb2f 100644
+--- a/Makefile
++++ b/Makefile
+@@ -145,6 +145,8 @@ UPROGS=\
+ 	$U/_logstress\
+ 	$U/_forphan\
+ 	$U/_dorphan\
++	$U/_getcnt\
++
+ 
+ fs.img: mkfs/mkfs README $(UPROGS)
+ 	mkfs/mkfs fs.img README $(UPROGS)
+diff --git a/kernel/proc.c b/kernel/proc.c
+index 22a5401..45a35f6 100644
+--- a/kernel/proc.c
++++ b/kernel/proc.c
+@@ -688,3 +688,19 @@ procdump(void)
+     printf("\n");
+   }
+ }
++
++extern int syscall_counts[];
++
++uint64
++sys_getcnt(void)
++{
++  int target_sys_num;
++
++  argint(0, &target_sys_num);
++
++  if(target_sys_num <= 0 || target_sys_num >= 30) {
++    return -1;
++  }
++
++  return syscall_counts[target_sys_num];
++}
+\ No newline at end of file
+diff --git a/kernel/sysfile.c b/kernel/sysfile.c
+index a070e2d..f7762fe 100644
+--- a/kernel/sysfile.c
++++ b/kernel/sysfile.c
+@@ -504,21 +504,4 @@ sys_pipe(void)
+     return -1;
+   }
+   return 0;
+-}
+-
+-uint64
+-sys_getcnt(void)
+-{
+-  int target_sys_num;
+-  
+-  // argint(0, ...) pega o primeiro parâmetro passado para a syscall
+-  argint(0, &target_sys_num); 
+-
+-  // Validação de segurança para evitar acessos fora do array
+-  if(target_sys_num <= 0 || target_sys_num >= 30) {
+-    return -1; 
+-  }
+-
+-  // Retorna quantas vezes a syscall foi chamada
+-  return syscall_counts[target_sys_num];
+ }
+\ No newline at end of file
+diff --git a/user/user.h b/user/user.h
+index ac84de9..4a123f6 100644
+--- a/user/user.h
++++ b/user/user.h
+@@ -24,6 +24,7 @@ int getpid(void);
+ char* sys_sbrk(int,int);
+ int pause(int);
+ int uptime(void);
++int getcnt(int);
+ 
+ // ulib.c
+ int stat(const char*, struct stat*);
+diff --git a/user/usys.pl b/user/usys.pl
+index c5d4c3a..ac3d0eb 100755
+--- a/user/usys.pl
++++ b/user/usys.pl
+@@ -42,3 +42,4 @@ entry("getpid");
+ entry("sbrk");
+ entry("pause");
+ entry("uptime");
++entry("getcnt");
+\ No newline at end of file
