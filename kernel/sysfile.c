@@ -16,6 +16,8 @@
 #include "file.h"
 #include "fcntl.h"
 
+extern int syscall_counts[];
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -502,4 +504,21 @@ sys_pipe(void)
     return -1;
   }
   return 0;
+}
+
+uint64
+sys_getcnt(void)
+{
+  int target_sys_num;
+  
+  // argint(0, ...) pega o primeiro parâmetro passado para a syscall
+  argint(0, &target_sys_num); 
+
+  // Validação de segurança para evitar acessos fora do array
+  if(target_sys_num <= 0 || target_sys_num >= 30) {
+    return -1; 
+  }
+
+  // Retorna quantas vezes a syscall foi chamada
+  return syscall_counts[target_sys_num];
 }
