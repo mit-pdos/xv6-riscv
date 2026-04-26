@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 
+
 struct spinlock tickslock;
 uint ticks;
 
@@ -68,9 +69,32 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if((r_scause() == 15 || r_scause() == 13) &&
-            vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) != 0) {
-    // page fault on lazily-allocated page
+  }  else if(r_scause() == 15 || r_scause() == 13) {
+    uint64 fault_va = PGROUNDDOWN(r_stval());
+    pte_t *pte = walk(p->pagetable, fault_va, 0);
+
+    if(pte != 0 && is_swapped_out(pte)){
+      // swap fault — page was evicted, bring it back
+      int slot = get_swap_slot_from_pte(pte);
+      uint64 mem = (uint64)kalloc();  // may itself trigger eviction via vmfault? No — kalloc is direct
+      if(mem == 0){
+        // kalloc failed — need to evict before we can swapin
+        // reuse vmfault's eviction path by calling it on a dummy,
+        // but simpler: just call pick_victim directly here too
+        setkilled(p);
+      } else {
+        swapin(mem, slot);                             // read page back from disk
+        // rebuild the PTE: clear swap marker, install new PA
+        *pte = PA2PTE(mem) | PTE_V | PTE_W | PTE_R | PTE_U;
+        remove_swap_slot(p, slot);                     // update process tracking
+        swap_free_slot(slot);                          // mark slot free in swap bitmap
+        kalloc_user_map(mem, p, fault_va);             // register with frame table
+        sfence_vma();                                  // flush TLB
+      }
+    } else if(vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) == 0){
+      // lazy alloc fault failed
+      setkilled(p);
+    }
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
