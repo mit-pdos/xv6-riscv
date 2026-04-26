@@ -78,6 +78,8 @@ mycpu(void)
   return c;
 }
 
+
+
 // Return the current struct proc *, or zero if none.
 struct proc*
 myproc(void)
@@ -145,7 +147,11 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
-
+  p->rmap_head = -1;
+  p->num_swapped = 0;
+  for(int i = 0; i < 16; i++)
+    p->swap_slots[i] = -1;
+  initlock(&p->swap_lock, "swap_lock");
   return p;
 }
 
@@ -168,6 +174,10 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->rmap_head = -1;
+  p->num_swapped = 0;
+  for(int i = 0; i < 16; i++)
+    p->swap_slots[i] = -1;
   p->state = UNUSED;
 }
 
@@ -513,30 +523,29 @@ forkret(void)
   release(&p->lock);
 
   if (first) {
-    // File system initialization must be run in the context of a
-    // regular process (e.g., because it calls sleep), and thus cannot
-    // be run from main().
+    // 1. Initialize the filesystem (reads the superblock)
     fsinit(ROOTDEV);
+
+    // 2. NOW create the swap file (ialloc will now find inodes!)
+    swap_init(); 
 
     first = 0;
     // ensure other cores see first=0.
     __sync_synchronize();
 
     // We can invoke kexec() now that file system is initialized.
-    // Put the return value (argc) of kexec into a0.
     p->trapframe->a0 = kexec("/init", (char *[]){ "/init", 0 });
     if (p->trapframe->a0 == -1) {
       panic("exec");
     }
   }
 
-  // return to user space, mimicing usertrap()'s return.
+  // return to user space
   prepare_return();
   uint64 satp = MAKE_SATP(p->pagetable);
   uint64 trampoline_userret = TRAMPOLINE + (userret - trampoline);
   ((void (*)(uint64))trampoline_userret)(satp);
 }
-
 // Sleep on channel chan, releasing condition lock lk.
 // Re-acquires lk when awakened.
 void
