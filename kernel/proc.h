@@ -104,4 +104,9 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int rmap_head;               // Head of reverse map list (frame table index)
+  int swap_slots[16];          // Swap slot numbers for swapped-out pages
+  int num_swapped;             // How many pages currently swapped out
+  struct spinlock swap_lock;   // Protects swap operations
 };
+
