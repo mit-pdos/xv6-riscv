@@ -59,6 +59,7 @@ void            ireclaim(int);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+int             get_frame_owner(uint64, struct proc**, uint64*);
 
 // log.c
 void            initlog(int, struct superblock*);
@@ -181,5 +182,19 @@ void            virtio_disk_init(void);
 void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
 
+// swapfile.c
+void            swap_init(void);
+void            swapout(uint64, int);
+void            swapin(uint64, int);
+int             swap_alloc(void);
+void            swap_free_slot(int);
+int             add_swap_slot(struct proc*, int);
+void            remove_swap_slot(struct proc*, int);
+int             get_swap_slot_for_va(struct proc*, uint64);
+void            kalloc_user_map(uint64, struct proc*, uint64);
+uint64          pick_victim(void);
+void            mark_swapped_out(pagetable_t, uint64, int);
+
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+extern struct spinlock ft_lock;
