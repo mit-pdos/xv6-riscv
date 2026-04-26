@@ -378,3 +378,8 @@ typedef uint64 *pagetable_t; // 512 PTEs
 // Sv39, to avoid having to sign-extend virtual addresses
 // that have the high bit set.
 #define MAXVA (1L << (9 + 9 + 9 + 12 - 1))
+
+// Add these to the end of kernel/riscv.h
+#define PTE_SWAPPED (1L << 8) // Using the 8th bit for swap flag
+#define is_swapped_out(pte) (!(*pte & PTE_V) && (*pte & PTE_SWAPPED))
+#define get_swap_slot_from_pte(pte) ((*pte) >> 10)
