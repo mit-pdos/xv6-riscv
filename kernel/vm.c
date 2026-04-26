@@ -7,7 +7,19 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "fs.h"
+#include "swap.h"
 
+
+extern struct spinlock ft_lock;
+
+struct frame {
+  int state;
+  struct proc *owner;
+  uint64 va;
+  int next;
+  int prev;
+};
+extern struct frame frame_table[];
 /*
  * the kernel's page table.
  */
@@ -16,6 +28,20 @@ pagetable_t kernel_pagetable;
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
+int
+get_frame_owner(uint64 pa, struct proc **owner_out, uint64 *va_out)
+{
+  int idx = pa / PGSIZE;
+  acquire(&ft_lock);
+  if(frame_table[idx].state != 2 || frame_table[idx].owner == 0){
+    release(&ft_lock);
+    return 0;
+  }
+  *owner_out = frame_table[idx].owner;
+  *va_out    = frame_table[idx].va;
+  release(&ft_lock);
+  return 1;
+}
 
 // Make a direct-map page table for the kernel.
 pagetable_t
@@ -455,20 +481,47 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
   uint64 mem;
   struct proc *p = myproc();
 
-  if (va >= p->sz)
+  if(va >= p->sz)
     return 0;
   va = PGROUNDDOWN(va);
-  if(ismapped(pagetable, va)) {
+  if(ismapped(pagetable, va))
+    return 0;
+
+  mem = (uint64)kalloc();
+
+  if(mem == 0){
+    // RAM is full — evict a victim page to swap
+    uint64 victim_pa = pick_victim();
+    if(victim_pa == 0)
+      return 0;  // truly out of memory, nothing to evict
+
+    struct proc *owner;
+    uint64 victim_va;
+    if(get_frame_owner(victim_pa, &owner, &victim_va) == 0)
+      return 0;  // frame wasn't a user page, shouldn't happen
+
+    int slot = swap_alloc();
+    // slot == -1 means swap space is full — no recovery possible
+    if(slot < 0)
+      return 0;
+
+    swapout(victim_pa, slot);              // write to disk, frees the frame
+    mark_swapped_out(owner->pagetable, victim_va, slot);  // update victim's PTE
+    add_swap_slot(owner, slot);            // record in process
+
+    sfence_vma();                          // flush TLB so stale mapping is gone
+
+    mem = (uint64)kalloc();                // retry — must succeed now
+    if(mem == 0)
+      return 0;
+  }
+
+  memset((void*)mem, 0, PGSIZE);
+  if(mappages(p->pagetable, va, PGSIZE, mem, PTE_W|PTE_U|PTE_R) != 0){
+    kfree((void*)mem);
     return 0;
   }
-  mem = (uint64) kalloc();
-  if(mem == 0)
-    return 0;
-  memset((void *) mem, 0, PGSIZE);
-  if (mappages(p->pagetable, va, PGSIZE, mem, PTE_W|PTE_U|PTE_R) != 0) {
-    kfree((void *)mem);
-    return 0;
-  }
+  kalloc_user_map(mem, p, va);
   return mem;
 }
 
@@ -484,3 +537,7 @@ ismapped(pagetable_t pagetable, uint64 va)
   }
   return 0;
 }
+
+// Given a physical address, return the owning process and virtual address.
+// Returns 1 on success, 0 if the frame is not a user page.
+
