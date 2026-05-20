@@ -12,7 +12,7 @@ void
 initlock(struct spinlock *lk, char *name)
 {
   lk->name = name;
-  lk->locked = 0;
+  lk->locked = SPINLOCK_FREE;
   lk->cpu = 0;
 }
 
@@ -34,7 +34,7 @@ acquire(struct spinlock *lk)
   // the C compiler and the processor to not move loads or stores
   // past this point, to ensure that the critical section's memory
   // references happen strictly after the lock is acquired.
-  while(__atomic_exchange_n(&lk->locked, 1, __ATOMIC_ACQUIRE) != 0)
+  while(__atomic_exchange_n(&lk->locked, SPINLOCK_HELD, __ATOMIC_ACQUIRE) == SPINLOCK_HELD)
     ;
 
   // Record info about lock acquisition for holding() and debugging.
@@ -69,7 +69,7 @@ release(struct spinlock *lk)
   //
   // On RISC-V, this generates a fence instruction before the store:
   //   fence rw,w
-  __atomic_store_n(&lk->locked, 0, __ATOMIC_RELEASE);
+  __atomic_store_n(&lk->locked, SPINLOCK_FREE, __ATOMIC_RELEASE);
 
   pop_off();
 }
@@ -80,7 +80,7 @@ int
 holding(struct spinlock *lk)
 {
   int r;
-  r = (lk->locked && lk->cpu == mycpu());
+  r = (lk->locked == SPINLOCK_HELD) && (lk->cpu == mycpu());
   return r;
 }
 
