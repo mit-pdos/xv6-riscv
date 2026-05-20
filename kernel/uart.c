@@ -15,35 +15,35 @@
 // address of one of the registers.
 #define Reg(reg) ((volatile unsigned char *)(UART0 + (reg)))
 
-#define ReadReg(reg) (*(Reg(reg)))
+#define ReadReg(reg)     (*(Reg(reg)))
 #define WriteReg(reg, v) (*(Reg(reg)) = (v))
 
 // the UART control registers.
 // some have different meanings for read vs write.
 // see http://byterunner.com/16550.html
-#define RHR 0                 // receive holding register (for input bytes)
-#define THR 0                 // transmit holding register (for output bytes)
-#define IER 1                 // interrupt enable register
-#define IER_RX_ENABLE (1<<0)
-#define IER_TX_ENABLE (1<<1)
-#define FCR 2                 // FIFO control register
-#define FCR_FIFO_ENABLE (1<<0)
-#define FCR_FIFO_CLEAR (3<<1) // clear the content of the two FIFOs
-#define ISR 2                 // interrupt status register
-#define LCR 3                 // line control register
-#define LCR_EIGHT_BITS (3<<0)
-#define LCR_BAUD_LATCH (1<<7) // special mode to set baud rate
-#define LSR 5                 // line status register
-#define LSR_RX_READY (1<<0)   // input is waiting to be read from RHR
-#define LSR_TX_IDLE (1<<5)    // THR can accept another character to send
+#define RHR             0        // receive holding register (for input bytes)
+#define THR             0        // transmit holding register (for output bytes)
+#define IER             1        // interrupt enable register
+#define IER_RX_ENABLE   (1 << 0) // receiver interrupts
+#define IER_TX_ENABLE   (1 << 1) // transmit interrupts
+#define FCR             2        // FIFO control register
+#define FCR_FIFO_ENABLE (1 << 0)
+#define FCR_FIFO_CLEAR  (3 << 1) // clear the content of the two FIFOs
+#define ISR             2        // interrupt status register
+#define LCR             3        // line control register
+#define LCR_EIGHT_BITS  (3 << 0)
+#define LCR_BAUD_LATCH  (1 << 7) // special mode to set baud rate
+#define LSR             5        // line status register
+#define LSR_RX_READY    (1 << 0) // input is waiting to be read from RHR
+#define LSR_TX_IDLE     (1 << 5) // THR can accept another character to send
 
 // for sending threads to synchronize with uart "ready" interrupts.
 static struct spinlock tx_lock;
-static int tx_busy;           // is the UART busy sending?
-static int tx_chan;           // &tx_chan is the "wait channel"
+static int tx_busy; // is the UART busy sending?
+static int tx_chan; // &tx_chan is the "wait channel"
 
 extern volatile int panicking; // from printf.c
-extern volatile int panicked; // from printf.c
+extern volatile int panicked;  // from printf.c
 
 void
 uartinit(void)
@@ -82,13 +82,13 @@ uartwrite(char buf[], int n)
   acquire(&tx_lock);
 
   int i = 0;
-  while(i < n){ 
-    while(tx_busy != 0){
+  while (i < n) {
+    while (tx_busy != 0) {
       // wait for a UART transmit-complete interrupt
       // to set tx_busy to 0.
       sleep(&tx_chan, &tx_lock);
-    }   
-      
+    }
+
     WriteReg(THR, buf[i]);
     i += 1;
     tx_busy = 1;
@@ -97,7 +97,6 @@ uartwrite(char buf[], int n)
   release(&tx_lock);
 }
 
-
 // write a byte to the uart without using
 // interrupts, for use by kernel printf() and
 // to echo characters. it spins waiting for the uart's
@@ -105,20 +104,20 @@ uartwrite(char buf[], int n)
 void
 uartputc_sync(int c)
 {
-  if(panicking == 0)
+  if (panicking == 0)
     push_off();
 
-  if(panicked){
-    for(;;)
+  if (panicked) {
+    for (;;)
       ;
   }
 
   // wait for UART to set Transmit Holding Empty in LSR.
-  while((ReadReg(LSR) & LSR_TX_IDLE) == 0)
+  while ((ReadReg(LSR) & LSR_TX_IDLE) == 0)
     ;
   WriteReg(THR, c);
 
-  if(panicking == 0)
+  if (panicking == 0)
     pop_off();
 }
 
@@ -128,7 +127,7 @@ static int
 uartgetc(void)
 {
   // is input ready?
-  if(ReadReg(LSR) & LSR_RX_READY){
+  if (ReadReg(LSR) & LSR_RX_READY) {
     return ReadReg(RHR);
   } else {
     return -1;
@@ -144,7 +143,7 @@ uartintr(void)
   ReadReg(ISR); // acknowledge the interrupt
 
   acquire(&tx_lock);
-  if(ReadReg(LSR) & LSR_TX_IDLE){
+  if (ReadReg(LSR) & LSR_TX_IDLE) {
     // UART finished transmitting; wake up sending thread.
     tx_busy = 0;
     wakeup(&tx_chan);
@@ -152,9 +151,9 @@ uartintr(void)
   release(&tx_lock);
 
   // read and process incoming characters, if any.
-  while(1){
+  while (1) {
     int c = uartgetc();
-    if(c == -1)
+    if (c == -1)
       break;
     consoleintr(c);
   }

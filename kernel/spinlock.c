@@ -22,7 +22,7 @@ void
 acquire(struct spinlock *lk)
 {
   push_off(); // disable interrupts to avoid deadlock.
-  if(holding(lk))
+  if (holding(lk))
     panic("acquire");
 
   // On RISC-V, __atomic_exchange_n turns into an atomic swap:
@@ -45,7 +45,7 @@ acquire(struct spinlock *lk)
 void
 release(struct spinlock *lk)
 {
-  if(!holding(lk))
+  if (!holding(lk))
     panic("release");
 
   lk->cpu = 0;
@@ -97,7 +97,7 @@ push_off(void)
   // switch while using mycpu().
   intr_off();
 
-  if(mycpu()->noff == 0)
+  if (mycpu()->noff == 0)
     mycpu()->intena = old;
   mycpu()->noff += 1;
 }
@@ -106,11 +106,11 @@ void
 pop_off(void)
 {
   struct cpu *c = mycpu();
-  if(intr_get())
+  if (intr_get())
     panic("pop_off - interruptible");
-  if(c->noff < 1)
+  if (c->noff < 1)
     panic("pop_off");
   c->noff -= 1;
-  if(c->noff == 0 && c->intena)
+  if (c->noff == 0 && c->intena)
     intr_on();
 }

@@ -193,3 +193,7 @@ check-qemu-version:
 		echo "ERROR: Need qemu version >= $(MIN_QEMU_VERSION)"; \
 		exit 1; \
 	fi
+
+.PHONY: fmt
+fmt:
+	clang-format -i $(wildcard kernel/*.[ch] user/*.[ch] mkfs/*.c)

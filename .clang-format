@@ -1,0 +1,10 @@
+SortIncludes: Never
+ReflowComments: Never
+
+BreakAfterReturnType: TopLevelDefinitions
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+AlignConsecutiveMacros: Consecutive
+ContinuationIndentWidth: 2
+BreakStringLiterals: false

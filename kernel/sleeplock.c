@@ -44,7 +44,7 @@ int
 holdingsleep(struct sleeplock *lk)
 {
   int r;
-  
+
   acquire(&lk->lk);
   r = (lk->locked == SPINLOCK_HELD) && (lk->pid == myproc()->pid);
   release(&lk->lk);

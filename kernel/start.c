@@ -8,7 +8,7 @@ void main();
 void timerinit();
 
 // entry.S needs one stack per CPU.
-__attribute__ ((aligned (16))) char stack0[4096 * NCPU];
+__attribute__((aligned(16))) char stack0[4096 * NCPU];
 
 // entry.S jumps here in machine mode on stack0.
 void
@@ -53,11 +53,11 @@ void
 timerinit()
 {
   // enable the sstc extension (i.e. stimecmp).
-  w_menvcfg(r_menvcfg() | (1L << 63)); 
-  
+  w_menvcfg(r_menvcfg() | (1L << 63));
+
   // allow supervisor to use stimecmp and time.
   w_mcounteren(r_mcounteren() | 2);
-  
+
   // ask for the very first timer interrupt.
   w_stimecmp(r_time() + 1000000);
 }
