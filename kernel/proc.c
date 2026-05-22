@@ -123,7 +123,9 @@ allocproc(void)
 
 found:
   p->pid = allocpid();
+  p->tickets = 1; //O processo recebe 1 ticket quando for alocado
   p->state = USED;
+  printf("DEBUG: alocado processo com tickets=%d\n", p->tickets);
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -279,6 +281,9 @@ kfork(void)
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
+  //Herda tickets do pai
+  np->tickets = p->tickets;
+
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
@@ -356,6 +361,10 @@ kexit(int status)
   acquire(&p->lock);
 
   p->xstate = status;
+
+  tickets_totais = tickets_totais - p->tickets; //tira os tickets do processo que está acabando do total
+  p->tickets = 0; //Processo ao morrer tem tickets zerados
+
   p->state = ZOMBIE;
 
   release(&wait_lock);
