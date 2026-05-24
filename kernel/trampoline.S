@@ -145,5 +145,5 @@ userret:
         ld a0, 112(a0)
         
         # return to user mode and user pc.
-        # usertrapret() set up sstatus and sepc.
+        # prepare_return() sets up sstatus and sepc.
         sret

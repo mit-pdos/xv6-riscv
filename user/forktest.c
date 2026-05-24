@@ -5,7 +5,7 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
-#define N  1000
+#define N 1000
 
 void
 print(const char *s)
@@ -20,27 +20,27 @@ forktest(void)
 
   print("fork test\n");
 
-  for(n=0; n<N; n++){
+  for (n = 0; n < N; n++) {
     pid = fork();
-    if(pid < 0)
+    if (pid < 0)
       break;
-    if(pid == 0)
+    if (pid == 0)
       exit(0);
   }
 
-  if(n == N){
+  if (n == N) {
     print("fork claimed to work N times!\n");
     exit(1);
   }
 
-  for(; n > 0; n--){
-    if(wait(0) < 0){
+  for (; n > 0; n--) {
+    if (wait(0) < 0) {
       print("wait stopped early\n");
       exit(1);
     }
   }
 
-  if(wait(0) != -1){
+  if (wait(0) != -1) {
     print("wait got too many\n");
     exit(1);
   }

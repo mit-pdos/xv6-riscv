@@ -14,12 +14,12 @@ main(int argc, char **argv)
 {
   char *s = argv[0];
 
-  if(mkdir("dd") != 0){
+  if (mkdir("dd") != 0) {
     printf("%s: mkdir dd failed\n", s);
     exit(1);
   }
 
-  if(chdir("dd") != 0){
+  if (chdir("dd") != 0) {
     printf("%s: chdir dd failed\n", s);
     exit(1);
   }
@@ -30,5 +30,6 @@ main(int argc, char **argv)
   }
   printf("wait for kill and reclaim\n");
   // sit around until killed
-  for(;;) pause(1000);
+  for (;;)
+    pause(1000);
 }
