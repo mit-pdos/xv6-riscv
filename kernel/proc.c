@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "pstat.h"
 #include "defs.h"
 
 struct cpu cpus[NCPU];
@@ -25,6 +26,11 @@ extern char trampoline[]; // trampoline.S
 // memory model when using p->parent.
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
+
+// Total de tickets dos processos ativos (RUNNABLE + RUNNING).
+// Protegido por ticketlock; deve ser adquirido sem nenhum p->lock já mantido.
+int tickets_totais = 0;
+struct spinlock ticketlock;
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -51,6 +57,7 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  initlock(&ticketlock, "ticketlock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
@@ -123,9 +130,10 @@ allocproc(void)
 
 found:
   p->pid = allocpid();
-  p->tickets = 1; //O processo recebe 1 ticket quando for alocado
+  p->tickets = 1;
+  p->ticks = 0;
   p->state = USED;
-  printf("DEBUG: alocado processo com tickets=%d\n", p->tickets);
+  tickets_totais += 1;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -362,8 +370,10 @@ kexit(int status)
 
   p->xstate = status;
 
-  tickets_totais = tickets_totais - p->tickets; //tira os tickets do processo que está acabando do total
-  p->tickets = 0; //Processo ao morrer tem tickets zerados
+  acquire(&ticketlock);
+  tickets_totais -= p->tickets;
+  release(&ticketlock);
+  p->tickets = 0;
 
   p->state = ZOMBIE;
 
@@ -712,4 +722,45 @@ sys_getcnt(void)
   }
 
   return syscall_counts[target_sys_num];
+}
+
+// Define a quantidade de tickets do processo atual.
+// Atualiza tickets_totais de forma atômica.
+// Retorna 0 em sucesso, -1 se n < 1.
+int
+ksettickets(int n)
+{
+  struct proc *p = myproc();
+  if (n < 1)
+    return -1;
+  acquire(&ticketlock);
+  tickets_totais -= p->tickets;
+  p->tickets = n;
+  tickets_totais += n;
+  release(&ticketlock);
+  return 0;
+}
+
+// Preenche a estrutura pstat com informações de todos os processos.
+// Copia o resultado para o espaço do usuário no endereço addr.
+// Retorna 0 em sucesso, -1 em erro de cópia.
+int
+kgetpinfo(uint64 addr)
+{
+  struct pstat st;
+  struct proc *p;
+  int i = 0;
+
+  for (p = proc; p < &proc[NPROC]; p++, i++) {
+    acquire(&p->lock);
+    st.inuse[i]   = (p->state != UNUSED) ? 1 : 0;
+    st.pid[i]     = p->pid;
+    st.tickets[i] = p->tickets;
+    st.ticks[i]   = p->ticks;
+    release(&p->lock);
+  }
+
+  if (copyout(myproc()->pagetable, addr, (char *)&st, sizeof(st)) < 0)
+    return -1;
+  return 0;
 }
