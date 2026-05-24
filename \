@@ -1,0 +1,44 @@
+#include "kernel/types.h"
+#include "kernel/stat.h"
+#include "user/user.h"
+#include "kernel/fcntl.h"
+
+int main(int argc, char* argv[]) {
+  // p1 from child to parent, p2 from parent to child
+  int p1[2];
+  int p2[2];
+
+  char* buf;
+
+  pipe(p1);
+  pipe(p2);
+
+  int pid = fork();
+
+  if (pid==0) {
+    char byte = '1';
+    buf[0] = byte;
+    close(p1[0]);
+    close(p2[1]);
+    int w_p = p1[1];
+    int r_p = p2[0];
+    
+    write(w_p, buf, 1);
+  } else {   
+    close(p1[1]);
+    close(p2[0]);
+    int w_p = p2[1];
+    int r_p = p1[0];
+
+    int cycles = 0;
+  }
+
+  while (true) {
+    read(r_p, buf, 1);
+    write(w_p, buf, 1);
+
+    if (pid!=0 && cycles%1000 == 0) {
+      printf("Total Cycles: %d", cycles);
+    }
+  }
+}
