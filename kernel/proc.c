@@ -289,8 +289,12 @@ kfork(void)
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
-  //Herda tickets do pai
+  // Corrige tickets_totais
+  acquire(&ticketlock);
+  tickets_totais -= np->tickets;
   np->tickets = p->tickets;
+  tickets_totais += np->tickets;
+  release(&ticketlock);
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
