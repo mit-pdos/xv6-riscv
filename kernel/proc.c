@@ -27,11 +27,6 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-// Total de tickets dos processos ativos (RUNNABLE + RUNNING).
-// Protegido por ticketlock; deve ser adquirido sem nenhum p->lock já mantido.
-int tickets_totais = 0;
-struct spinlock ticketlock;
-
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -57,7 +52,6 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
-  initlock(&ticketlock, "ticketlock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
@@ -133,7 +127,6 @@ found:
   p->tickets = 1;
   p->ticks = 0;
   p->state = USED;
-  tickets_totais += 1;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -369,10 +362,6 @@ kexit(int status)
   acquire(&p->lock);
 
   p->xstate = status;
-
-  acquire(&ticketlock);
-  tickets_totais -= p->tickets;
-  release(&ticketlock);
   p->tickets = 0;
 
   p->state = ZOMBIE;
@@ -433,6 +422,15 @@ kwait(uint64 addr)
   }
 }
 
+// Gerador de numeros aleatorios (LCG) para o Lottery Scheduler
+static unsigned long rand_state = 123456789; // Semente inicial
+
+static unsigned long lcg_rand(void) {
+  // Constantes padrao do POSIX rand()
+  rand_state = (1103515245 * rand_state + 12345) % 2147483648;
+  return rand_state;
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -448,34 +446,55 @@ scheduler(void)
 
   c->proc = 0;
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
     intr_off();
 
-    int found = 0;
+    int total_runnable_tickets = 0;
+
+    // PASSAGEM 1: Calcula o total real de tickets dos processos aptos
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+        // Garante que todo processo tenha pelo menos 1 ticket
+        int t = p->tickets > 0 ? p->tickets : 1; 
+        total_runnable_tickets += t;
       }
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
+
+    if (total_runnable_tickets > 0) {
+      // Sorteia com base apenas nos tickets ativos no momento
+      int winner = (lcg_rand() % total_runnable_tickets) + 1;
+      int counter = 0;
+      int found = 0;
+
+      // PASSAGEM 2: Encontra o vencedor e executa
+      for(p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if(p->state == RUNNABLE) {
+          int t = p->tickets > 0 ? p->tickets : 1;
+          counter += t;
+          
+          if(counter >= winner) {
+            p->ticks++; 
+            p->state = RUNNING;
+            c->proc = p;
+            swtch(&c->context, &p->context);
+
+            c->proc = 0;
+            found = 1;
+            release(&p->lock);
+            break; 
+          }
+        }
+        release(&p->lock);
+      }
+      
+      if(found == 0) {
+        asm volatile("wfi");
+      }
+    } else {
+      // Se não há processos aptos, aguarda interrupção
       asm volatile("wfi");
     }
   }
@@ -733,11 +752,11 @@ ksettickets(int n)
   struct proc *p = myproc();
   if (n < 1)
     return -1;
-  acquire(&ticketlock);
-  tickets_totais -= p->tickets;
+  
+  acquire(&p->lock); // Protege a alteracao da struct do processo
   p->tickets = n;
-  tickets_totais += n;
-  release(&ticketlock);
+  release(&p->lock);
+  
   return 0;
 }
 
