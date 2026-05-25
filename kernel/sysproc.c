@@ -5,6 +5,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "pstat.h"
 #include "vm.h"
 
 uint64
@@ -93,6 +94,24 @@ sys_kill(void)
 
   argint(0, &pid);
   return kkill(pid);
+}
+
+// Define a quantidade de tickets do processo atual.
+uint64
+sys_settickets(void)
+{
+  int n;
+  argint(0, &n);
+  return ksettickets(n);
+}
+
+// Retorna informações de todos os processos via struct pstat.
+uint64
+sys_getpinfo(void)
+{
+  uint64 addr;
+  argaddr(0, &addr);
+  return kgetpinfo(addr);
 }
 
 // return how many clock tick interrupts have occurred

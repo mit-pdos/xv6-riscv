@@ -146,6 +146,7 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_getcnt\
+	$U/_testlottery\
 
 
 fs.img: mkfs/mkfs README $(UPROGS)

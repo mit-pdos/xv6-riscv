@@ -43,3 +43,5 @@ entry("sbrk");
 entry("pause");
 entry("uptime");
 entry("getcnt");
+entry("settickets");
+entry("getpinfo");
