@@ -83,7 +83,7 @@ kvminithart()
   sfence_vma();
 }
 
-// Return the address of the PTE in page table pagetable
+// Return the address of the PTE in page-table
 // that corresponds to virtual address va.  If alloc!=0,
 // create any required page-table pages.
 //
