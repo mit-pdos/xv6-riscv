@@ -114,3 +114,16 @@ sys_getprio(void)
 {
   return myproc()->priority;
 }
+
+// Fill user-provided meminfo struct with current memory statistics.
+uint64
+sys_meminfo(void)
+{
+  uint64 addr;
+  argaddr(0, &addr);
+  struct meminfo mi;
+  kgetmeminfo(&mi);
+  if(copyout(myproc()->pagetable, addr, (char *)&mi, sizeof(mi)) < 0)
+    return -1;
+  return 0;
+}

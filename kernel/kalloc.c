@@ -134,3 +134,31 @@ kprintmemstats(void)
   printk("====================\n");
   release(&kmem.lock);
 }
+
+// Fill meminfo struct with current memory statistics.
+// frag_blocks counts non-contiguous runs in the sorted free list —
+// a perfect allocator would have frag_blocks == 1 (one big contiguous run).
+void
+kgetmeminfo(struct meminfo *mi)
+{
+  acquire(&kmem.lock);
+
+  // Count fragmentation: walk sorted free list and count non-adjacent blocks
+  uint64 frag = 0;
+  struct run *r = kmem.freelist;
+  if(r) frag = 1;  // at least one block exists
+  while(r && r->next){
+    // If next block is not physically adjacent, it's a new fragment
+    if((uint64)r->next != (uint64)r + PGSIZE)
+      frag++;
+    r = r->next;
+  }
+
+  uint64 total = (PHYSTOP - KERNBASE) / PGSIZE;
+  mi->free_pages  = kmem.free_pages;
+  mi->used_pages  = total - kmem.free_pages;
+  mi->total_pages = total;
+  mi->frag_blocks = frag;
+
+  release(&kmem.lock);
+}
