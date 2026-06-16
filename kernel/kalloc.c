@@ -11,8 +11,7 @@
 
 void freerange(void *pa_start, void *pa_end);
 
-extern char end[]; // first address after kernel.
-                   // defined by kernel.ld.
+extern char end[];
 
 struct run {
   struct run *next;
@@ -21,12 +20,19 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
+  // MEMORY STATS: track free pages for fragmentation analysis
+  uint64 free_pages;   // current number of free pages
+  uint64 total_allocs; // total kalloc() calls
+  uint64 total_frees;  // total kfree() calls
 } kmem;
 
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  kmem.free_pages  = 0;
+  kmem.total_allocs = 0;
+  kmem.total_frees  = 0;
   freerange(end, (void *)PHYSTOP);
 }
 
@@ -39,16 +45,14 @@ freerange(void *pa_start, void *pa_end)
     kfree(p);
 }
 
-// Free the page of physical memory pointed at by pa,
-// which normally should have been returned by a
-// call to kalloc().  (The exception is when
-// initializing the allocator; see kinit above.)
+// Free the page of physical memory pointed at by pa.
+// MODIFIED: also updates free_pages and total_frees counters.
 void
 kfree(void *pa)
 {
   struct run *r;
 
-  if (((uint64)pa % PGSIZE) != 0 || (char *)pa < end || (uint64)pa >= PHYSTOP)
+  if(((uint64)pa % PGSIZE) != 0 || (char *)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
   // Fill with junk to catch dangling refs.
@@ -57,14 +61,34 @@ kfree(void *pa)
   r = (struct run *)pa;
 
   acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
+
+  // MODIFIED: insert in sorted order by physical address
+  // This is the prerequisite for coalescence and reduces fragmentation
+  // Original xv6 inserted at head regardless of address (unordered)
+  struct run *curr = kmem.freelist;
+  struct run *prev = 0;
+
+  // Find correct position: keep list sorted low->high address
+  while(curr && (uint64)curr < (uint64)r){
+    prev = curr;
+    curr = curr->next;
+  }
+
+  // Insert r between prev and curr
+  r->next = curr;
+  if(prev)
+    prev->next = r;
+  else
+    kmem.freelist = r;   // r is new head (lowest address)
+
+  // MEMORY STATS: update counters
+  kmem.free_pages++;
+  kmem.total_frees++;
   release(&kmem.lock);
 }
 
 // Allocate one 4096-byte page of physical memory.
-// Returns a pointer that the kernel can use.
-// Returns 0 if the memory cannot be allocated.
+// MODIFIED: also updates free_pages and total_allocs counters.
 void *
 kalloc(void)
 {
@@ -72,11 +96,41 @@ kalloc(void)
 
   acquire(&kmem.lock);
   r = kmem.freelist;
-  if (r)
+  if(r){
     kmem.freelist = r->next;
+    // MEMORY STATS: decrement free page counter
+    kmem.free_pages--;
+    kmem.total_allocs++;
+  }
   release(&kmem.lock);
 
-  if (r)
+  if(r)
     memset((char *)r, 5, PGSIZE); // fill with junk
   return (void *)r;
+}
+
+// Return number of free pages currently available.
+// ADDED: exposes memory stats for analysis and testing.
+uint64
+kfreepages(void)
+{
+  uint64 n;
+  acquire(&kmem.lock);
+  n = kmem.free_pages;
+  release(&kmem.lock);
+  return n;
+}
+
+// Print memory statistics to console.
+// ADDED: useful for before/after comparison in report.
+void
+kprintmemstats(void)
+{
+  acquire(&kmem.lock);
+  printk("=== Memory Stats ===\n");
+  printk("Free pages   : %ld\n", kmem.free_pages);
+  printk("Total allocs : %ld\n", kmem.total_allocs);
+  printk("Total frees  : %ld\n", kmem.total_frees);
+  printk("====================\n");
+  release(&kmem.lock);
 }
