@@ -107,3 +107,10 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// Return the MLFQ priority queue of the current process (0=high, 1=mid, 2=low)
+uint64
+sys_getprio(void)
+{
+  return myproc()->priority;
+}
