@@ -143,6 +143,11 @@ found:
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
+
+  // MLFQ: new process starts at highest priority queue
+  p->priority = 0;
+  p->ticks_used = 0;
+  p->wait_ticks = 0;
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
@@ -427,41 +432,82 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
 
+  // MLFQ constants
+  // Ticks allowed per queue before demotion
+  #define MLFQ_QUANTUM_0  1   // Queue 0: 1 tick  (highest priority, shortest quantum)
+  #define MLFQ_QUANTUM_1  4   // Queue 1: 4 ticks (medium priority)
+  #define MLFQ_QUANTUM_2  8   // Queue 2: 8 ticks (lowest priority, longest quantum)
+  // Ticks waited before aging a process up one queue
+  #define MLFQ_AGING     20
+
   c->proc = 0;
-  for (;;) {
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
+  for(;;){
     intr_on();
     intr_off();
 
-    int found = 0;
-    for (p = proc; p < &proc[NPROC]; p++) {
+    // --- AGING: boost processes that have waited too long ---
+    for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
-      if (p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+      if(p->state == RUNNABLE && p->priority > 0){
+        p->wait_ticks++;
+        if(p->wait_ticks >= MLFQ_AGING){
+          // Move process up one priority level
+          p->priority--;
+          p->ticks_used = 0;
+          p->wait_ticks = 0;
+        }
       }
       release(&p->lock);
     }
-    if (found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
+
+    // --- SCHEDULING: pick highest priority RUNNABLE process ---
+    int found = 0;
+    for(int q = 0; q <= 2; q++){          // iterate queues 0, 1, 2
+      for(p = proc; p < &proc[NPROC]; p++){
+        acquire(&p->lock);
+        if(p->state == RUNNABLE && p->priority == q){
+          // Reset wait counter since process is now running
+          p->wait_ticks = 0;
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+
+          // Process returned control — update ticks and check demotion
+          c->proc = 0;
+          found = 1;
+
+          // Determine quantum for current queue
+          int quantum = (p->priority == 0) ? MLFQ_QUANTUM_0 :
+                        (p->priority == 1) ? MLFQ_QUANTUM_1 :
+                                             MLFQ_QUANTUM_2;
+
+          if(p->state == RUNNABLE){
+            // Process used full quantum without blocking — demote
+            p->ticks_used++;
+            if(p->ticks_used >= quantum){
+              if(p->priority < 2)
+                p->priority++;      // move to lower priority queue
+              p->ticks_used = 0;
+            }
+          } else {
+            // Process blocked (I/O or sleep) before quantum expired — keep queue
+            p->ticks_used = 0;
+          }
+
+          release(&p->lock);
+          goto next_round;          // restart from queue 0 after running a process
+        }
+        release(&p->lock);
+      }
+    }
+
+    next_round:
+    if(found == 0){
+      // No runnable process found — wait for interrupt
       asm volatile("wfi");
     }
   }
 }
-
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
