@@ -461,8 +461,9 @@ scheduler(void)
     }
 
     // --- SCHEDULING: pick highest priority RUNNABLE process ---
+    // --- SCHEDULING: pick highest priority RUNNABLE process ---
     int found = 0;
-    for(int q = 0; q <= 2; q++){          // iterate queues 0, 1, 2
+    for(int q = 0; q <= 2 && !found; q++){   // stop as soon as one process runs
       for(p = proc; p < &proc[NPROC]; p++){
         acquire(&p->lock);
         if(p->state == RUNNABLE && p->priority == q){
@@ -490,18 +491,15 @@ scheduler(void)
               p->ticks_used = 0;
             }
           } else {
-            // Process blocked (I/O or sleep) before quantum expired — keep queue
+            // Process blocked (I/O or sleep) before quantum — keep queue
             p->ticks_used = 0;
           }
-
           release(&p->lock);
-          goto next_round;          // restart from queue 0 after running a process
+          break;                    // break inner loop, q loop exits via !found
         }
         release(&p->lock);
       }
     }
-
-    next_round:
     if(found == 0){
       // No runnable process found — wait for interrupt
       asm volatile("wfi");
