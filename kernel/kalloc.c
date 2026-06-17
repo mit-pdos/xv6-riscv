@@ -24,6 +24,7 @@ struct {
   uint64 free_pages;   // current number of free pages
   uint64 total_allocs; // total kalloc() calls
   uint64 total_frees;  // total kfree() calls
+  int sorted;          // 1 = use sorted insertion, 0 = fast insert at head
 } kmem;
 
 void
@@ -33,7 +34,9 @@ kinit()
   kmem.free_pages  = 0;
   kmem.total_allocs = 0;
   kmem.total_frees  = 0;
+  kmem.sorted = 0;          // disable sorted insert during boot (performance)
   freerange(end, (void *)PHYSTOP);
+  kmem.sorted = 1;          // enable sorted insert after boot completes
 }
 
 void
@@ -62,24 +65,27 @@ kfree(void *pa)
 
   acquire(&kmem.lock);
 
-  // MODIFIED: insert in sorted order by physical address
-  // This is the prerequisite for coalescence and reduces fragmentation
-  // Original xv6 inserted at head regardless of address (unordered)
-  struct run *curr = kmem.freelist;
-  struct run *prev = 0;
-
-  // Find correct position: keep list sorted low->high address
-  while(curr && (uint64)curr < (uint64)r){
-    prev = curr;
-    curr = curr->next;
+  // MODIFIED: sorted insertion by physical address (enabled after boot)
+  // During boot (kmem.sorted==0): fast insert at head like original xv6
+  // After boot (kmem.sorted==1): insert in order low->high physical address
+  if(!kmem.sorted){
+    // Original xv6 behavior — O(1) insert at head
+    r->next = kmem.freelist;
+    kmem.freelist = r;
+  } else {
+    struct run *curr = kmem.freelist;
+    struct run *prev = 0;
+    // Find correct position
+    while(curr && (uint64)curr < (uint64)r){
+      prev = curr;
+      curr = curr->next;
+    }
+    r->next = curr;
+    if(prev)
+      prev->next = r;
+    else
+      kmem.freelist = r;
   }
-
-  // Insert r between prev and curr
-  r->next = curr;
-  if(prev)
-    prev->next = r;
-  else
-    kmem.freelist = r;   // r is new head (lowest address)
 
   // MEMORY STATS: update counters
   kmem.free_pages++;
