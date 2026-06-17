@@ -44,3 +44,5 @@ entry("pause");
 entry("uptime");
 entry("getprio");
 entry("meminfo");
+entry("fragtest");
+entry("coalesce");

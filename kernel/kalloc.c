@@ -168,3 +168,65 @@ kgetmeminfo(struct meminfo *mi)
 
   release(&kmem.lock);
 }
+
+// Coalesce adjacent free pages in the sorted free list.
+// Merges physically contiguous blocks into one, reducing fragmentation.
+// Returns number of merges performed.
+// REQUIRES: kmem.sorted == 1 (list must be sorted by physical address)
+int
+kcoalesce(void)
+{
+  int merges = 0;
+  acquire(&kmem.lock);
+
+  struct run *r = kmem.freelist;
+  while(r && r->next){
+    // Check if next block is physically adjacent to current
+    if((uint64)r->next == (uint64)r + PGSIZE){
+      // Merge: skip r->next, extending r's logical block
+      r->next = r->next->next;
+      merges++;
+      // Don't advance r — check if new r->next is also adjacent
+    } else {
+      r = r->next;
+    }
+  }
+
+  // Update free_pages to reflect merges (logical blocks, not pages)
+  // Note: page count stays same, only list structure changes
+  release(&kmem.lock);
+  return merges;
+}
+
+// Kernel-level fragmentation test.
+// Allocates n pages, frees alternating ones, measures fragmentation.
+// Returns frag_blocks after alternating free (worse case).
+uint64
+kfragtest(int n)
+{
+  void *pages[64];
+  if(n > 64) n = 64;
+
+  // Allocate n pages
+  for(int i = 0; i < n; i++)
+    pages[i] = kalloc();
+
+  // Free alternating pages to create fragmentation
+  for(int i = 0; i < n; i += 2){
+    if(pages[i])
+      kfree(pages[i]);
+  }
+
+  // Measure fragmentation
+  struct meminfo mi;
+  kgetmeminfo(&mi);
+  uint64 frag = mi.frag_blocks;
+
+  // Free remaining pages
+  for(int i = 1; i < n; i += 2){
+    if(pages[i])
+      kfree(pages[i]);
+  }
+
+  return frag;
+}

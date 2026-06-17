@@ -22,3 +22,5 @@
 #define SYS_close  21
 #define SYS_getprio 22
 #define SYS_meminfo 23
+#define SYS_fragtest 24
+#define SYS_coalesce 25

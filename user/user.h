@@ -26,6 +26,8 @@ int pause(int);
 int uptime(void);
 int getprio(void);
 int meminfo(struct meminfo*);
+int fragtest(int);
+int coalesce(void);
 
 // ulib.c
 int stat(const char *, struct stat *);

@@ -97,6 +97,8 @@ extern uint64 sys_pause(void);
 extern uint64 sys_uptime(void);
 extern uint64 sys_getprio(void);
 extern uint64 sys_meminfo(void);
+extern uint64 sys_fragtest(void);
+extern uint64 sys_coalesce(void);
 extern uint64 sys_open(void);
 extern uint64 sys_write(void);
 extern uint64 sys_mknod(void);
@@ -125,6 +127,8 @@ static uint64 (*syscalls[])(void) = {
   [SYS_uptime]  sys_uptime,
   [SYS_getprio] sys_getprio,
   [SYS_meminfo] sys_meminfo,
+  [SYS_fragtest] sys_fragtest,
+  [SYS_coalesce] sys_coalesce,
   [SYS_open]    sys_open,
   [SYS_write]   sys_write,
   [SYS_mknod]   sys_mknod,

@@ -127,3 +127,20 @@ sys_meminfo(void)
     return -1;
   return 0;
 }
+
+// Coalesce adjacent free pages and return number of merges performed.
+uint64
+sys_coalesce(void)
+{
+  return kcoalesce();
+}
+
+// Run kernel-level fragmentation test with n pages.
+// Returns frag_blocks after alternating alloc/free pattern.
+uint64
+sys_fragtest(void)
+{
+  int n;
+  argint(0, &n);
+  return kfragtest(n);
+}
