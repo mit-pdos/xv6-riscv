@@ -3,7 +3,7 @@
 #include "user/user.h"
 
 // Número de ticks que o pai espera antes de amostrar os contadores.
-#define SAMPLE_TICKS 1000
+#define SAMPLE_TICKS 500
 
 // Gira a CPU sem fazer nada útil para forçar o escalonador a agir.
 static void
@@ -64,7 +64,7 @@ main(void)
     printf("%d\t%d\t%d\n", pid2, st.tickets[p2], st.ticks[p2]);
 
   if (p1 >= 0 && p2 >= 0 && st.ticks[p2] > 0) {
-    printf("razao ticks[pid1]/ticks[pid2] = %d/%d  (esperado ~3/1)\n",
+    printf("razao ticks[pid1]/ticks[pid2] = %d/%d\n",
            st.ticks[p1], st.ticks[p2]);
   }
 

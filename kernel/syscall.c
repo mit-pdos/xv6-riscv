@@ -7,7 +7,7 @@
 #include "syscall.h"
 #include "defs.h"
 
-int syscall_counts[30] = {0};
+int syscall_counts[NSYSCALLS] = {0};
 
 // Fetch the uint64 at addr from the current process.
 int
@@ -144,7 +144,7 @@ syscall(void)
 
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-    syscall_counts[num]++;
+    __sync_fetch_and_add(&syscall_counts[num], 1); // Incrementa o contador de chamadas do sistema de forma atômica
 
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0

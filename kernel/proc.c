@@ -278,6 +278,7 @@ kfork(void)
     return -1;
   }
   np->sz = p->sz;
+  np->tickets = p->tickets; 
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -423,12 +424,14 @@ kwait(uint64 addr)
 }
 
 // Gerador de numeros aleatorios (LCG) para o Lottery Scheduler
-static unsigned long rand_state = 123456789; // Semente inicial
+//static unsigned long rand_state = 123456789; // Semente inicial
 
-static unsigned long lcg_rand(void) {
-  // Constantes padrao do POSIX rand()
-  rand_state = (1103515245 * rand_state + 12345) % 2147483648;
-  return rand_state;
+static unsigned long
+lcg_rand(void)
+{
+  unsigned long *s = &mycpu()->rand_state;
+  *s = (1103515245UL * (*s) + 12345UL) % 2147483648UL;
+  return *s;
 }
 
 // Per-CPU process scheduler.
@@ -445,10 +448,10 @@ scheduler(void)
   struct cpu *c = mycpu();
 
   c->proc = 0;
+  c->rand_state = 123456789UL + (unsigned long)cpuid() * 6364136223846793005ULL; // Inicializa o estado do gerador de números aleatórios com uma semente única por CPU
+
   for(;;){
     intr_on();
-    intr_off();
-
     int total_runnable_tickets = 0;
 
     // PASSAGEM 1: Calcula o total real de tickets dos processos aptos
@@ -728,20 +731,6 @@ procdump(void)
 }
 
 extern int syscall_counts[];
-
-uint64
-sys_getcnt(void)
-{
-  int target_sys_num;
-
-  argint(0, &target_sys_num);
-
-  if(target_sys_num <= 0 || target_sys_num >= 30) {
-    return -1;
-  }
-
-  return syscall_counts[target_sys_num];
-}
 
 // Define a quantidade de tickets do processo atual.
 // Atualiza tickets_totais de forma atômica.

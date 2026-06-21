@@ -126,3 +126,15 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+extern int syscall_counts[];
+
+uint64
+sys_getcnt(void)
+{
+  int n;
+  argint(0, &n);
+  if(n < 1 || n >= NSYSCALLS)
+    return -1;
+  return syscall_counts[n];
+}
