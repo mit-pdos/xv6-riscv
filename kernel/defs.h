@@ -97,6 +97,7 @@ void            sched(void);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
 int             kwait(uint64);
+int             krandpriority(void);
 int             ksetpriority(int, int);
 void            wakeup(void*);
 void            yield(void);

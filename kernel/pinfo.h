@@ -12,6 +12,7 @@ struct pinfo {
   int priority[NPROC];
   int status[NPROC];
   int tickets[NPROC];
+  int runtime[NPROC];
   char name[NPROC][PINFONAME];
 };
 

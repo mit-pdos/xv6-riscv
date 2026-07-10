@@ -38,15 +38,16 @@ main(int argc, char *argv[])
     exit(1);
   }
 
-  printf("PID\tOWNER\tPRI\tSTAT\tTICKETS\tCOMMAND\n");
+  printf("PID\tOWNER\tPRI\tSTAT\tTICKETS\tRTIME\tCOMMAND\n");
   for (i = 0; i < NPROC; i++) {
     if (info.inuse[i])
-      printf("%d\t%d\t%d\t%s\t%d\t%s\n",
+      printf("%d\t%d\t%d\t%s\t%d\t%d\t%s\n",
              info.pid[i],
              info.owner[i],
              info.priority[i],
              statename(info.status[i]),
              info.tickets[i],
+             info.runtime[i],
              info.name[i]);
   }
 

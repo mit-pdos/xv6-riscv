@@ -130,6 +130,7 @@ sys_getpinfo(void)
       info.priority[i] = p->priority;
       info.status[i] = p->state;
       info.tickets[i] = p->tickets;
+      info.runtime[i] = p->runtime;
       safestrcpy(info.name[i], p->name, sizeof(info.name[i]));
     }
     release(&p->lock);

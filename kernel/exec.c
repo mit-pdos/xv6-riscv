@@ -9,6 +9,15 @@
 
 static int loadseg(pde_t *, uint64, struct inode *, uint, uint);
 
+static int
+interactivecmd(char *name)
+{
+  return strncmp(name, "sh", sizeof("sh")) == 0 ||
+         strncmp(name, "ps", sizeof("ps")) == 0 ||
+         strncmp(name, "kill", sizeof("kill")) == 0 ||
+         strncmp(name, "chpri", sizeof("chpri")) == 0;
+}
+
 // map ELF permissions to PTE permission bits.
 int
 flags2perm(int flags)
@@ -35,6 +44,8 @@ kexec(char *path, char **argv)
   struct proghdr ph;
   pagetable_t pagetable = 0, oldpagetable;
   struct proc *p = myproc();
+  int fromsh = strncmp(p->name, "sh", sizeof("sh")) == 0;
+  int newpriority = -1;
 
   begin_op();
 
@@ -129,6 +140,15 @@ kexec(char *path, char **argv)
     if (*s == '/')
       last = s + 1;
   safestrcpy(p->name, last, sizeof(p->name));
+  if (interactivecmd(last))
+    newpriority = 0;
+  else if (fromsh)
+    newpriority = krandpriority();
+  if (newpriority >= 0) {
+    acquire(&p->lock);
+    p->priority = newpriority;
+    release(&p->lock);
+  }
 
   // Commit to the user image.
   oldpagetable = p->pagetable;

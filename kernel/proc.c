@@ -108,8 +108,8 @@ allocpid()
   return pid;
 }
 
-static int
-randpriority(void)
+int
+krandpriority(void)
 {
   uint value;
 
@@ -143,8 +143,9 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->owner = 0;
-  p->priority = randpriority();
+  p->priority = krandpriority();
   p->tickets = 1;
+  p->runtime = 0;
   p->state = USED;
 
   // Allocate a trapframe page.
@@ -188,6 +189,7 @@ freeproc(struct proc *p)
   p->owner = 0;
   p->priority = 0;
   p->tickets = 0;
+  p->runtime = 0;
   p->parent = 0;
   p->name[0] = 0;
   p->chan = 0;
@@ -315,6 +317,8 @@ kfork(void)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
   np->owner = p->owner;
+  if (strncmp(p->name, "sh", sizeof("sh")) == 0)
+    np->priority = 0;
 
   pid = np->pid;
 

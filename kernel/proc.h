@@ -91,6 +91,7 @@ struct proc {
   int owner;            // Process owner ID
   int priority;         // Scheduling priority
   int tickets;          // Lottery scheduling tickets
+  int runtime;          // Timer ticks spent running
 
   // wait_lock must be held when using this:
   struct proc *parent; // Parent process
