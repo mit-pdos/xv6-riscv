@@ -123,6 +123,9 @@ allocproc(void)
 
 found:
   p->pid = allocpid();
+  p->owner = 0;
+  p->priority = 0;
+  p->tickets = 1;
   p->state = USED;
 
   // Allocate a trapframe page.
@@ -163,6 +166,9 @@ freeproc(struct proc *p)
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
+  p->owner = 0;
+  p->priority = 0;
+  p->tickets = 0;
   p->parent = 0;
   p->name[0] = 0;
   p->chan = 0;
@@ -289,6 +295,7 @@ kfork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+  np->owner = p->owner;
 
   pid = np->pid;
 

@@ -2393,6 +2393,7 @@ fsfull()
     nfiles--;
   }
 
+  (void)fsblocks;
   printf("fsfull test finished\n");
 }
 
