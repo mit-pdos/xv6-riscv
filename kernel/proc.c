@@ -14,6 +14,10 @@ struct proc *initproc;
 
 int nextpid = 1;
 struct spinlock pid_lock;
+static struct spinlock rand_lock;
+static uint rand_state = 1;
+static struct spinlock scheduler_lock;
+static int scheduler_next;
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
@@ -50,6 +54,8 @@ procinit(void)
   struct proc *p;
 
   initlock(&pid_lock, "nextpid");
+  initlock(&rand_lock, "rand");
+  initlock(&scheduler_lock, "scheduler");
   initlock(&wait_lock, "wait_lock");
   for (p = proc; p < &proc[NPROC]; p++) {
     initlock(&p->lock, "proc");
@@ -102,6 +108,19 @@ allocpid()
   return pid;
 }
 
+static int
+randpriority(void)
+{
+  uint value;
+
+  acquire(&rand_lock);
+  rand_state = rand_state * 1103515245 + 12345;
+  value = rand_state;
+  release(&rand_lock);
+
+  return value % 101;
+}
+
 // Look in the process table for an UNUSED proc.
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
@@ -124,7 +143,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->owner = 0;
-  p->priority = 0;
+  p->priority = randpriority();
   p->tickets = 1;
   p->state = USED;
 
@@ -445,22 +464,46 @@ scheduler(void)
     intr_off();
 
     int found = 0;
-    for (p = proc; p < &proc[NPROC]; p++) {
+    int best = -1;
+    int bestpriority = 101;
+    acquire(&scheduler_lock);
+    for (int n = 0; n < NPROC; n++) {
+      int i = (scheduler_next + n) % NPROC;
+      p = &proc[i];
       acquire(&p->lock);
       if (p->state == RUNNABLE) {
+        if (p->priority < bestpriority) {
+          bestpriority = p->priority;
+          best = i;
+        }
+      }
+      release(&p->lock);
+    }
+
+    if (best >= 0) {
+      p = &proc[best];
+      acquire(&p->lock);
+      if (p->state == RUNNABLE) {
+        p->state = RUNNING;
+        c->proc = p;
+        scheduler_next = (best + 1) % NPROC;
+        release(&scheduler_lock);
+
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
         found = 1;
+      } else {
+        release(&scheduler_lock);
       }
       release(&p->lock);
+    } else {
+      release(&scheduler_lock);
     }
     if (found == 0) {
       // nothing to run; stop running on this core until an interrupt.
@@ -609,6 +652,26 @@ kkill(int pid)
         // Wake process from sleep().
         p->state = RUNNABLE;
       }
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+
+int
+ksetpriority(int pid, int priority)
+{
+  struct proc *p;
+
+  if (priority < 0 || priority > 100)
+    return -1;
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->pid == pid && p->state != UNUSED) {
+      p->priority = priority;
       release(&p->lock);
       return 0;
     }

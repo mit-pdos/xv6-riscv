@@ -139,3 +139,15 @@ sys_getpinfo(void)
     return -1;
   return 0;
 }
+
+uint64
+sys_setpriority(void)
+{
+  int pid;
+  int priority;
+
+  argint(0, &pid);
+  argint(1, &priority);
+
+  return ksetpriority(pid, priority);
+}

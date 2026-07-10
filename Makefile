@@ -127,6 +127,7 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 
 UPROGS=\
 	$U/_cat\
+	$U/_chpri\
 	$U/_echo\
 	$U/_forktest\
 	$U/_grep\
@@ -137,6 +138,7 @@ UPROGS=\
 	$U/_mkdir\
 	$U/_ps\
 	$U/_pstest\
+	$U/_pritest\
 	$U/_rm\
 	$U/_sh\
 	$U/_stressfs\
