@@ -19,7 +19,7 @@ static uint rand_state;
 static int rand_seeded;
 static struct spinlock scheduler_lock;
 #ifdef PRIORITY
-static int scheduler_next;
+static int scheduler_next[101]; // Independent round-robin cursor per priority.
 #endif
 
 #if defined(PRIORITY) && defined(LOTTERY)
@@ -500,45 +500,48 @@ scheduler(void)
     acquire(&scheduler_lock);
 
 #ifdef PRIORITY
-    int best = -1;
     int bestpriority = 101;
+    int selected = 0;
 
-    for (int n = 0; n < NPROC; n++) {
-      int i = (scheduler_next + n) % NPROC;
+    for (int i = 0; i < NPROC; i++) {
       p = &proc[i];
       acquire(&p->lock);
-      if (p->state == RUNNABLE) {
-        if (p->priority < bestpriority) {
-          bestpriority = p->priority;
-          best = i;
-        }
-      }
+      if (p->state == RUNNABLE && p->priority < bestpriority)
+        bestpriority = p->priority;
       release(&p->lock);
     }
 
-    if (best >= 0) {
+    if (bestpriority <= 100) {
       had_candidate = 1;
-      p = &proc[best];
-      acquire(&p->lock);
-      if (p->state == RUNNABLE) {
-        p->state = RUNNING;
-        c->proc = p;
-        scheduler_next = (best + 1) % NPROC;
-        release(&scheduler_lock);
+      for (int n = 0; n < NPROC; n++) {
+        int i = (scheduler_next[bestpriority] + n) % NPROC;
 
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        swtch(&c->context, &p->context);
+        p = &proc[i];
+        acquire(&p->lock);
+        if (p->state == RUNNABLE && p->priority == bestpriority) {
+          p->state = RUNNING;
+          c->proc = p;
+          scheduler_next[bestpriority] = (i + 1) % NPROC;
+          release(&scheduler_lock);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
-      } else {
-        release(&scheduler_lock);
+          // Switch to chosen process.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          swtch(&c->context, &p->context);
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+          found = 1;
+          selected = 1;
+          release(&p->lock);
+          break;
+        }
+        release(&p->lock);
       }
-      release(&p->lock);
+
+      if (selected == 0)
+        release(&scheduler_lock);
     } else {
       release(&scheduler_lock);
     }
