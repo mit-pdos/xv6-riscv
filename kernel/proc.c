@@ -17,17 +17,15 @@ struct spinlock pid_lock;
 static struct spinlock rand_lock;
 static uint rand_state;
 static int rand_seeded;
+#if defined(PRIORITY) || defined(LOTTERY)
 static struct spinlock scheduler_lock;
+#endif
 #ifdef PRIORITY
 static int scheduler_next[101]; // Independent round-robin cursor per priority.
 #endif
 
-#if defined(PRIORITY) && defined(LOTTERY)
-#error "select only one scheduler"
-#endif
-
-#if !defined(PRIORITY) && !defined(LOTTERY)
-#error "select PRIORITY or LOTTERY"
+#if (defined(DEFAULT) + defined(PRIORITY) + defined(LOTTERY)) != 1
+#error "select exactly one of DEFAULT, PRIORITY, or LOTTERY"
 #endif
 
 extern void forkret(void);
@@ -66,7 +64,9 @@ procinit(void)
 
   initlock(&pid_lock, "nextpid");
   initlock(&rand_lock, "rand");
+#if defined(PRIORITY) || defined(LOTTERY)
   initlock(&scheduler_lock, "scheduler");
+#endif
   initlock(&wait_lock, "wait_lock");
   for (p = proc; p < &proc[NPROC]; p++) {
     initlock(&p->lock, "proc");
@@ -496,6 +496,28 @@ scheduler(void)
     intr_off();
 
     int found = 0;
+
+#ifdef DEFAULT
+    for (p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if (p->state == RUNNABLE) {
+        // Switch to chosen process.  It is the process's job
+        // to release its lock and then reacquire it
+        // before jumping back to us.
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+        found = 1;
+      }
+      release(&p->lock);
+    }
+#endif
+
+#if defined(PRIORITY) || defined(LOTTERY)
     int had_candidate = 0;
     acquire(&scheduler_lock);
 
@@ -611,6 +633,14 @@ scheduler(void)
       // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
     }
+#endif
+
+#ifdef DEFAULT
+    if (found == 0) {
+      // nothing to run; stop running on this core until an interrupt.
+      asm volatile("wfi");
+    }
+#endif
   }
 }
 

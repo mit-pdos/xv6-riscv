@@ -18,6 +18,9 @@
 #define FAIR_KIDS 4
 #define FAIR_SAMPLES 96
 #define FAIR_TIMEOUT 400
+#endif
+
+#if defined(DEFAULT) || defined(PRIORITY)
 #define RR_SPINS 6
 #define RR_RUN_TICKS 60
 #define RR_MAX_SPREAD 15
@@ -829,7 +832,9 @@ test_same_priority_round_robin(void)
   check(min >= 1, "same-priority process starved");
   check(max <= (FAIR_SAMPLES * 3) / 4, "same-priority counts too uneven");
 }
+#endif
 
+#if defined(DEFAULT) || defined(PRIORITY)
 static void
 test_spin_round_robin(void)
 {
@@ -841,12 +846,24 @@ test_spin_round_robin(void)
   int max = 0;
   int i;
 
+#ifdef DEFAULT
+  printf("pritest: default round-robin ignores metadata\n");
+#else
   printf("pritest: spin round-robin runtime\n");
+#endif
   prepare_spins(pids, RR_SPINS, start);
 
   for (i = 0; i < RR_SPINS; i++) {
-    check(setpriority(pids[i], 50) == 0, "set round-robin priority");
-    check(settickets(pids[i], 1) == 0, "set round-robin tickets");
+#ifdef DEFAULT
+    int priority = i < RR_SPINS / 2 ? 0 : 100;
+    int tickets = i < RR_SPINS / 2 ? 100 : 1;
+#else
+    int priority = 50;
+    int tickets = 1;
+#endif
+
+    check(setpriority(pids[i], priority) == 0, "set round-robin priority");
+    check(settickets(pids[i], tickets) == 0, "set round-robin tickets");
   }
 
   check(setpriority(getpid(), 0) == 0, "raise round-robin test priority");
@@ -861,8 +878,16 @@ test_spin_round_robin(void)
   for (i = 0; i < RR_SPINS; i++) {
     int runtime = after[i] - before[i];
 
+#ifdef DEFAULT
+    int priority = i < RR_SPINS / 2 ? 0 : 100;
+    int tickets = i < RR_SPINS / 2 ? 100 : 1;
+
+    printf("pritest: default pid=%d priority=%d tickets=%d runtime=%d\n",
+           pids[i], priority, tickets, runtime);
+#else
     printf("pritest: rr pid=%d priority=50 runtime=%d\n",
            pids[i], runtime);
+#endif
     if (runtime < min)
       min = runtime;
     if (runtime > max)
@@ -992,6 +1017,9 @@ main(int argc, char *argv[])
 #ifdef PRIORITY
   test_priority_scheduler();
   test_same_priority_round_robin();
+#endif
+
+#if defined(DEFAULT) || defined(PRIORITY)
   test_spin_round_robin();
 #endif
 

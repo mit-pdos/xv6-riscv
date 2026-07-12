@@ -1,16 +1,19 @@
 K=kernel
 U=user
 
+# To run with the original xv6 scheduler: make qemu
 # To run with Priority Scheduler: make qemu SCHEDULER=PRIORITY
 # To run with Lottery Scheduler: make qemu SCHEDULER=LOTTERY
-SCHEDULER ?= PRIORITY
+SCHEDULER ?= DEFAULT
 
-ifeq ($(SCHEDULER),PRIORITY)
+ifeq ($(SCHEDULER),DEFAULT)
+SCHEDULER_CFLAG = -DDEFAULT
+else ifeq ($(SCHEDULER),PRIORITY)
 SCHEDULER_CFLAG = -DPRIORITY
 else ifeq ($(SCHEDULER),LOTTERY)
 SCHEDULER_CFLAG = -DLOTTERY
 else
-$(error SCHEDULER must be PRIORITY or LOTTERY)
+$(error SCHEDULER must be DEFAULT, PRIORITY, or LOTTERY)
 endif
 
 OBJS = \
