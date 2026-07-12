@@ -143,6 +143,30 @@ run_chpri(int pid, char *priority)
   return status;
 }
 
+static int
+run_chtickets(int pid, char *number)
+{
+  int child;
+  int status = -1;
+  char pidbuf[16];
+  char *argv[] = {"chtickets", pidbuf, number, 0};
+
+  itoa(pid, pidbuf);
+
+  child = fork();
+  if (child < 0)
+    fail("fork chtickets");
+
+  if (child == 0) {
+    exec("chtickets", argv);
+    fprintf(2, "pritest: exec chtickets failed\n");
+    exit(127);
+  }
+
+  check(wait(&status) == child, "wait chtickets");
+  return status;
+}
+
 static void
 sleep_child(int ticks)
 {
@@ -200,6 +224,36 @@ test_settickets_syscall_and_fork(void)
   wait(0);
 
   check(settickets(me, 1) == 0, "restore parent tickets");
+}
+
+static void
+test_chtickets_command(void)
+{
+  int child;
+  int tickets;
+
+  printf("pritest: chtickets command\n");
+
+  child = fork();
+  if (child < 0)
+    fail("fork chtickets target");
+  if (child == 0)
+    sleep_child(500);
+
+  pause(1);
+
+  check(run_chtickets(child, "41") == 0, "chtickets valid number");
+  check(getticketsof(child, &tickets) == 0 && tickets == 41,
+        "chtickets did not set 41");
+
+  check(run_chtickets(child, "0") != 0, "chtickets accepted zero");
+  check(run_chtickets(child, "-1") != 0, "chtickets accepted negative");
+  check(run_chtickets(child, "abc") != 0, "chtickets accepted text");
+  check(getticketsof(child, &tickets) == 0 && tickets == 41,
+        "invalid chtickets changed tickets");
+
+  kill(child);
+  wait(0);
 }
 
 static void
@@ -567,6 +621,7 @@ main(int argc, char *argv[])
   printf("pritest: starting\n");
 
   test_settickets_syscall_and_fork();
+  test_chtickets_command();
   test_setpriority_syscall();
   test_child_priority_and_random();
   test_chpri_command();

@@ -15,7 +15,8 @@ interactivecmd(char *name)
   return strncmp(name, "sh", sizeof("sh")) == 0 ||
          strncmp(name, "ps", sizeof("ps")) == 0 ||
          strncmp(name, "kill", sizeof("kill")) == 0 ||
-         strncmp(name, "chpri", sizeof("chpri")) == 0;
+         strncmp(name, "chpri", sizeof("chpri")) == 0 ||
+         strncmp(name, "chtickets", sizeof("chtickets")) == 0;
 }
 
 // map ELF permissions to PTE permission bits.
