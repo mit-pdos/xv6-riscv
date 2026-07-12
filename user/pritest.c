@@ -5,6 +5,10 @@
 #include "user/user.h"
 
 #define RANDOM_KIDS 12
+#define LOCK_SPINS 6
+#define LOCK_WORKERS 4
+#define LOCK_ROUNDS 100
+#define SPIN_START_TIMEOUT 50
 
 #ifdef PRIORITY
 #define PRIORITY_ROUNDS 5
@@ -14,6 +18,9 @@
 #define FAIR_KIDS 4
 #define FAIR_SAMPLES 96
 #define FAIR_TIMEOUT 400
+#define RR_SPINS 6
+#define RR_RUN_TICKS 60
+#define RR_MAX_SPREAD 15
 #endif
 
 #ifdef LOTTERY
@@ -21,8 +28,6 @@
 #define LOTTERY_LOW_KIDS 4
 #define LOTTERY_HIGH_TICKETS 20
 #define LOTTERY_RUN_TICKS 60
-
-static volatile uint lottery_work_sink;
 #endif
 
 static void
@@ -85,9 +90,8 @@ getticketsof(int pid, int *tickets)
   return 0;
 }
 
-#ifdef LOTTERY
 static int
-getruntimeof(int pid, int *runtime)
+snapshot_spins(int *pids, int n, int *runtimes)
 {
   struct pinfo info;
   int i;
@@ -95,14 +99,50 @@ getruntimeof(int pid, int *runtime)
   if (getpinfo(&info) < 0)
     return -1;
 
-  i = findpid(&info, pid);
-  if (i < 0)
-    return -1;
+  for (i = 0; i < n; i++) {
+    int index = findpid(&info, pids[i]);
 
-  *runtime = info.runtime[i];
+    if (index < 0 || strcmp(info.name[index], "spin") != 0)
+      return -1;
+    runtimes[i] = info.runtime[index];
+  }
   return 0;
 }
-#endif
+
+static void
+report_spin_wait(int *pids, int n)
+{
+  struct pinfo info;
+  int i;
+
+  if (getpinfo(&info) < 0)
+    return;
+
+  for (i = 0; i < n; i++) {
+    int index = findpid(&info, pids[i]);
+
+    if (index < 0)
+      fprintf(2, "pritest: missing spin pid=%d\n", pids[i]);
+    else
+      fprintf(2, "pritest: spin wait pid=%d name=%s state=%d\n",
+              pids[i], info.name[index], info.status[index]);
+  }
+}
+
+static int
+wait_for_spins(int *pids, int n, int *runtimes)
+{
+  int i;
+
+  for (i = 0; i < SPIN_START_TIMEOUT; i++) {
+    if (snapshot_spins(pids, n, runtimes) == 0)
+      return 0;
+    pause(1);
+  }
+
+  report_spin_wait(pids, n);
+  return -1;
+}
 
 static void
 waitn(int n)
@@ -122,6 +162,60 @@ killall(int *pids, int n)
     if (pids[i] > 0)
       kill(pids[i]);
   }
+}
+
+static void
+prepare_spins(int *pids, int n, int *start)
+{
+  int i;
+
+  memset(pids, 0, n * sizeof(*pids));
+  if (pipe(start) < 0)
+    fail("pipe spin start");
+
+  for (i = 0; i < n; i++) {
+    pids[i] = fork();
+    if (pids[i] < 0) {
+      close(start[0]);
+      close(start[1]);
+      killall(pids, i);
+      waitn(i);
+      fail("fork spin");
+    }
+
+    if (pids[i] == 0) {
+      char go;
+      char *argv[] = {"spin", 0};
+
+      close(start[1]);
+      if (read(start[0], &go, 1) != 1)
+        exit(1);
+      close(start[0]);
+      exec("spin", argv);
+      fprintf(2, "pritest: exec spin failed\n");
+      exit(127);
+    }
+  }
+}
+
+static void
+release_spins(int *start, int n)
+{
+  char go = 'x';
+  int i;
+
+  close(start[0]);
+  for (i = 0; i < n; i++)
+    check(write(start[1], &go, 1) == 1, "release spin");
+  close(start[1]);
+  pause(2);
+}
+
+static void
+stop_spins(int *pids, int n)
+{
+  killall(pids, n);
+  waitn(n);
 }
 
 static void
@@ -196,6 +290,28 @@ run_chtickets(int pid, char *number)
 
   check(wait(&status) == child, "wait chtickets");
   return status;
+}
+
+static void
+show_ps(void)
+{
+  int child;
+  int status = -1;
+  char *argv[] = {"ps", 0};
+
+  child = fork();
+  if (child < 0)
+    fail("fork ps");
+
+  if (child == 0) {
+    exec("ps", argv);
+    fprintf(2, "pritest: exec ps failed\n");
+    exit(127);
+  }
+
+  check(setpriority(child, 0) == 0, "set ps priority");
+  check(settickets(child, 100) == 0, "set ps tickets");
+  check(wait(&status) == child && status == 0, "run ps");
 }
 
 static void
@@ -413,6 +529,78 @@ test_chpri_command(void)
 
   kill(child);
   wait(0);
+}
+
+static void
+lock_stress_worker(int worker, int *pids, int n)
+{
+  struct pinfo info;
+  int i;
+
+  if (setpriority(getpid(), 0) < 0 || settickets(getpid(), 100) < 0)
+    exit(1);
+
+  for (i = 0; i < LOCK_ROUNDS; i++) {
+    int target = pids[(i + worker) % n];
+    int tickets = (i * 17 + worker * 11) % 97 + 1;
+    int priority = (i * 13 + worker * 7) % 101;
+
+    if (settickets(target, tickets) < 0 ||
+        setpriority(target, priority) < 0 ||
+        getpinfo(&info) < 0)
+      exit(1);
+  }
+
+  exit(0);
+}
+
+static void
+test_process_lock_stress(void)
+{
+  int spins[LOCK_SPINS];
+  int workers[LOCK_WORKERS];
+  int start[2];
+  int status;
+  int i;
+
+  printf("pritest: concurrent process-lock stress\n");
+  prepare_spins(spins, LOCK_SPINS, start);
+
+  for (i = 0; i < LOCK_SPINS; i++) {
+    check(setpriority(spins[i], 50) == 0, "set lock spin priority");
+    check(settickets(spins[i], 10) == 0, "set lock spin tickets");
+  }
+
+  check(setpriority(getpid(), 0) == 0, "raise lock test priority");
+  check(settickets(getpid(), 100) == 0, "raise lock test tickets");
+  release_spins(start, LOCK_SPINS);
+
+  memset(workers, 0, sizeof(workers));
+  for (i = 0; i < LOCK_WORKERS; i++) {
+    workers[i] = fork();
+    if (workers[i] < 0) {
+      killall(workers, i);
+      killall(spins, LOCK_SPINS);
+      waitn(i + LOCK_SPINS);
+      fail("fork lock stress worker");
+    }
+    if (workers[i] == 0)
+      lock_stress_worker(i, spins, LOCK_SPINS);
+    check(setpriority(workers[i], 0) == 0, "set lock worker priority");
+    check(settickets(workers[i], 100) == 0, "set lock worker tickets");
+  }
+
+  for (i = 0; i < LOCK_WORKERS; i++) {
+    check(wait(&status) > 0, "wait lock stress worker");
+    check(status == 0, "lock stress worker failed");
+  }
+
+  stop_spins(spins, LOCK_SPINS);
+  check(setpriority(getpid(), 50) == 0, "restore lock test priority");
+  check(settickets(getpid(), 1) == 0, "restore lock test tickets");
+
+  printf("pritest: lock stress completed %d operations\n",
+         LOCK_WORKERS * LOCK_ROUNDS * 3);
 }
 
 #ifdef PRIORITY
@@ -641,91 +829,146 @@ test_same_priority_round_robin(void)
   check(min >= 1, "same-priority process starved");
   check(max <= (FAIR_SAMPLES * 3) / 4, "same-priority counts too uneven");
 }
+
+static void
+test_spin_round_robin(void)
+{
+  int pids[RR_SPINS];
+  int before[RR_SPINS];
+  int after[RR_SPINS];
+  int start[2];
+  int min = RR_RUN_TICKS * NPROC;
+  int max = 0;
+  int i;
+
+  printf("pritest: spin round-robin runtime\n");
+  prepare_spins(pids, RR_SPINS, start);
+
+  for (i = 0; i < RR_SPINS; i++) {
+    check(setpriority(pids[i], 50) == 0, "set round-robin priority");
+    check(settickets(pids[i], 1) == 0, "set round-robin tickets");
+  }
+
+  check(setpriority(getpid(), 0) == 0, "raise round-robin test priority");
+  release_spins(start, RR_SPINS);
+  check(wait_for_spins(pids, RR_SPINS, before) == 0,
+        "wait for round-robin spins");
+
+  pause(RR_RUN_TICKS);
+
+  check(snapshot_spins(pids, RR_SPINS, after) == 0,
+        "snapshot round-robin end");
+  for (i = 0; i < RR_SPINS; i++) {
+    int runtime = after[i] - before[i];
+
+    printf("pritest: rr pid=%d priority=50 runtime=%d\n",
+           pids[i], runtime);
+    if (runtime < min)
+      min = runtime;
+    if (runtime > max)
+      max = runtime;
+  }
+
+  show_ps();
+  stop_spins(pids, RR_SPINS);
+  check(setpriority(getpid(), 50) == 0,
+        "restore round-robin test priority");
+
+  check(min > 0, "round-robin spin starved");
+  check(max - min <= RR_MAX_SPREAD, "round-robin runtime spread too large");
+}
 #endif
 
 #ifdef LOTTERY
 static void
-lottery_worker(int start_read, int start_write)
-{
-  char go;
-
-  close(start_write);
-  if (read(start_read, &go, 1) != 1)
-    exit(1);
-  close(start_read);
-
-  for (;;)
-    lottery_work_sink++;
-}
-
-static void
 test_lottery_scheduler(void)
 {
-  int start[2];
   int pids[LOTTERY_KIDS];
-  int before[LOTTERY_KIDS];
-  int after[LOTTERY_KIDS];
-  int low_runtime = 0;
-  int high_runtime = 0;
+  int phase1_start[LOTTERY_KIDS];
+  int phase1_end[LOTTERY_KIDS];
+  int phase2_start[LOTTERY_KIDS];
+  int phase2_end[LOTTERY_KIDS];
+  int start[2];
+  int phase1_low = 0;
+  int phase1_high = 0;
+  int phase2_low = 0;
+  int phase2_high = 0;
   int i;
-  char go = 'x';
 
-  printf("pritest: lottery weighted selection\n");
-  memset(pids, 0, sizeof(pids));
-
-  if (pipe(start) < 0)
-    fail("pipe lottery scheduler");
+  printf("pritest: spin lottery weighted runtime\n");
+  prepare_spins(pids, LOTTERY_KIDS, start);
 
   for (i = 0; i < LOTTERY_KIDS; i++) {
-    pids[i] = fork();
-    if (pids[i] < 0) {
-      killall(pids, i);
-      waitn(i);
-      fail("fork lottery worker");
-    }
-    if (pids[i] == 0)
-      lottery_worker(start[0], start[1]);
+    check(setpriority(pids[i], 50) == 0, "set lottery spin priority");
+    check(settickets(pids[i], 100) == 0, "set lottery startup tickets");
   }
+
+  check(settickets(getpid(), 100) == 0, "raise lottery test tickets");
+  release_spins(start, LOTTERY_KIDS);
+  check(wait_for_spins(pids, LOTTERY_KIDS, phase1_start) == 0,
+        "wait for lottery spins");
 
   for (i = 0; i < LOTTERY_KIDS; i++) {
     int tickets = i < LOTTERY_LOW_KIDS ? 1 : LOTTERY_HIGH_TICKETS;
 
-    check(settickets(pids[i], tickets) == 0,
-          "set lottery worker tickets");
-    check(getruntimeof(pids[i], &before[i]) == 0,
-          "read lottery worker starting runtime");
+    check(settickets(pids[i], tickets) == 0, "set lottery phase one tickets");
   }
-
-  check(settickets(getpid(), 100) == 0, "raise lottery test tickets");
-
-  close(start[0]);
-  for (i = 0; i < LOTTERY_KIDS; i++)
-    check(write(start[1], &go, 1) == 1, "release lottery worker");
-  close(start[1]);
+  check(snapshot_spins(pids, LOTTERY_KIDS, phase1_start) == 0,
+        "snapshot lottery phase one start");
 
   pause(LOTTERY_RUN_TICKS);
 
-  for (i = 0; i < LOTTERY_KIDS; i++)
-    check(getruntimeof(pids[i], &after[i]) == 0,
-          "read lottery worker ending runtime");
+  check(snapshot_spins(pids, LOTTERY_KIDS, phase1_end) == 0,
+        "snapshot lottery phase one end");
+  for (i = 0; i < LOTTERY_KIDS; i++) {
+    int runtime = phase1_end[i] - phase1_start[i];
+    int tickets = i < LOTTERY_LOW_KIDS ? 1 : LOTTERY_HIGH_TICKETS;
 
-  killall(pids, LOTTERY_KIDS);
-  waitn(LOTTERY_KIDS);
-  check(settickets(getpid(), 1) == 0, "restore lottery test tickets");
+    printf("pritest: lottery phase=1 pid=%d tickets=%d runtime=%d\n",
+           pids[i], tickets, runtime);
+    if (i < LOTTERY_LOW_KIDS)
+      phase1_low += runtime;
+    else
+      phase1_high += runtime;
+  }
+  printf("pritest: lottery phase=1 low=%d high=%d\n",
+         phase1_low, phase1_high);
+  show_ps();
 
   for (i = 0; i < LOTTERY_KIDS; i++) {
-    int runtime = after[i] - before[i];
+    int tickets = i < LOTTERY_LOW_KIDS ? LOTTERY_HIGH_TICKETS : 1;
 
-    if (i < LOTTERY_LOW_KIDS)
-      low_runtime += runtime;
-    else
-      high_runtime += runtime;
+    check(settickets(pids[i], tickets) == 0, "set lottery phase two tickets");
   }
+  check(snapshot_spins(pids, LOTTERY_KIDS, phase2_start) == 0,
+        "snapshot lottery phase two start");
 
-  printf("pritest: lottery runtime low=%d high=%d\n",
-         low_runtime, high_runtime);
-  check(high_runtime > low_runtime * 2,
-        "more tickets did not receive more CPU time");
+  pause(LOTTERY_RUN_TICKS);
+
+  check(snapshot_spins(pids, LOTTERY_KIDS, phase2_end) == 0,
+        "snapshot lottery phase two end");
+  for (i = 0; i < LOTTERY_KIDS; i++) {
+    int runtime = phase2_end[i] - phase2_start[i];
+    int tickets = i < LOTTERY_LOW_KIDS ? LOTTERY_HIGH_TICKETS : 1;
+
+    printf("pritest: lottery phase=2 pid=%d tickets=%d runtime=%d\n",
+           pids[i], tickets, runtime);
+    if (i < LOTTERY_LOW_KIDS)
+      phase2_high += runtime;
+    else
+      phase2_low += runtime;
+  }
+  printf("pritest: lottery phase=2 low=%d high=%d\n",
+         phase2_low, phase2_high);
+  show_ps();
+
+  stop_spins(pids, LOTTERY_KIDS);
+  check(settickets(getpid(), 1) == 0, "restore lottery test tickets");
+
+  check(phase1_high > phase1_low * 2,
+        "phase one tickets did not increase CPU time");
+  check(phase2_high > phase2_low * 2,
+        "phase two tickets did not increase CPU time");
 }
 #endif
 
@@ -744,10 +987,12 @@ main(int argc, char *argv[])
   test_setpriority_syscall();
   test_child_priority_and_random();
   test_chpri_command();
+  test_process_lock_stress();
 
 #ifdef PRIORITY
   test_priority_scheduler();
   test_same_priority_round_robin();
+  test_spin_round_robin();
 #endif
 
 #ifdef LOTTERY
