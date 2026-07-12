@@ -15,7 +15,8 @@ struct proc *initproc;
 int nextpid = 1;
 struct spinlock pid_lock;
 static struct spinlock rand_lock;
-static uint rand_state = 1;
+static uint rand_state;
+static int rand_seeded;
 static struct spinlock scheduler_lock;
 static int scheduler_next;
 
@@ -108,17 +109,33 @@ allocpid()
   return pid;
 }
 
-int
-krandpriority(void)
+uint
+PRNG(void)
 {
   uint value;
 
   acquire(&rand_lock);
+
+  if (!rand_seeded) {
+    acquire(&tickslock);
+    rand_state = ticks;
+    release(&tickslock);
+    rand_seeded = 1;
+  }
+
+  // Unsigned overflow gives the LCG a modulus of 2^32.
   rand_state = rand_state * 1103515245 + 12345;
   value = rand_state;
+
   release(&rand_lock);
 
-  return value % 101;
+  return value;
+}
+
+int
+krandpriority(void)
+{
+  return PRNG() % 101;
 }
 
 // Look in the process table for an UNUSED proc.
