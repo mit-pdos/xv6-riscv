@@ -369,6 +369,8 @@ test_settickets_syscall_and_fork(void)
   check(settickets(child, 29) == 0, "set child tickets to 29");
   check(getticketsof(child, &child_tickets) == 0 && child_tickets == 29,
         "read back child tickets");
+  check(getticketsof(me, &parent_tickets) == 0 && parent_tickets == 17,
+        "changing child tickets changed parent tickets");
 
   kill(child);
   wait(0);
