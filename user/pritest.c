@@ -5,6 +5,8 @@
 #include "user/user.h"
 
 #define RANDOM_KIDS 12
+
+#ifdef PRIORITY
 #define PRIORITY_ROUNDS 5
 #define HIGH_KIDS 16
 #define LOW_KIDS 4
@@ -12,6 +14,16 @@
 #define FAIR_KIDS 4
 #define FAIR_SAMPLES 96
 #define FAIR_TIMEOUT 400
+#endif
+
+#ifdef LOTTERY
+#define LOTTERY_KIDS 8
+#define LOTTERY_LOW_KIDS 4
+#define LOTTERY_HIGH_TICKETS 20
+#define LOTTERY_RUN_TICKS 60
+
+static volatile uint lottery_work_sink;
+#endif
 
 static void
 fail(char *msg)
@@ -72,6 +84,25 @@ getticketsof(int pid, int *tickets)
   *tickets = info.tickets[i];
   return 0;
 }
+
+#ifdef LOTTERY
+static int
+getruntimeof(int pid, int *runtime)
+{
+  struct pinfo info;
+  int i;
+
+  if (getpinfo(&info) < 0)
+    return -1;
+
+  i = findpid(&info, pid);
+  if (i < 0)
+    return -1;
+
+  *runtime = info.runtime[i];
+  return 0;
+}
+#endif
 
 static void
 waitn(int n)
@@ -384,6 +415,7 @@ test_chpri_command(void)
   wait(0);
 }
 
+#ifdef PRIORITY
 static void
 priority_reporter(int start_read, int start_write, int done_read, int done_write,
                   char label)
@@ -609,6 +641,93 @@ test_same_priority_round_robin(void)
   check(min >= 1, "same-priority process starved");
   check(max <= (FAIR_SAMPLES * 3) / 4, "same-priority counts too uneven");
 }
+#endif
+
+#ifdef LOTTERY
+static void
+lottery_worker(int start_read, int start_write)
+{
+  char go;
+
+  close(start_write);
+  if (read(start_read, &go, 1) != 1)
+    exit(1);
+  close(start_read);
+
+  for (;;)
+    lottery_work_sink++;
+}
+
+static void
+test_lottery_scheduler(void)
+{
+  int start[2];
+  int pids[LOTTERY_KIDS];
+  int before[LOTTERY_KIDS];
+  int after[LOTTERY_KIDS];
+  int low_runtime = 0;
+  int high_runtime = 0;
+  int i;
+  char go = 'x';
+
+  printf("pritest: lottery weighted selection\n");
+  memset(pids, 0, sizeof(pids));
+
+  if (pipe(start) < 0)
+    fail("pipe lottery scheduler");
+
+  for (i = 0; i < LOTTERY_KIDS; i++) {
+    pids[i] = fork();
+    if (pids[i] < 0) {
+      killall(pids, i);
+      waitn(i);
+      fail("fork lottery worker");
+    }
+    if (pids[i] == 0)
+      lottery_worker(start[0], start[1]);
+  }
+
+  for (i = 0; i < LOTTERY_KIDS; i++) {
+    int tickets = i < LOTTERY_LOW_KIDS ? 1 : LOTTERY_HIGH_TICKETS;
+
+    check(settickets(pids[i], tickets) == 0,
+          "set lottery worker tickets");
+    check(getruntimeof(pids[i], &before[i]) == 0,
+          "read lottery worker starting runtime");
+  }
+
+  check(settickets(getpid(), 100) == 0, "raise lottery test tickets");
+
+  close(start[0]);
+  for (i = 0; i < LOTTERY_KIDS; i++)
+    check(write(start[1], &go, 1) == 1, "release lottery worker");
+  close(start[1]);
+
+  pause(LOTTERY_RUN_TICKS);
+
+  for (i = 0; i < LOTTERY_KIDS; i++)
+    check(getruntimeof(pids[i], &after[i]) == 0,
+          "read lottery worker ending runtime");
+
+  killall(pids, LOTTERY_KIDS);
+  waitn(LOTTERY_KIDS);
+  check(settickets(getpid(), 1) == 0, "restore lottery test tickets");
+
+  for (i = 0; i < LOTTERY_KIDS; i++) {
+    int runtime = after[i] - before[i];
+
+    if (i < LOTTERY_LOW_KIDS)
+      low_runtime += runtime;
+    else
+      high_runtime += runtime;
+  }
+
+  printf("pritest: lottery runtime low=%d high=%d\n",
+         low_runtime, high_runtime);
+  check(high_runtime > low_runtime * 2,
+        "more tickets did not receive more CPU time");
+}
+#endif
 
 int
 main(int argc, char *argv[])
@@ -625,8 +744,15 @@ main(int argc, char *argv[])
   test_setpriority_syscall();
   test_child_priority_and_random();
   test_chpri_command();
+
+#ifdef PRIORITY
   test_priority_scheduler();
   test_same_priority_round_robin();
+#endif
+
+#ifdef LOTTERY
+  test_lottery_scheduler();
+#endif
 
   printf("pritest: OK\n");
   exit(0);

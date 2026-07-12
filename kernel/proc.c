@@ -18,7 +18,17 @@ static struct spinlock rand_lock;
 static uint rand_state;
 static int rand_seeded;
 static struct spinlock scheduler_lock;
+#ifdef PRIORITY
 static int scheduler_next;
+#endif
+
+#if defined(PRIORITY) && defined(LOTTERY)
+#error "select only one scheduler"
+#endif
+
+#if !defined(PRIORITY) && !defined(LOTTERY)
+#error "select PRIORITY or LOTTERY"
+#endif
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
@@ -486,9 +496,13 @@ scheduler(void)
     intr_off();
 
     int found = 0;
+    int had_candidate = 0;
+    acquire(&scheduler_lock);
+
+#ifdef PRIORITY
     int best = -1;
     int bestpriority = 101;
-    acquire(&scheduler_lock);
+
     for (int n = 0; n < NPROC; n++) {
       int i = (scheduler_next + n) % NPROC;
       p = &proc[i];
@@ -503,6 +517,7 @@ scheduler(void)
     }
 
     if (best >= 0) {
+      had_candidate = 1;
       p = &proc[best];
       acquire(&p->lock);
       if (p->state == RUNNABLE) {
@@ -527,7 +542,69 @@ scheduler(void)
     } else {
       release(&scheduler_lock);
     }
-    if (found == 0) {
+#endif
+
+#ifdef LOTTERY
+    uint ticket_snapshot[NPROC];
+    uint64 total_tickets = 0;
+
+    for (int i = 0; i < NPROC; i++) {
+      p = &proc[i];
+      ticket_snapshot[i] = 0;
+
+      acquire(&p->lock);
+      if (p->state == RUNNABLE && p->tickets > 0) {
+        ticket_snapshot[i] = p->tickets;
+        total_tickets += ticket_snapshot[i];
+      }
+      release(&p->lock);
+    }
+
+    if (total_tickets > 0) {
+      uint64 random = (uint64)PRNG() << 32;
+      int winner_index = -1;
+
+      random |= PRNG();
+      uint64 winning_ticket = random % total_tickets + 1;
+      had_candidate = 1;
+
+      for (int i = 0; i < NPROC; i++) {
+        if (ticket_snapshot[i] == 0)
+          continue;
+
+        if (winning_ticket <= ticket_snapshot[i]) {
+          winner_index = i;
+          break;
+        }
+        winning_ticket -= ticket_snapshot[i];
+      }
+
+      if (winner_index >= 0) {
+        p = &proc[winner_index];
+        acquire(&p->lock);
+        if (p->state == RUNNABLE) {
+          p->state = RUNNING;
+          c->proc = p;
+          release(&scheduler_lock);
+
+          // Switch to the process that owns the winning ticket range.
+          swtch(&c->context, &p->context);
+
+          c->proc = 0;
+          found = 1;
+        } else {
+          release(&scheduler_lock);
+        }
+        release(&p->lock);
+      } else {
+        release(&scheduler_lock);
+      }
+    } else {
+      release(&scheduler_lock);
+    }
+#endif
+
+    if (found == 0 && had_candidate == 0) {
       // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
     }

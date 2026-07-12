@@ -1,6 +1,18 @@
 K=kernel
 U=user
 
+# To run with Priority Scheduler: make qemu SCHEDULER=PRIORITY
+# To run with Lottery Scheduler: make qemu SCHEDULER=LOTTERY
+SCHEDULER ?= PRIORITY
+
+ifeq ($(SCHEDULER),PRIORITY)
+SCHEDULER_CFLAG = -DPRIORITY
+else ifeq ($(SCHEDULER),LOTTERY)
+SCHEDULER_CFLAG = -DLOTTERY
+else
+$(error SCHEDULER must be PRIORITY or LOTTERY)
+endif
+
 OBJS = \
   $K/entry.o \
   $K/start.o \
@@ -74,7 +86,14 @@ CFLAGS += -fno-builtin-free
 CFLAGS += -fno-builtin-memcpy -Wno-main
 CFLAGS += -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf
 CFLAGS += -I.
+CFLAGS += $(SCHEDULER_CFLAG)
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
+
+# The compiler flags select these implementations, so rebuild them even when
+# switching SCHEDULER without running make clean.
+.PHONY: FORCE
+FORCE:
+$K/proc.o $U/pritest.o: FORCE
 
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
