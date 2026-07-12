@@ -317,6 +317,7 @@ kfork(void)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
   np->owner = p->owner;
+  np->tickets = p->tickets;
   if (strncmp(p->name, "sh", sizeof("sh")) == 0)
     np->priority = 0;
 

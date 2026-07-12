@@ -56,6 +56,23 @@ getpriorityof(int pid, int *priority)
   return 0;
 }
 
+static int
+getticketsof(int pid, int *tickets)
+{
+  struct pinfo info;
+  int i;
+
+  if (getpinfo(&info) < 0)
+    return -1;
+
+  i = findpid(&info, pid);
+  if (i < 0)
+    return -1;
+
+  *tickets = info.tickets[i];
+  return 0;
+}
+
 static void
 waitn(int n)
 {
@@ -131,6 +148,42 @@ sleep_child(int ticks)
 {
   pause(ticks);
   exit(0);
+}
+
+static void
+test_ticket_defaults_and_fork(void)
+{
+  int child;
+  int parent_tickets;
+  int child_tickets;
+
+  printf("pritest: ticket defaults and fork inheritance\n");
+
+  check(getticketsof(getpid(), &parent_tickets) == 0,
+        "read parent tickets");
+  check(parent_tickets == 1, "new process does not have one ticket");
+
+  child = fork();
+  if (child < 0)
+    fail("fork ticket child");
+  if (child == 0)
+    sleep_child(500);
+
+  pause(1);
+  if (getticketsof(child, &child_tickets) < 0) {
+    kill(child);
+    wait(0);
+    fail("read child tickets");
+  }
+
+  if (child_tickets != parent_tickets) {
+    kill(child);
+    wait(0);
+    fail("child did not inherit parent tickets");
+  }
+
+  kill(child);
+  wait(0);
 }
 
 static void
@@ -497,6 +550,7 @@ main(int argc, char *argv[])
 
   printf("pritest: starting\n");
 
+  test_ticket_defaults_and_fork();
   test_setpriority_syscall();
   test_child_priority_and_random();
   test_chpri_command();
