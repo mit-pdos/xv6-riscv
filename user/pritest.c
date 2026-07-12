@@ -151,17 +151,27 @@ sleep_child(int ticks)
 }
 
 static void
-test_ticket_defaults_and_fork(void)
+test_settickets_syscall_and_fork(void)
 {
   int child;
+  int me = getpid();
   int parent_tickets;
   int child_tickets;
 
-  printf("pritest: ticket defaults and fork inheritance\n");
+  printf("pritest: settickets syscall and fork inheritance\n");
 
-  check(getticketsof(getpid(), &parent_tickets) == 0,
-        "read parent tickets");
+  check(getticketsof(me, &parent_tickets) == 0, "read parent tickets");
   check(parent_tickets == 1, "new process does not have one ticket");
+
+  check(settickets(me, 17) == 0, "set parent tickets to 17");
+  check(getticketsof(me, &parent_tickets) == 0 && parent_tickets == 17,
+        "read back parent tickets");
+
+  check(settickets(me, 0) < 0, "accepted zero tickets");
+  check(settickets(me, -1) < 0, "accepted negative tickets");
+  check(settickets(99999, 10) < 0, "accepted unknown pid");
+  check(getticketsof(me, &parent_tickets) == 0 && parent_tickets == 17,
+        "invalid settickets changed parent tickets");
 
   child = fork();
   if (child < 0)
@@ -182,8 +192,14 @@ test_ticket_defaults_and_fork(void)
     fail("child did not inherit parent tickets");
   }
 
+  check(settickets(child, 29) == 0, "set child tickets to 29");
+  check(getticketsof(child, &child_tickets) == 0 && child_tickets == 29,
+        "read back child tickets");
+
   kill(child);
   wait(0);
+
+  check(settickets(me, 1) == 0, "restore parent tickets");
 }
 
 static void
@@ -550,7 +566,7 @@ main(int argc, char *argv[])
 
   printf("pritest: starting\n");
 
-  test_ticket_defaults_and_fork();
+  test_settickets_syscall_and_fork();
   test_setpriority_syscall();
   test_child_priority_and_random();
   test_chpri_command();

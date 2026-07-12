@@ -702,6 +702,26 @@ ksetpriority(int pid, int priority)
   return -1;
 }
 
+int
+ksettickets(int pid, int number)
+{
+  struct proc *p;
+
+  if (number <= 0)
+    return -1;
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->pid == pid && p->state != UNUSED) {
+      p->tickets = number;
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+
 void
 setkilled(struct proc *p)
 {

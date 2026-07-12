@@ -100,6 +100,7 @@ void            userinit(void);
 int             kwait(uint64);
 int             krandpriority(void);
 int             ksetpriority(int, int);
+int             ksettickets(int, int);
 void            wakeup(void*);
 void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);

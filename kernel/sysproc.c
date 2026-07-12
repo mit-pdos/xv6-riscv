@@ -152,3 +152,15 @@ sys_setpriority(void)
 
   return ksetpriority(pid, priority);
 }
+
+uint64
+sys_settickets(void)
+{
+  int pid;
+  int number;
+
+  argint(0, &pid);
+  argint(1, &number);
+
+  return ksettickets(pid, number);
+}

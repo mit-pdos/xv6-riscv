@@ -28,6 +28,7 @@ int uptime(void);
 int sync(void);
 int getpinfo(struct pinfo *);
 int setpriority(int, int);
+int settickets(int, int);
 
 // ulib.c
 int stat(const char *, struct stat *);
