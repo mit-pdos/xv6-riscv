@@ -1,0 +1,5 @@
+-xc
+--target=riscv64
+-I.
+-Ikernel
+-Iuser
