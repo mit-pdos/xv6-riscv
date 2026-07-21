@@ -60,6 +60,33 @@ main(int argc, char *argv[])
 void
 memdump(char *fmt, char *data)
 {
-  // Your code here.
-
+  char* ptr = data;
+  for(int i = 0; fmt[i] != '\0'; i++) {
+    switch(fmt[i]) {
+      case 'i': 
+        printf("%u\n", ((uint32*)ptr)[0]);
+        ptr += 4; 
+        break;
+      case 'p':
+        printf("%lx\n", ((uint64*)ptr)[0]); 
+        ptr += 8;
+        break;
+      case 'h':
+        printf("%u\n", ((uint16*)ptr)[0]);
+        ptr += 2; 
+        break;
+      case 'c':
+        printf("%c\n", ptr[0]);
+        ptr++; 
+        break;
+      case 's':
+        printf("%s\n", ((char**)ptr)[0]);
+        ptr += 8; 
+        break;
+      case 'S':
+        printf("%s\n", ptr); 
+        break;
+      default: printf("Unsupported command %c\n", fmt[i]); break;
+    }
+  }
 }
