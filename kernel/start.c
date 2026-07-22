@@ -37,6 +37,9 @@ start()
   w_pmpaddr0(0x3fffffffffffffull);
   w_pmpcfg0(0xf);
 
+  // enable hardware updates of page table A and D bits
+  w_menvcfg(r_menvcfg() | MENVCFG_ADUE);
+
   // ask for clock interrupts.
   timerinit();
 
@@ -53,7 +56,7 @@ void
 timerinit()
 {
   // enable the sstc extension (i.e. stimecmp).
-  w_menvcfg(r_menvcfg() | (1L << 63));
+  w_menvcfg(r_menvcfg() | MENVCFG_STCE);
 
   // allow supervisor to use stimecmp and time.
   w_mcounteren(r_mcounteren() | 2);
