@@ -107,6 +107,14 @@ printk(char *fmt, ...)
     } else if (c0 == 'l' && c1 == 'l' && c2 == 'x') {
       printint(va_arg(ap, uint64), 16, 0);
       i += 2;
+    } else if (c0 == 'b') {
+      printint(va_arg(ap, uint32), 2, 0);
+    } else if (c0 == 'l' && c1 == 'b') {
+      printint(va_arg(ap, uint64), 2, 0);
+      i += 1;
+    } else if (c0 == 'l' && c1 == 'l' && c2 == 'b') {
+      printint(va_arg(ap, uint64), 2, 0);
+      i += 2;
     } else if (c0 == 'p') {
       printptr(va_arg(ap, uint64));
     } else if (c0 == 'c') {
