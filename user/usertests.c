@@ -2349,7 +2349,7 @@ void
 fsfull()
 {
   int nfiles;
-  int fsblocks = 0;
+  int fsblocks __attribute__((unused)) = 0;
 
   printf("fsfull test\n");
 
