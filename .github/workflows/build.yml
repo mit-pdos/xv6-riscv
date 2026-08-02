@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  push:
+    branches: [riscv]
+  pull_request:
+    branches: [riscv]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: docker.io/library/ubuntu:22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          apt-get update
+          apt-get install -y gcc gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu make perl
+
+      - name: Build kernel and userspace
+        run: make TOOLPREFIX=riscv64-linux-gnu- kernel/kernel fs.img
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: brew install riscv64-elf-gcc
+
+      - name: Build kernel and userspace
+        run: make kernel/kernel fs.img
