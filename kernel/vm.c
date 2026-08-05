@@ -52,7 +52,7 @@ kvmmake(void)
   return kpgtbl;
 }
 
-// add a mapping to the kernel page table.
+// add a mapping to the kernel's page table.
 // only used when booting.
 // does not flush TLB or enable paging.
 void
@@ -62,7 +62,7 @@ kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
     panic("kvmmap");
 }
 
-// Initialize the kernel_pagetable, shared by all CPUs.
+// Initialize the kernel's pagetable, shared by all CPUs.
 void
 kvminit(void)
 {
