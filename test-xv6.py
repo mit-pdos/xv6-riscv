@@ -46,7 +46,7 @@ class QEMU(object):
     def save_output(self):
       try:
         with open("test-xv6.out", "w") as f:
-            f.write(self.out)
+            f.write(self.output)
             f.close()
       except OSError as e:
         print("Provided a bad results path. Error:", e)     
