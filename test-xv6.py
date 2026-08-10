@@ -62,7 +62,7 @@ class QEMU(object):
         kids = [int(line) for line in ps.stdout.splitlines()]
         if len(kids) == 0:
             print("no qemu")
-            os.exit(1)
+            sys.exit(1)
         print("kill", kids[0])
         os.kill(kids[0], signal.SIGKILL)
 
