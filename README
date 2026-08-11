@@ -46,3 +46,63 @@ You will need a RISC-V "newlib" tool chain from
 https://github.com/riscv/riscv-gnu-toolchain, and qemu compiled for
 riscv64-softmmu.  Once they are installed, and in your shell
 search path, you can run "make qemu".
+
+QUICK START (WORKING SOLUTION)
+
+Install required tools via package manager (recommended):
+
+    $ sudo apt-get install gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf qemu-system-misc
+
+Verify installation:
+
+    $ riscv64-unknown-elf-gcc --version
+    $ qemu-system-riscv64 --version
+
+Build xv6:
+
+    $ make
+
+This generates:
+  - kernel/kernel: The compiled kernel binary
+  - fs.img: The filesystem image with user programs
+
+Run xv6 in QEMU:
+
+    $ make qemu
+
+The kernel will boot and you'll see a shell prompt. Try commands like:
+  - ls     - list files
+  - cat    - display file contents
+  - echo   - print text
+  - mkdir  - create directories
+  - exit   - quit xv6
+
+To exit QEMU, press Ctrl-A followed by X.
+
+Debug with GDB:
+
+    $ make qemu-gdb
+
+In another terminal, connect GDB:
+
+    $ riscv64-unknown-elf-gdb kernel/kernel
+    (gdb) target remote localhost:25000
+    (gdb) b main
+    (gdb) c
+
+Clean build artifacts:
+
+    $ make clean
+
+BUILDING TOOLCHAIN FROM SOURCE
+
+If you prefer to build the toolchain from source instead of using packages:
+
+    $ git clone https://github.com/riscv/riscv-gnu-toolchain
+    $ cd riscv-gnu-toolchain
+    $ ./configure --prefix=/opt/riscv
+    $ make -j$(nproc)
+    $ export PATH=/opt/riscv/bin:$PATH
+
+Note: Building from source requires network access and takes 20-40 minutes.
+The pre-built package installation is significantly faster.
