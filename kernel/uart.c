@@ -38,8 +38,8 @@
 #define LSR_RX_READY    (1 << 0) // input is waiting to be read from RHR
 #define LSR_TX_IDLE     (1 << 5) // THR can accept another character to send
 
-// for sending threads to serialize their writes
-static struct sleeplock tx_lock;
+// to serialize checking LSR_TX_IDLE and writing to THR
+static struct spinlock tx_lock;
 static int tx_chan; // &tx_chan is the "wait channel"
 
 void
@@ -67,7 +67,7 @@ uartinit(void)
   // enable transmit and receive interrupts.
   WriteReg(IER, IER_TX_ENABLE | IER_RX_ENABLE);
 
-  initsleeplock(&tx_lock, "uart");
+  initlock(&tx_lock, "uart");
 }
 
 // transmit buf[] to the uart. it blocks if the
@@ -76,20 +76,19 @@ uartinit(void)
 void
 uartwrite(char buf[], int n)
 {
-  acquiresleep(&tx_lock);
-
   int i = 0;
   while (i < n) {
     sleep_prepare(&tx_chan);
+    acquire(&tx_lock);
     if (ReadReg(LSR) & LSR_TX_IDLE) {
       WriteReg(THR, buf[i]);
+      release(&tx_lock);
       i += 1;
     } else {
+      release(&tx_lock);
       sleep();
     }
   }
-
-  releasesleep(&tx_lock);
 }
 
 // write a byte to the uart without using
@@ -99,10 +98,14 @@ uartwrite(char buf[], int n)
 void
 uartputc_sync(int c)
 {
+  acquire(&tx_lock);
+
   // wait for UART to set Transmit Holding Empty in LSR.
   while ((ReadReg(LSR) & LSR_TX_IDLE) == 0)
     ;
   WriteReg(THR, c);
+
+  release(&tx_lock);
 }
 
 // try to read one input character from the UART.
