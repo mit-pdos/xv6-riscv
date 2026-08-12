@@ -42,9 +42,6 @@
 static struct sleeplock tx_lock;
 static int tx_chan; // &tx_chan is the "wait channel"
 
-extern volatile int panicking; // from printk.c
-extern volatile int panicked;  // from printk.c
-
 void
 uartinit(void)
 {
@@ -102,21 +99,10 @@ uartwrite(char buf[], int n)
 void
 uartputc_sync(int c)
 {
-  if (panicking == 0)
-    push_off();
-
-  if (panicked) {
-    for (;;)
-      ;
-  }
-
   // wait for UART to set Transmit Holding Empty in LSR.
   while ((ReadReg(LSR) & LSR_TX_IDLE) == 0)
     ;
   WriteReg(THR, c);
-
-  if (panicking == 0)
-    pop_off();
 }
 
 // try to read one input character from the UART.

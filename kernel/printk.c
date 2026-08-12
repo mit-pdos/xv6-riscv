@@ -15,9 +15,6 @@
 #include "defs.h"
 #include "proc.h"
 
-volatile int panicking = 0; // printing a panic message
-volatile int panicked = 0;  // spinning forever at end of a panic
-
 // lock to avoid interleaving concurrent printk's.
 static struct {
   struct spinlock lock;
@@ -67,8 +64,7 @@ printk(char *fmt, ...)
   int i, cx, c0, c1, c2;
   char *s;
 
-  if (panicking == 0)
-    acquire(&pr.lock);
+  acquire(&pr.lock);
 
   va_start(ap, fmt);
   for (i = 0; (cx = fmt[i] & 0xff) != 0; i++) {
@@ -128,8 +124,7 @@ printk(char *fmt, ...)
   }
   va_end(ap);
 
-  if (panicking == 0)
-    release(&pr.lock);
+  release(&pr.lock);
 
   return 0;
 }
@@ -137,10 +132,8 @@ printk(char *fmt, ...)
 void
 panic(char *s)
 {
-  panicking = 1;
   printk("panic: ");
   printk("%s\n", s);
-  panicked = 1; // freeze uart output from other CPUs
   for (;;)
     ;
 }
