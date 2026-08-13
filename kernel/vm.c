@@ -59,7 +59,7 @@ void
 kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
 {
   if (mappages(kpgtbl, va, sz, pa, perm) != 0)
-    panic("kvmmap");
+    unreachable("kvmmap");
 }
 
 // Initialize the kernel_pagetable, shared by all CPUs.
@@ -99,7 +99,7 @@ pte_t *
 walk(pagetable_t pagetable, uint64 va, int alloc)
 {
   if (va >= MAXVA)
-    panic("walk");
+    unreachable("walk");
 
   for (int level = 2; level > 0; level--) {
     pte_t *pte = &pagetable[PX(level, va)];
@@ -150,13 +150,13 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   pte_t *pte;
 
   if ((va % PGSIZE) != 0)
-    panic("mappages: va not aligned");
+    unreachable("mappages: va not aligned");
 
   if ((size % PGSIZE) != 0)
-    panic("mappages: size not aligned");
+    unreachable("mappages: size not aligned");
 
   if (size == 0)
-    panic("mappages: size");
+    unreachable("mappages: size");
 
   a = va;
   last = va + size - PGSIZE;
@@ -164,7 +164,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     if ((pte = walk(pagetable, a, 1)) == 0)
       return -1;
     if (*pte & PTE_V)
-      panic("mappages: remap");
+      unreachable("mappages: remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
     if (a == last)
       break;
@@ -197,7 +197,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
   pte_t *pte;
 
   if ((va % PGSIZE) != 0)
-    panic("uvmunmap: not aligned");
+    unreachable("uvmunmap: not aligned");
 
   for (a = va; a < va + npages * PGSIZE; a += PGSIZE) {
     if ((pte = walk(pagetable, a, 0)) == 0) // leaf page table entry allocated?
@@ -273,7 +273,7 @@ freewalk(pagetable_t pagetable)
       freewalk((pagetable_t)child);
       pagetable[i] = 0;
     } else if (pte & PTE_V) {
-      panic("freewalk: leaf");
+      unreachable("freewalk: leaf");
     }
   }
   kfree((void *)pagetable);
@@ -334,7 +334,7 @@ uvmclear(pagetable_t pagetable, uint64 va)
 
   pte = walk(pagetable, va, 0);
   if (pte == 0)
-    panic("uvmclear");
+    unreachable("uvmclear");
   *pte &= ~PTE_U;
 }
 

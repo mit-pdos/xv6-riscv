@@ -100,7 +100,7 @@ bfree(int dev, uint b)
   bi = b % BPB;
   m = 1 << (bi % 8);
   if ((bp->data[bi / 8] & m) == 0)
-    panic("freeing free block");
+    unreachable("freeing free block");
   bp->data[bi / 8] &= ~m;
   log_write(bp);
   brelse(bp);
@@ -298,7 +298,7 @@ ilock(struct inode *ip)
   struct dinode *dip;
 
   if (ip == 0 || ip->ref < 1)
-    panic("ilock");
+    unreachable("ilock");
 
   acquiresleep(&ip->lock);
 
@@ -323,7 +323,7 @@ void
 iunlock(struct inode *ip)
 {
   if (ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1)
-    panic("iunlock");
+    unreachable("iunlock");
 
   releasesleep(&ip->lock);
 }
@@ -455,7 +455,7 @@ bmap(struct inode *ip, uint bn)
     return addr;
   }
 
-  panic("bmap: out of range");
+  unreachable("bmap: out of range");
 }
 
 // Truncate inode (discard contents).
@@ -595,7 +595,7 @@ dirlookup(struct inode *dp, char *name, uint *poff)
   struct dirent de;
 
   if (dp->type != T_DIR)
-    panic("dirlookup not DIR");
+    unreachable("dirlookup not DIR");
 
   for (off = 0; off < dp->size; off += sizeof(de)) {
     if (readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))

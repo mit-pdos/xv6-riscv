@@ -55,7 +55,7 @@ void
 initlog(int dev, struct superblock *sb)
 {
   if (sizeof(struct logheader) >= BSIZE)
-    panic("initlog: too big logheader");
+    unreachable("initlog: too big logheader");
 
   initlock(&log.lock, "log");
   log.start = sb->logstart;
@@ -159,7 +159,7 @@ end_op(void)
   acquire(&log.lock);
   log.outstanding -= 1;
   if (log.committing)
-    panic("log.committing");
+    unreachable("log.committing");
   if (log.outstanding == 0) {
     do_commit = 1;
     log.committing = 1;
@@ -227,9 +227,9 @@ log_write(struct buf *b)
 
   acquire(&log.lock);
   if (log.lh.n >= LOGBLOCKS)
-    panic("too big a transaction");
+    unreachable("too big a transaction");
   if (log.outstanding < 1)
-    panic("log_write outside of trans");
+    unreachable("log_write outside of trans");
 
   for (i = 0; i < log.lh.n; i++) {
     if (log.lh.block[i] == b->blockno) // log absorption

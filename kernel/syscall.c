@@ -49,7 +49,7 @@ argraw(int n)
   case 5:
     return p->trapframe->a5;
   }
-  panic("argraw");
+  unreachable("argraw");
   return -1;
 }
 

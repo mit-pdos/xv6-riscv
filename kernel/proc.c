@@ -37,7 +37,7 @@ proc_mapstacks(pagetable_t kpgtbl)
   for (p = proc; p < &proc[NPROC]; p++) {
     char *pa = kalloc();
     if (pa == 0)
-      panic("kalloc");
+      unreachable("kalloc");
     uint64 va = KSTACK((int)(p - proc));
     kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   }
@@ -361,7 +361,7 @@ kexit(int status)
 
   // Jump into the scheduler, never to return.
   sched();
-  panic("zombie exit");
+  unreachable("zombie exit");
 }
 
 // Wait for a child process to exit and return its pid.
@@ -483,13 +483,13 @@ sched(void)
   struct proc *p = myproc();
 
   if (!holding(&p->lock))
-    panic("sched p->lock");
+    unreachable("sched p->lock");
   if (mycpu()->noff != 1)
-    panic("sched locks");
+    unreachable("sched locks");
   if (p->state == RUNNING)
-    panic("sched RUNNING");
+    unreachable("sched RUNNING");
   if (intr_get())
-    panic("sched interruptible");
+    unreachable("sched interruptible");
 
   intena = mycpu()->intena;
   swtch(&p->context, &mycpu()->context);
@@ -551,7 +551,7 @@ sleep_prepare(void *chan)
 
   acquire(&p->lock);
   if (chan == 0)
-    panic("sleep_prepare: zero chan");
+    unreachable("sleep_prepare: zero chan");
   p->chan = chan;
   release(&p->lock);
 }

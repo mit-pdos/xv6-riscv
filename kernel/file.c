@@ -49,7 +49,7 @@ filedup(struct file *f)
 {
   acquire(&ftable.lock);
   if (f->ref < 1)
-    panic("filedup");
+    unreachable("filedup");
   f->ref++;
   release(&ftable.lock);
   return f;
@@ -63,7 +63,7 @@ fileclose(struct file *f)
 
   acquire(&ftable.lock);
   if (f->ref < 1)
-    panic("fileclose");
+    unreachable("fileclose");
   if (--f->ref > 0) {
     release(&ftable.lock);
     return;

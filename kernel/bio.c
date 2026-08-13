@@ -107,7 +107,7 @@ void
 bwrite(struct buf *b)
 {
   if (!holdingsleep(&b->lock))
-    panic("bwrite");
+    unreachable("bwrite");
   virtio_disk_rw(b, 1);
 }
 
@@ -117,7 +117,7 @@ void
 brelse(struct buf *b)
 {
   if (!holdingsleep(&b->lock))
-    panic("brelse");
+    unreachable("brelse");
 
   releasesleep(&b->lock);
 

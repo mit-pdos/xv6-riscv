@@ -139,6 +139,16 @@ panic(char *s)
 }
 
 void
+unreachable(char *s)
+{
+  // no Sail step exists for this: mapped + PMA-writable, decoded by no device
+  asm volatile("lui t0, 0xe000\n\tsb zero, 0(t0)");
+
+  for (;;)
+    ;
+}
+
+void
 printkinit(void)
 {
   initlock(&pr.lock, "pr");

@@ -68,7 +68,7 @@ virtio_disk_init(void)
   if (*R(VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 ||
       *R(VIRTIO_MMIO_VERSION) != 2 || *R(VIRTIO_MMIO_DEVICE_ID) != 2 ||
       *R(VIRTIO_MMIO_VENDOR_ID) != 0x554d4551) {
-    panic("could not find virtio disk");
+    unreachable("could not find virtio disk");
   }
 
   // reset device
@@ -101,28 +101,28 @@ virtio_disk_init(void)
   // re-read status to ensure FEATURES_OK is set.
   status = *R(VIRTIO_MMIO_STATUS);
   if (!(status & VIRTIO_CONFIG_S_FEATURES_OK))
-    panic("virtio disk FEATURES_OK unset");
+    unreachable("virtio disk FEATURES_OK unset");
 
   // initialize queue 0.
   *R(VIRTIO_MMIO_QUEUE_SEL) = 0;
 
   // ensure queue 0 is not in use.
   if (*R(VIRTIO_MMIO_QUEUE_READY))
-    panic("virtio disk should not be ready");
+    unreachable("virtio disk should not be ready");
 
   // check maximum queue size.
   uint32 max = *R(VIRTIO_MMIO_QUEUE_NUM_MAX);
   if (max == 0)
-    panic("virtio disk has no queue 0");
+    unreachable("virtio disk has no queue 0");
   if (max < NUM)
-    panic("virtio disk max queue too short");
+    unreachable("virtio disk max queue too short");
 
   // allocate and zero queue memory.
   disk.desc = kalloc();
   disk.avail = kalloc();
   disk.used = kalloc();
   if (!disk.desc || !disk.avail || !disk.used)
-    panic("virtio disk kalloc");
+    unreachable("virtio disk kalloc");
   memset(disk.desc, 0, PGSIZE);
   memset(disk.avail, 0, PGSIZE);
   memset(disk.used, 0, PGSIZE);
@@ -170,9 +170,9 @@ static void
 free_desc(int i)
 {
   if (i >= NUM)
-    panic("free_desc 1");
+    unreachable("free_desc 1");
   if (disk.free[i])
-    panic("free_desc 2");
+    unreachable("free_desc 2");
   disk.desc[i].addr = 0;
   disk.desc[i].len = 0;
   disk.desc[i].flags = 0;
@@ -320,7 +320,7 @@ virtio_disk_intr()
     int id = disk.used->ring[disk.used_idx % NUM].id;
 
     if (disk.info[id].status != 0)
-      panic("virtio_disk_intr status");
+      unreachable("virtio_disk_intr status");
 
     struct buf *b = disk.info[id].b;
     b->disk = 0; // disk is done with buf
