@@ -9,12 +9,13 @@ _entry:
         # stack0 is declared in start.c,
         # with a 4096-byte stack per CPU.
         # sp = stack0 + ((hartid + 1) * 4096)
+        # 4096 = 2^12: multiply-by-constant is a shift.
+        # No M extension needed -- and still correct for ANY hart count.
         la sp, stack0
-        li a0, 1024*4
         csrr a1, mhartid
         addi a1, a1, 1
-        mul a0, a0, a1
-        add sp, sp, a0
+        slli a1, a1, 12
+        add sp, sp, a1
         # jump to start() in start.c
         call start
 spin:
