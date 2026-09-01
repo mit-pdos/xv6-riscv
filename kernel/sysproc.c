@@ -23,6 +23,73 @@ sys_getpid(void)
 }
 
 uint64
+sys_getppid(void)
+{
+  return myproc()->parent->pid;
+}
+uint64 sys_square(void)
+{
+  int num;
+  argint(0, &num);
+  return  num *num;
+}
+uint64 sys_get_child_count(void)
+{
+  struct proc *p=myproc();
+  int count;
+  acquire(&p->lock);
+  count=p->child_count;
+  release(&p->lock);
+  return count;
+}
+
+uint64 sys_get_process_child_count(void)
+{
+  int pid;
+  argint(0, &pid);
+  struct proc *p;
+  for(int i=0;i<NPROC;i++)
+  {
+    p=&proc[i];
+    acquire(&p->lock);
+    if(p->state!=UNUSED && p->pid == pid)
+    {
+      int count=p->child_count;
+      release(&p->lock);
+      return count;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+uint64
+sys_nfork(void)
+{
+  int n;
+  uint64 child_pids_addr;
+
+  argint(0, &n);
+  argaddr(1, &child_pids_addr);
+
+  if (n <= 0 || child_pids_addr == 0)
+    return -1;
+
+  struct proc *p = myproc();
+
+  for (int i = 0; i < n; i++) {
+    int pid = kfork();
+    if (pid < 0) {
+      return i > 0 ? i : -1;
+    }
+    if (copyout(p->pagetable, p->sz, child_pids_addr + i * sizeof(int),
+                (char *)&pid, sizeof(pid)) < 0) {
+      return -1;
+    }
+  }
+  return n;
+}
+
+uint64
 sys_fork(void)
 {
   return kfork();
@@ -109,4 +176,87 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_print_syscalls(void)
+{
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  for (int i = 0; i < MAX_SYSCALL; i++) {
+    if (p->syscall_counts[i] > 0) {
+      printk("syscall %d : %d\n", i, p->syscall_counts[i]);
+    }
+  }
+  release(&p->lock);
+  return 0;
+}
+
+uint64
+sys_print_process_syscalls(void)
+{
+  int pid;
+  argint(0, &pid);
+  struct proc *p;
+  for (int i = 0; i < NPROC; i++) {
+    p = &proc[i];
+    acquire(&p->lock);
+    if (p->state != UNUSED && p->pid == pid) {
+      for (int i = 0; i < MAX_SYSCALL; i++) {
+        if (p->syscall_counts[i] > 0) {
+          printk("syscall %d : %d\n", i, p->syscall_counts[i]);
+        }
+      }
+      release(&p->lock);
+    }
+  }
+  return 0;
+  return -1;
+}
+
+uint64
+sys_pte_valid(void)
+{
+  uint64 va;
+  argaddr(0, &va);
+  return ismapped(myproc()->pagetable, va);
+}
+uint64
+sys_get_pteflags(void)
+{
+  uint64 va;
+  argaddr(0,&va);
+  get_pteflags(va);
+  return 0;
+}
+uint64
+sys_va2pa(void)
+{
+  uint64 va;
+  argaddr(0,&va);
+
+  uint64 pa=walkaddr(myproc()->pagetable,va);
+  if(pa==0)
+   return 0;
+
+  return pa+(va&(PGSIZE-1));
+}
+uint64 sys_getvasize(void)
+{
+  int pid;
+  argint(0, &pid);
+  struct proc *p;
+  for(int i=0;i<NPROC;i++)
+  {
+    p=&proc[i];
+    acquire(&p->lock);
+    if(p->state!=UNUSED && p->pid == pid)
+    {
+      uint64 size=p->sz;
+      release(&p->lock);
+      return size;
+    }
+    release(&p->lock);
+  }
+  return -1;
 }

@@ -103,7 +103,20 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_sync(void);
-
+extern uint64 sys_getppid(void);
+extern uint64 sys_square(void);
+extern uint64 sys_get_child_count(void);
+extern uint64 sys_get_process_child_count(void);
+extern uint64 sys_nfork(void);
+extern uint64 sys_print_syscalls(void);
+extern uint64 sys_print_process_syscalls(void);
+extern uint64 sys_get_inode_num(void);
+extern uint64 sys_get_read_offset(void);
+extern uint64 sys_peek2(void);
+extern uint64 sys_pte_valid(void);
+extern uint64 sys_get_pteflags(void);
+extern uint64 sys_va2pa(void);
+extern uint64 sys_getvasize(void);
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
@@ -130,6 +143,21 @@ static uint64 (*syscalls[])(void) = {
   [SYS_mkdir]   = sys_mkdir,
   [SYS_close]   = sys_close,
   [SYS_sync]    = sys_sync,
+  [SYS_getppid]  sys_getppid,
+  [SYS_square]  sys_square,
+  [SYS_get_child_count] sys_get_child_count,
+  [SYS_get_process_child_count] sys_get_process_child_count,
+  [SYS_nfork] sys_nfork,
+  [SYS_print_syscalls] sys_print_syscalls,
+  [SYS_print_process_syscalls] sys_print_process_syscalls,
+  [SYS_get_inode_num] sys_get_inode_num,
+  [SYS_get_read_offset] sys_get_read_offset,
+  [SYS_peek2] sys_peek2,
+  [SYS_pte_valid] sys_pte_valid,
+  [SYS_get_pteflags] sys_get_pteflags,
+  [SYS_va2pa] sys_va2pa,
+  [SYS_getvasize] sys_getvasize
+
   // clang-format on
 };
 
@@ -137,12 +165,16 @@ void
 syscall(void)
 {
   int num;
-  struct proc *p = myproc();
+struct proc *p = myproc();
 
   num = p->trapframe->a7;
   if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    acquire(&p->lock);
+    p->syscall_counts[num]++;
+    release(&p->lock);
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
+       
     p->trapframe->a0 = syscalls[num]();
   } else {
     printk("%d %s: unknown sys call %d\n", p->pid, p->name, num);

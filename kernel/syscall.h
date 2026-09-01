@@ -21,3 +21,18 @@
 #define SYS_mkdir  20
 #define SYS_close  21
 #define SYS_sync   22
+#define SYS_getppid  23
+#define SYS_square   24
+#define SYS_get_child_count         25
+#define SYS_get_process_child_count 26
+#define SYS_nfork 27
+#define SYS_print_syscalls 28
+#define SYS_print_process_syscalls 29
+#define SYS_get_inode_num 30
+#define SYS_get_read_offset 31
+#define SYS_peek2 32
+#define SYS_pte_valid 33
+#define SYS_get_pteflags 34
+#define SYS_va2pa 35
+#define SYS_getvasize 36
+

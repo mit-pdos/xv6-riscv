@@ -150,9 +150,30 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_sync\
+	$U/_hello\
+	$U/_clear\
+	$U/_head\
+	$U/_tail\
+	$U/_cmd\
+	$U/_cp\
+	$U/_ppid\
+	$U/_sq\
+	$U/_test_children\
+	$U/_test_nfork\
+	$U/_test_syscalls\
+	$U/_test_fd\
+	$U/_pte\
+	$U/_pflag\
+	$U/_t1_va2pa\
+	$U/_t3_va2pa\
+	$U/_t2_va2pa\
+	$U/_mgrep\
+	$U/_test_peek\
+	$U/_v_getvasize\
 
-fs.img: mkfs/mkfs README $(UPROGS)
-	mkfs/mkfs fs.img README $(UPROGS)
+
+fs.img: mkfs/mkfs README $(UPROGS) sample.txt gt1 gt2 gt3 dummy
+	mkfs/mkfs fs.img README $(UPROGS) sample.txt gt1 gt2 gt3 dummy
 
 -include kernel/*.d user/*.d
 

@@ -143,8 +143,11 @@ found:
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
+  for(int i = 0; i < MAX_SYSCALL; i++)
+    p->syscall_counts[i] = 0;
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+  p->child_count=0;
 
   return p;
 }
@@ -301,6 +304,10 @@ kfork(void)
   np->state = RUNNABLE;
   release(&np->lock);
 
+  acquire(&p->lock);
+  p->child_count++;
+  release(&p->lock);
+
   return pid;
 }
 
@@ -398,6 +405,9 @@ kwait(uint64 addr)
           freeproc(pp);
           release(&pp->lock);
           release(&wait_lock);
+          acquire(&p->lock);
+          p->child_count--;
+          release(&p->lock);
           return pid;
         }
         release(&pp->lock);
@@ -698,4 +708,18 @@ procdump(void)
     printk("%d %s %s", p->pid, state, p->name);
     printk("\n");
   }
+}
+void 
+get_pteflags(uint64 va)
+{
+  struct proc *p=myproc();
+  pte_t *pte=walk(p->pagetable,va,0);
+  if(pte==0 || (*pte & PTE_V)==0)
+  return;
+
+  int r = (*pte & PTE_R) ? 1 : 0;
+  int w = (*pte & PTE_W) ? 1 : 0;
+  int x = (*pte & PTE_X) ? 1 : 0;
+  int u = (*pte & PTE_U) ? 1 : 0;
+  printk("VA: %p -> R:%d W:%d X:%d U:%d\n", (void*)va, r, w, x, u);
 }

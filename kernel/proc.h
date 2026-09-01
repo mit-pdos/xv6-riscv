@@ -77,7 +77,7 @@ struct trapframe {
 };
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
-
+#define MAX_SYSCALL 30
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -101,4 +101,8 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int child_count;             // number of children
+  int syscall_counts[MAX_SYSCALL]; // array to store syscall invocation counts
 };
+
+extern struct proc proc[NPROC]; 
