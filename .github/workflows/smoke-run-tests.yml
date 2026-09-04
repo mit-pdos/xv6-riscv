@@ -1,0 +1,100 @@
+name: Smoke Test
+
+on:
+  push:
+    branches: [riscv]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install qemu
+        run: sudo apt-get update && sudo apt-get install -y gcc-riscv64-linux-gnu qemu-system-riscv clang-format bc expect
+      - name: make kernel
+        run: make kernel/kernel fs.img
+
+      - name: boot
+        timeout-minutes: 3
+        run: |
+          expect -c '
+          set timeout 60
+          spawn make qemu CPUS=1
+          expect "init: starting sh"
+          expect "$ "
+          send "\x01x"
+          expect eof
+          ' | tee qemu.log
+          grep -q "init: starting sh" qemu.log || (echo "FAIL: xv6 did not boot"; exit 1)
+
+      - name: echo hello
+        timeout-minutes: 3
+        run: |
+          expect -c '
+          set timeout 60
+          spawn make qemu CPUS=1
+          expect "$ "
+          send "echo hello\r"
+          expect "$ "
+          send "\x01x"
+          expect eof
+          ' | tee qemu.log
+          grep -q "hello" qemu.log || (echo "FAIL: echo hello"; cat qemu.log; exit 1)
+
+      - name: echo pipe grep
+        timeout-minutes: 3
+        run: |
+          expect -c '
+          set timeout 60
+          spawn make qemu CPUS=1
+          expect "$ "
+          send "echo hello world | grep hello\r"
+          expect "$ "
+          send "\x01x"
+          expect eof
+          ' | tee qemu.log
+          grep -q "hello world" qemu.log || (echo "FAIL: echo pipe grep"; cat qemu.log; exit 1)
+
+      - name: echo pipe wc
+        timeout-minutes: 3
+        run: |
+          expect -c '
+          set timeout 60
+          spawn make qemu CPUS=1
+          expect "$ "
+          send "echo hello | wc\r"
+          expect "$ "
+          send "\x01x"
+          expect eof
+          ' | tee qemu.log
+          grep -qE "^\s*1\s+1\s+6" qemu.log || (echo "FAIL: echo pipe wc"; cat qemu.log; exit 1)
+
+      - name: ls shows README
+        timeout-minutes: 3
+        run: |
+          expect -c '
+          set timeout 60
+          spawn make qemu CPUS=1
+          expect "$ "
+          send "ls\r"
+          expect "$ "
+          send "\x01x"
+          expect eof
+          ' | tee qemu.log
+          grep -q "README" qemu.log || (echo "FAIL: ls"; cat qemu.log; exit 1)
+
+      - name: cat pipe wc
+        timeout-minutes: 3
+        run: |
+          expect -c '
+          set timeout 60
+          spawn make qemu CPUS=1
+          expect "$ "
+          send "cat README | wc\r"
+          expect "$ "
+          send "\x01x"
+          expect eof
+          ' | tee qemu.log
+          grep -qE "^\s*[0-9]+\s+[0-9]+\s+[0-9]+" qemu.log || (echo "FAIL: cat pipe wc"; cat qemu.log; exit 1)
