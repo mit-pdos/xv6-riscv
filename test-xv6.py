@@ -159,7 +159,7 @@ def recover_orphan():
 
 def test_log():
     print("Test recovery of log")
-    for i in range(5):
+    for i in range(20):
         crash_log()
         ok = recover_log()
         if ok:
