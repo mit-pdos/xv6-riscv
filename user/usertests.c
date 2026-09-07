@@ -1960,6 +1960,162 @@ iref(char *s)
   chdir("/");
 }
 
+static int
+rm01dir(const char *name)
+{
+  if (chdir(name) == -1)
+    return 0;
+
+  if (rm01dir("0") == -1)
+    return -1;
+  if (rm01dir("1") == -1)
+    return -1;
+
+  if (chdir("..") == -1)
+    return -1;
+  if (unlink(name) == -1)
+    return -1;
+  return 0;
+}
+
+// create a 'perfect binary tree',
+// e.g., depth = 3
+//
+// root
+// |
+// ├── 0
+// │   ├── 0
+// │   │   ├── 0  "root/0/0/0"
+// │   │   └── 1  "root/0/0/1"
+// │   └── 1
+// │       ├── 0  "root/0/1/0"
+// │       └── 1  "root/0/1/1"
+// └── 1
+//     ├── 0
+//     │   ├── 0  "root/1/0/0"
+//     │   └── 1  "root/1/0/1"
+//     └── 1
+//         ├── 0  "root/1/1/0"
+//         └── 1  "root/1/1/1"
+static int
+mk01dir(const char *name, int depth)
+{
+  // base case
+  if (depth == -1)
+    return 0;
+
+  // create this directory
+  if (mkdir(name) == -1)
+    return -1;
+  // enter this directory
+  if (chdir(name) == -1)
+    return -1;
+
+  // create left sub-directory
+  if (mk01dir("0", depth - 1) == -1)
+    return -1;
+  // create right sub-directory
+  if (mk01dir("1", depth - 1) == -1)
+    return -1;
+
+  // exit this directory
+  if (chdir("..") == -1)
+    return -1;
+  return 0;
+}
+
+void
+conpathwalk(char *s)
+{
+  enum {
+    D = 3,
+    N = (1 << D),
+  };
+
+  if (D == 0)
+    return;
+
+  int pid = 0;
+  int xstatus = 0;
+  char path[2 * D + 1] = { 0 };
+  char back[3 * D + 1] = { 0 };
+  // D = 0, back = ""
+  // D = 1, back = "../"
+  // D = 2, back = "../../"
+  // D = 3, back = "../../../"
+  // and so on
+  for (int i = 0; i < sizeof(back) - 1; i += 3) {
+    back[i]   = '.';
+    back[i+1] = '.';
+    back[i+2] = '/';
+  }
+
+  if (mk01dir("root", D) == -1) {
+    printf("%s: failed to build the test environment\n", s);
+    exit(1);
+  }
+
+  for (int n = 0; n < N; ++n) {
+    pid = fork();
+    if(pid < 0){
+      printf("%s: fork failed\n", s);
+      exit(1);
+    }
+
+    // parent continues to fork
+    if (pid > 0)
+      continue;
+
+    // child starts here
+    if (chdir("root") < 0) {
+      printf("%s, chdir(\"root\") failed\n", s);
+      exit(1);
+    }
+
+    // If D = 3 and
+    // n = 0, path = "0/0/0/"
+    // n = 1, path = "0/0/1/"
+    // n = 2, path = "0/1/0/"
+    // ...
+    // n = 7, path = "1/1/1/"
+    for (int i = 0; i < sizeof(path) - 1; ++i) {
+      if (i % 2)
+        path[i] = '/';
+      else if ((n & (1 << (i / 2 - 1))) == 0)
+        path[i] = '0';
+      else
+        path[i] = '1';
+    }
+
+    // Back and forth between root and leaf.
+    for (int c = 0; c < 2 * N; ++c) {
+      if (chdir(path) < 0) {
+        printf("%s: chdir(\"%s\") failed\n", s, path);
+        exit(1);
+      }
+      if (chdir(back) < 0) {
+        printf("%s: chdir(\"%s\") failed\n", s, back);
+        exit(1);
+      }
+    }
+    exit(0);
+  }
+
+  // Wait for children to exit and clean up.
+  for (int n = 0; n < N; ++n) {
+    if (wait(&xstatus) < 0) {
+      printf("%s: wait failed\n", s);
+      exit(1);
+    }
+    if (xstatus != 0)
+      exit(1);
+  }
+  if (rm01dir("root") == -1) {
+    printf("%s: failed to clean up\n", s);
+    exit(1);
+  }
+}
+
 // test that fork fails gracefully
 // the forktest binary also does this, but it runs out of proc entries first.
 // inside the bigger usertests binary, we run out of memory first.
@@ -2980,6 +3136,7 @@ struct test {
   {rmdot, "rmdot"},
   {dirfile, "dirfile"},
   {iref, "iref"},
+  {conpathwalk, "conpathwalk"},
   {forktest, "forktest"},
   {sbrkbasic, "sbrkbasic"},
   {sbrkmuch, "sbrkmuch"},
