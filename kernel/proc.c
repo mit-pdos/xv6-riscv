@@ -89,17 +89,24 @@ myproc(void)
   return p;
 }
 
-int
-allocpid()
+static void
+allocpid(struct proc *p)
 {
+  struct proc *q;
   int pid;
 
   acquire(&pid_lock);
-  pid = nextpid;
-  nextpid = nextpid + 1;
+  for (;;) {
+    pid = nextpid;
+    nextpid = (pid == PIDMAX) ? 1 : pid + 1;
+    for (q = proc; q < &proc[NPROC]; q++)
+      if (q->pid == pid)
+        break;
+    if (q == &proc[NPROC])
+      break;
+  }
+  p->pid = pid;
   release(&pid_lock);
-
-  return pid;
 }
 
 // Look in the process table for an UNUSED proc.
@@ -122,7 +129,7 @@ allocproc(void)
   return 0;
 
 found:
-  p->pid = allocpid();
+  allocpid(p);
   p->state = USED;
 
   // Allocate a trapframe page.
@@ -162,7 +169,9 @@ freeproc(struct proc *p)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
   p->sz = 0;
+  acquire(&pid_lock);
   p->pid = 0;
+  release(&pid_lock);
   p->name[0] = 0;
   p->chan = 0;
   p->killed = 0;
