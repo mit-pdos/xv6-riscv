@@ -196,7 +196,9 @@ devintr()
     int irq = plic_claim();
 
     if (irq == UART0_IRQ) {
-      uartintr();
+      uartintr(0);
+    } else if (irq == UART1_IRQ) {
+      uartintr(1);
     } else if (irq == VIRTIO0_IRQ) {
       virtio_disk_intr();
     } else if (irq) {

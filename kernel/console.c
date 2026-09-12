@@ -36,11 +36,11 @@ consputc(int c)
 {
   if (c == BACKSPACE) {
     // if the user typed backspace, overwrite with a space.
-    uartputc_sync('\b');
-    uartputc_sync(' ');
-    uartputc_sync('\b');
+    uartputc_sync(0, '\b');
+    uartputc_sync(0, ' ');
+    uartputc_sync(0, '\b');
   } else {
-    uartputc_sync(c);
+    uartputc_sync(0, c);
   }
 }
 
@@ -71,7 +71,7 @@ consolewrite(int user_src, uint64 src, int n)
       nn = n - i;
     if (either_copyin(buf, user_src, src + i, nn) == -1)
       break;
-    uartwrite(buf, nn);
+    uartwrite(0, buf, nn);
     i += nn;
   }
 

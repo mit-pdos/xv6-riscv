@@ -179,6 +179,12 @@ QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
+QEMUOPTS += -chardev stdio,id=term,mux=on,signal=off
+QEMUOPTS += -serial chardev:term
+QEMUOPTS += -chardev file,id=printk,path=/dev/stdout,append=on
+QEMUOPTS += -serial chardev:printk
+QEMUOPTS += -object monitor-hmp,id=mon0,chardev=term
+
 qemu: check-qemu-version $K/kernel fs.img
 	$(QEMU) $(QEMUOPTS)
 
@@ -196,6 +202,15 @@ QEMU_VERSION := $(shell $(QEMU) --version | head -n 1 | sed -E 's/^QEMU emulator
 check-qemu-version:
 	@if [ "$(shell echo "$(QEMU_VERSION) >= $(MIN_QEMU_VERSION)" | bc)" -eq 0 ]; then \
 		echo "ERROR: Need qemu version >= $(MIN_QEMU_VERSION)"; \
+		exit 1; \
+	fi
+	@t=`mktemp`; trap "rm -f $$t" EXIT; \
+	$(QEMU) -machine virt,dumpdtb=$$t -serial null -serial null >/dev/null 2>&1; \
+	if ! grep -qa 'serial@1000a000' $$t; then \
+		echo "ERROR: this qemu's virt machine has only one UART."; \
+		echo "       xv6 needs the second one (serial@1000a000), added to"; \
+		echo "       qemu after 11.1 by commit 2a99140258fe; build qemu"; \
+		echo "       from git master."; \
 		exit 1; \
 	fi
 

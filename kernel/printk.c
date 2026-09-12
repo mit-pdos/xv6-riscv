@@ -20,6 +20,12 @@ static struct {
   struct spinlock lock;
 } pr;
 
+static void
+prputc(int c)
+{
+  uartputc_sync(1, c);
+}
+
 static char digits[] = "0123456789abcdef";
 
 static void
@@ -43,17 +49,17 @@ printint(long long xx, int base, int sign)
     buf[i++] = '-';
 
   while (--i >= 0)
-    consputc(buf[i]);
+    prputc(buf[i]);
 }
 
 static void
 printptr(uint64 x)
 {
   int i;
-  consputc('0');
-  consputc('x');
+  prputc('0');
+  prputc('x');
   for (i = 0; i < (sizeof(uint64) * 2); i++, x <<= 4)
-    consputc(digits[x >> (sizeof(uint64) * 8 - 4)]);
+    prputc(digits[x >> (sizeof(uint64) * 8 - 4)]);
 }
 
 // Print to the console.
@@ -69,7 +75,7 @@ printk(char *fmt, ...)
   va_start(ap, fmt);
   for (i = 0; (cx = fmt[i] & 0xff) != 0; i++) {
     if (cx != '%') {
-      consputc(cx);
+      prputc(cx);
       continue;
     }
     i++;
@@ -106,20 +112,20 @@ printk(char *fmt, ...)
     } else if (c0 == 'p') {
       printptr(va_arg(ap, uint64));
     } else if (c0 == 'c') {
-      consputc(va_arg(ap, uint));
+      prputc(va_arg(ap, uint));
     } else if (c0 == 's') {
       if ((s = va_arg(ap, char *)) == 0)
         s = "(null)";
       for (; *s; s++)
-        consputc(*s);
+        prputc(*s);
     } else if (c0 == '%') {
-      consputc('%');
+      prputc('%');
     } else if (c0 == 0) {
       break;
     } else {
       // Print unknown % sequence to draw attention.
-      consputc('%');
-      consputc(c0);
+      prputc('%');
+      prputc(c0);
     }
   }
   va_end(ap);

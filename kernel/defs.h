@@ -148,9 +148,9 @@ void            prepare_return(void);
 
 // uart.c
 void            uartinit(void);
-void            uartintr(void);
-void            uartwrite(char [], int);
-void            uartputc_sync(int);
+void            uartintr(int);
+void            uartwrite(int, char [], int);
+void            uartputc_sync(int, int);
 
 // vm.c
 void            kvminit(void);

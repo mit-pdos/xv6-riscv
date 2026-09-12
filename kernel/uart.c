@@ -11,13 +11,23 @@
 #include "proc.h"
 #include "defs.h"
 
-// the UART control registers are memory-mapped
-// at address UART0. this macro returns the
-// address of one of the registers.
-#define Reg(reg) ((volatile unsigned char *)(UART0 + (reg)))
+struct uart {
+  uint64 base;
+  void (*rx)(int);
+  struct spinlock tx_lock;
+};
 
-#define ReadReg(reg)     (*(Reg(reg)))
-#define WriteReg(reg, v) (*(Reg(reg)) = (v))
+struct uart uarts[] = {
+  [0] = {.base = UART0, .rx = consoleintr},
+  [1] = {.base = UART1, .rx = 0},
+};
+
+// the UART control registers are memory-mapped at u->base.
+// this macro returns the address of one of the registers.
+#define Reg(u, reg) ((volatile unsigned char *)((u)->base + (reg)))
+
+#define ReadReg(u, reg)     (*(Reg(u, reg)))
+#define WriteReg(u, reg, v) (*(Reg(u, reg)) = (v))
 
 // the UART control registers.
 // some have different meanings for read vs write.
@@ -38,54 +48,59 @@
 #define LSR_RX_READY    (1 << 0) // input is waiting to be read from RHR
 #define LSR_TX_IDLE     (1 << 5) // THR can accept another character to send
 
-// to serialize checking LSR_TX_IDLE and writing to THR
-static struct spinlock tx_lock;
-static int tx_chan; // &tx_chan is the "wait channel"
+static void
+uartinitone(struct uart *u, char *name)
+{
+  // disable interrupts.
+  WriteReg(u, IER, 0x00);
+
+  // special mode to set baud rate.
+  WriteReg(u, LCR, LCR_BAUD_LATCH);
+
+  // LSB for baud rate of 38.4K.
+  WriteReg(u, 0, 0x03);
+
+  // MSB for baud rate of 38.4K.
+  WriteReg(u, 1, 0x00);
+
+  // leave set-baud mode,
+  // and set word length to 8 bits, no parity.
+  WriteReg(u, LCR, LCR_EIGHT_BITS);
+
+  // reset and enable FIFOs.
+  WriteReg(u, FCR, FCR_FIFO_ENABLE | FCR_FIFO_CLEAR);
+
+  // enable transmit interrupts, and receive interrupts only if
+  // there is somewhere for the input to go.
+  WriteReg(u, IER, IER_TX_ENABLE | (u->rx ? IER_RX_ENABLE : 0));
+
+  initlock(&u->tx_lock, name);
+}
 
 void
 uartinit(void)
 {
-  // disable interrupts.
-  WriteReg(IER, 0x00);
-
-  // special mode to set baud rate.
-  WriteReg(LCR, LCR_BAUD_LATCH);
-
-  // LSB for baud rate of 38.4K.
-  WriteReg(0, 0x03);
-
-  // MSB for baud rate of 38.4K.
-  WriteReg(1, 0x00);
-
-  // leave set-baud mode,
-  // and set word length to 8 bits, no parity.
-  WriteReg(LCR, LCR_EIGHT_BITS);
-
-  // reset and enable FIFOs.
-  WriteReg(FCR, FCR_FIFO_ENABLE | FCR_FIFO_CLEAR);
-
-  // enable transmit and receive interrupts.
-  WriteReg(IER, IER_TX_ENABLE | IER_RX_ENABLE);
-
-  initlock(&tx_lock, "uart");
+  uartinitone(&uarts[0], "uart0");
+  uartinitone(&uarts[1], "uart1");
 }
 
 // transmit buf[] to the uart. it blocks if the
 // uart is busy, so it cannot be called from
 // interrupts, only from write() system calls.
 void
-uartwrite(char buf[], int n)
+uartwrite(int uid, char buf[], int n)
 {
+  struct uart *u = &uarts[uid];
   int i = 0;
   while (i < n) {
-    sleep_prepare(&tx_chan);
-    acquire(&tx_lock);
-    if (ReadReg(LSR) & LSR_TX_IDLE) {
-      WriteReg(THR, buf[i]);
-      release(&tx_lock);
+    sleep_prepare(u);
+    acquire(&u->tx_lock);
+    if (ReadReg(u, LSR) & LSR_TX_IDLE) {
+      WriteReg(u, THR, buf[i]);
+      release(&u->tx_lock);
       i += 1;
     } else {
-      release(&tx_lock);
+      release(&u->tx_lock);
       sleep();
     }
   }
@@ -96,26 +111,27 @@ uartwrite(char buf[], int n)
 // to echo characters. it spins waiting for the uart's
 // output register to be empty.
 void
-uartputc_sync(int c)
+uartputc_sync(int uid, int c)
 {
-  acquire(&tx_lock);
+  struct uart *u = &uarts[uid];
+  acquire(&u->tx_lock);
 
   // wait for UART to set Transmit Holding Empty in LSR.
-  while ((ReadReg(LSR) & LSR_TX_IDLE) == 0)
+  while ((ReadReg(u, LSR) & LSR_TX_IDLE) == 0)
     ;
-  WriteReg(THR, c);
+  WriteReg(u, THR, c);
 
-  release(&tx_lock);
+  release(&u->tx_lock);
 }
 
 // try to read one input character from the UART.
 // return -1 if none is waiting.
 static int
-uartgetc(void)
+uartgetc(struct uart *u)
 {
   // is input ready?
-  if (ReadReg(LSR) & LSR_RX_READY) {
-    return ReadReg(RHR);
+  if (ReadReg(u, LSR) & LSR_RX_READY) {
+    return ReadReg(u, RHR);
   } else {
     return -1;
   }
@@ -125,20 +141,23 @@ uartgetc(void)
 // arrived, or the uart is ready for more output, or
 // both. called from devintr().
 void
-uartintr(void)
+uartintr(int uid)
 {
-  ReadReg(ISR); // acknowledge the interrupt
+  struct uart *u = &uarts[uid];
 
-  if (ReadReg(LSR) & LSR_TX_IDLE) {
+  ReadReg(u, ISR); // acknowledge the interrupt
+
+  if (ReadReg(u, LSR) & LSR_TX_IDLE) {
     // UART finished transmitting; wake up sending thread.
-    wakeup(&tx_chan);
+    wakeup(u);
   }
 
   // read and process incoming characters, if any.
   while (1) {
-    int c = uartgetc();
+    int c = uartgetc(u);
     if (c == -1)
       break;
-    consoleintr(c);
+    if (u->rx)
+      u->rx(c);
   }
 }

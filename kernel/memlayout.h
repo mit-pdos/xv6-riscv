@@ -8,6 +8,7 @@
 // 0C000000 -- PLIC
 // 10000000 -- uart0
 // 10001000 -- virtio disk
+// 1000a000 -- uart1
 // 80000000 -- qemu's boot ROM loads the kernel here,
 //             then jumps here.
 // unused RAM after 80000000.
@@ -20,6 +21,8 @@
 // qemu puts UART registers here in physical memory.
 #define UART0     0x10000000L
 #define UART0_IRQ 10
+#define UART1     0x1000a000L
+#define UART1_IRQ 12
 
 // virtio mmio interface
 #define VIRTIO0     0x10001000
