@@ -602,6 +602,9 @@ kkill(int pid)
 {
   struct proc *p;
 
+  if (pid == 0)
+    return -1;
+
   for (p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
     if (p->pid == pid) {
