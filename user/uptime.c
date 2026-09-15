@@ -5,6 +5,6 @@ int
 main(int argc, char *argv[])
 {
   int ticks = uptime();
-  fprintf(1, "%d\n", ticks);
+  printf("up %d clock ticks\n", ticks);
   exit(0);
 }
