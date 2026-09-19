@@ -110,3 +110,13 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_sum(void)
+{
+  int a, b;
+  argint(0, &a);
+  argint(1, &b);
+  printk("sys_sum: %d + %d = %d\n", a, b, a + b);
+  return a + b;
+}
