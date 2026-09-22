@@ -123,6 +123,7 @@ allocproc(void)
 
 found:
   p->pid = allocpid();
+  p->cputime = 0;
   p->state = USED;
 
   // Allocate a trapframe page.
