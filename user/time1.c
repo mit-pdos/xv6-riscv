@@ -1,37 +1,39 @@
 #include "kernel/types.h"
 #include "user/user.h"
 
-int
-main(int argc, char *argv[])
-{
-  int pid;
-  int start;
-  int end;
+int main(int argc, char *argv[]) {
+  int t1, t2; 
+  int p;
 
-  if (argc < 2) {
-    fprintf(2, "usage: time1 command [args...]\n");
+  if(argc < 2){
+    fprintf(2, "usage: time1 command\n");
+
     exit(1);
   }
 
-  start = uptime();
+  t1 = uptime();
 
-  pid = fork();
+  p = fork();
 
-  if (pid < 0) {
-    fprintf(2, "time1:fork failed\n");
+  if(p < 0){
+    printf("fork failed!\n");
+
     exit(1);
   }
 
-  if (pid == 0) {
+  if(p == 0){
     exec(argv[1], &argv[1]);
 
-    fprintf(2, "time1: exec failed\n");
+    printf("exec failed\n");
+
     exit(1);
   }
 
-  end = uptime();
+  wait(0);
 
-  printf("elapsed time: %d ticks\n", end - start);
+  t2 = uptime();
+
+  printf("elapsed time: %d ticks\n", t2 - t1);
 
   exit(0);
 }
