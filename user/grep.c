@@ -11,25 +11,31 @@ int match(char *, char *);
 void
 grep(char *pattern, int fd)
 {
-  int n, m;
+  int n, m, skip;
   char *p, *q;
 
   m = 0;
+  skip = 0;
   while ((n = read(fd, buf + m, sizeof(buf) - m - 1)) > 0) {
     m += n;
     buf[m] = '\0';
     p = buf;
     while ((q = strchr(p, '\n')) != 0) {
       *q = 0;
-      if (match(pattern, p)) {
+      if (!skip && match(pattern, p)) {
         *q = '\n';
         write(1, p, q + 1 - p);
       }
       p = q + 1;
+      skip = 0;
     }
     if (m > 0) {
       m -= p - buf;
       memmove(buf, p, m);
+      if (m == sizeof(buf) - 1) {  // line too long: skip it
+        m = 0;
+        skip = 1;
+      }
     }
   }
 }
