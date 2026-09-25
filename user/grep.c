@@ -32,7 +32,7 @@ grep(char *pattern, int fd)
     if (m > 0) {
       m -= p - buf;
       memmove(buf, p, m);
-      if (m == sizeof(buf) - 1) {  // line too long: skip it
+      if (m == sizeof(buf) - 1) { // line too long: skip it
         m = 0;
         skip = 1;
       }

@@ -233,8 +233,8 @@ userinit(void)
   initproc = p;
 
   p->cwd = namei("/");
-
   p->state = RUNNABLE;
+  p->seccomp = ~0ULL;
 
   release(&p->lock);
 }
@@ -297,6 +297,7 @@ kfork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+  np->seccomp = p->seccomp;
 
   pid = np->pid;
 

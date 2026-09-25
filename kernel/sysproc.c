@@ -110,3 +110,12 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_seccomp(void)
+{
+  uint64 mask;
+  argaddr(0, &mask);
+  myproc()->seccomp &= mask;
+  return 0;
+}
