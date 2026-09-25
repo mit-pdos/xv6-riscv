@@ -24,6 +24,10 @@ main(int argc, char **argv)
     mask = ~0ULL;
     mask &= ~(1ULL << SYS_open);
     mask &= ~(1ULL << SYS_kill);
+    mask &= ~(1ULL << SYS_link);
+    mask &= ~(1ULL << SYS_unlink);
+    mask &= ~(1ULL << SYS_mkdir);
+    mask &= ~(1ULL << SYS_mknod);
     if (seccomp(mask) < 0) {
       fprintf(2, "seccomp: seccomp failed\n");
       exit(1);
