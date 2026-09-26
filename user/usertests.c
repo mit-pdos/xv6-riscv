@@ -830,7 +830,6 @@ killzero(char *s)
 {
   int pid, xst;
 
-  // 0 is an unused process
   kill(0);
 
   pid = fork();
