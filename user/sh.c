@@ -195,6 +195,18 @@ fork1(void)
   return pid;
 }
 
+void *
+cmdalloc(uint n)
+{
+  void *p;
+
+  p = malloc(n);
+  if (p == 0)
+    panic("out of memory");
+  memset(p, 0, n);
+  return p;
+}
+
 //PAGEBREAK!
 // Constructors
 
@@ -203,8 +215,7 @@ execcmd(void)
 {
   struct execcmd *cmd;
 
-  cmd = malloc(sizeof(*cmd));
-  memset(cmd, 0, sizeof(*cmd));
+  cmd = cmdalloc(sizeof(*cmd));
   cmd->type = EXEC;
   return (struct cmd *)cmd;
 }
@@ -214,8 +225,7 @@ redircmd(struct cmd *subcmd, char *file, char *efile, int mode, int fd)
 {
   struct redircmd *cmd;
 
-  cmd = malloc(sizeof(*cmd));
-  memset(cmd, 0, sizeof(*cmd));
+  cmd = cmdalloc(sizeof(*cmd));
   cmd->type = REDIR;
   cmd->cmd = subcmd;
   cmd->file = file;
@@ -230,8 +240,7 @@ pipecmd(struct cmd *left, struct cmd *right)
 {
   struct pipecmd *cmd;
 
-  cmd = malloc(sizeof(*cmd));
-  memset(cmd, 0, sizeof(*cmd));
+  cmd = cmdalloc(sizeof(*cmd));
   cmd->type = PIPE;
   cmd->left = left;
   cmd->right = right;
@@ -243,8 +252,7 @@ listcmd(struct cmd *left, struct cmd *right)
 {
   struct listcmd *cmd;
 
-  cmd = malloc(sizeof(*cmd));
-  memset(cmd, 0, sizeof(*cmd));
+  cmd = cmdalloc(sizeof(*cmd));
   cmd->type = LIST;
   cmd->left = left;
   cmd->right = right;
@@ -256,8 +264,7 @@ backcmd(struct cmd *subcmd)
 {
   struct backcmd *cmd;
 
-  cmd = malloc(sizeof(*cmd));
-  memset(cmd, 0, sizeof(*cmd));
+  cmd = cmdalloc(sizeof(*cmd));
   cmd->type = BACK;
   cmd->cmd = subcmd;
   return (struct cmd *)cmd;
