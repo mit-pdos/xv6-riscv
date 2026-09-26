@@ -824,6 +824,34 @@ killstatus(char *s)
   exit(0);
 }
 
+// test that kill on unused process 0 doesn't set the killed flag
+void
+killzero(char *s)
+{
+  int pid, xst;
+
+  // 0 is an unused process
+  kill(0);
+
+  pid = fork();
+  if (pid < 0) {
+    printf("%s: fork failed\n", s);
+    exit(1);
+  }
+  if (pid == 0) {
+    exit(7);
+  }
+  if (wait(&xst) != pid) {
+    printf("%s: wait wrong pid\n", s);
+    exit(1);
+  }
+  if (xst != 7) {
+    printf("%s: child exited with status %d, expected 7\n", s, xst);
+    exit(1);
+  }
+  exit(0);
+}
+
 // meant to be run w/ at most two CPUs
 void
 preempt(char *s)
@@ -2958,6 +2986,7 @@ struct test {
   {exectest, "exectest"},
   {pipe1, "pipe1"},
   {killstatus, "killstatus"},
+  {killzero, "killzero"},
   {preempt, "preempt"},
   {exitwait, "exitwait"},
   {reparent, "reparent"},
