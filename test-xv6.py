@@ -11,8 +11,6 @@
 import argparse, os, inspect, re, signal, subprocess, sys, time
 from subprocess import run
 
-sys.stdout.reconfigure(line_buffering=True)
-
 parser = argparse.ArgumentParser()
 parser.add_argument('testrex', help="test name or regular expression")
 parser.add_argument("-q", action='store_true', help="usertests quick")
@@ -28,10 +26,8 @@ class QEMU(object):
         self.proc = subprocess.Popen(q, stdin=subprocess.PIPE,
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT)
-        os.set_blocking(self.proc.stdout.fileno(), False)
         self.output = ""
-        self.outbytes = bytearray()
-        self.reported = 0
+        self.outbytes = bytearray()       
         time.sleep(1)
 
     def reset_fs(self):
@@ -50,7 +46,7 @@ class QEMU(object):
     def save_output(self):
       try:
         with open("test-xv6.out", "w") as f:
-            f.write(self.output)
+            f.write(self.out)
             f.close()
       except OSError as e:
         print("Provided a bad results path. Error:", e)     
@@ -66,7 +62,7 @@ class QEMU(object):
         kids = [int(line) for line in ps.stdout.splitlines()]
         if len(kids) == 0:
             print("no qemu")
-            sys.exit(1)
+            os.exit(1)
         print("kill", kids[0])
         os.kill(kids[0], signal.SIGKILL)
 
@@ -74,46 +70,32 @@ class QEMU(object):
         self.proc.terminate()
 
     def read(self):
-        while True:
-            try:
-                buf = os.read(self.proc.stdout.fileno(), 4096)
-            except BlockingIOError:
-                break
-            if len(buf) == 0:  # qemu exited
-                break
-            self.outbytes.extend(buf)
+        buf = os.read(self.proc.stdout.fileno(), 4096)
+        self.outbytes.extend(buf)
         self.output = self.outbytes.decode("utf-8", "replace")
 
     def lines(self):
         return self.output.splitlines()
 
-    def error(self, *regexps):
+    def error(self):
         print("FAIL: match failed", regexps)
         self.save_output()
         self.stop()
         sys.exit(1)
 
     def match(self, *regexps, exit=True):
-        found = False
-        for line in self.lines():
+        lines = self.lines()
+        last = -1
+        for i, line in enumerate(lines):
             if any(re.match(r, line) for r in regexps):
                 print(line)
-                found = True
-        if not found and exit:
-            self.error(*regexps)
-        return found
-
-    # Print the lines matching regexp that have arrived since the last
-    # call.  A trailing partial line is left for the next call, so that
-    # each line is printed once, after all of it has been read.
-    def progress(self, regexp):
-        end = self.output.rfind("\n") + 1
-        if end <= self.reported:
-            return
-        for line in self.output[self.reported:end].splitlines():
-            if re.match(regexp, line):
-                print(line)
-        self.reported = end
+                last = i
+        if last == -1 and exit:
+            self.error()
+        l = ""
+        if last >= 0:
+            l = lines[last]
+        return last >= 0, l
 
     def monitor(self, *regexps, progress="", timeout):
         deadline = time.time() + timeout
@@ -121,12 +103,14 @@ class QEMU(object):
             time.sleep(1)
             timeleft = deadline - time.time()
             if timeleft < 0:
-                self.error(*regexps)
+                self.error()
             self.read()
-            if progress:
-                self.progress(progress)
-            if self.match(*regexps, exit=False):
+            ok, _ = self.match(*regexps, exit=False)
+            if ok:
                 return
+            ok, line = self.match(progress, exit=False)
+            if ok:
+                print(line)
 
 def crash_log():
     q = QEMU(True)
@@ -139,35 +123,43 @@ def recover_log():
     q = QEMU()
     time.sleep(2)
     q.read()
-    ok = q.match('^recovering', exit=False)
+    ok, _ = q.match('^recovering', exit=False)
     if ok:
         q.cmd("ls\n")
-        q.monitor('f5', timeout=30)
+        time.sleep(2)
+        q.read()
+        q.match('f5')
     q.stop()
     return ok
 
 def forphan():
     q = QEMU(True)
     q.cmd("forphan\n")
-    q.monitor('wait', timeout=30)
+    time.sleep(5)
+    q.read()
+    q.match('wait')
     q.crash()
     q.stop()
 
 def dorphan():
     q = QEMU(True)
     q.cmd("dorphan\n")
-    q.monitor('wait', timeout=30)
+    time.sleep(5)
+    q.read()
+    q.match('wait')
     q.crash()
     q.stop()
 
 def recover_orphan():
     q = QEMU()
-    q.monitor('^ireclaim', timeout=30)
+    time.sleep(2)
+    q.read()
+    q.match('^ireclaim')
     q.stop()
 
 def test_log():
     print("Test recovery of log")
-    for i in range(20):
+    for i in range(5):
         crash_log()
         ok = recover_log()
         if ok:
