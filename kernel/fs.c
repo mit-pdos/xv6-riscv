@@ -597,6 +597,9 @@ dirlookup(struct inode *dp, char *name, uint *poff)
   if (dp->type != T_DIR)
     unreachable("dirlookup not DIR");
 
+  if (dp->inum == myproc()->root->inum && !namecmp(name, ".."))
+    return idup(dp);
+
   for (off = 0; off < dp->size; off += sizeof(de)) {
     if (readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
       panic("dirlookup read");
@@ -694,7 +697,7 @@ namex(char *path, int nameiparent, char *name)
   struct inode *ip, *next;
 
   if (*path == '/')
-    ip = iget(ROOTDEV, ROOTINO);
+    ip = idup(myproc()->root);
   else
     ip = idup(myproc()->cwd);
 
@@ -738,4 +741,10 @@ struct inode *
 nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
+}
+
+struct inode *
+igetroot()
+{
+  return iget(ROOTDEV, ROOTINO);
 }

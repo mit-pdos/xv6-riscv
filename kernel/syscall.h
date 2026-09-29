@@ -22,3 +22,4 @@
 #define SYS_close   21
 #define SYS_sync    22
 #define SYS_seccomp 23
+#define SYS_chroot  24

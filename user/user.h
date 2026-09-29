@@ -26,6 +26,7 @@ int pause(int);
 int uptime(void);
 int sync(void);
 int seccomp(uint64);
+int chroot(const char *);
 
 // ulib.c
 int stat(const char *, struct stat *);

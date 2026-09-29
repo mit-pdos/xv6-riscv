@@ -232,7 +232,8 @@ userinit(void)
   p = allocproc();
   initproc = p;
 
-  p->cwd = namei("/");
+  p->root = igetroot();
+  p->cwd = idup(p->root);
   p->state = RUNNABLE;
   p->seccomp = ~0ULL;
 
@@ -295,6 +296,7 @@ kfork(void)
     if (p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
+  np->root = idup(p->root);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
   np->seccomp = p->seccomp;
@@ -353,6 +355,11 @@ kexit(int status)
   iput(p->cwd);
   end_op();
   p->cwd = 0;
+
+  begin_op();
+  iput(p->root);
+  end_op();
+  p->root = 0;
 
   acquire(&wait_lock);
 
