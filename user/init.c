@@ -11,6 +11,18 @@
 
 char *argv[] = {"sh", 0};
 
+void
+mkpseudo(char *name, int minor)
+{
+  int fd = open(name, O_RDWR);
+  if (fd >= 0) {
+    close(fd);
+    return;
+  }
+  if (mknod(name, PSEUDO, minor) < 0)
+    printf("init: mknod %s failed\n", name);
+}
+
 int
 main(void)
 {
@@ -22,6 +34,11 @@ main(void)
   }
   dup(0); // stdout
   dup(0); // stderr
+
+  mkpseudo("null", DEV_NULL);
+  mkpseudo("zero", DEV_ZERO);
+  mkpseudo("urandom", DEV_URANDOM);
+  mkpseudo("nullstat", DEV_NULLSTAT);
 
   for (;;) {
     printf("init: starting sh\n");

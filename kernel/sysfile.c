@@ -376,6 +376,7 @@ sys_open(void)
   if (ip->type == T_DEVICE) {
     f->type = FD_DEVICE;
     f->major = ip->major;
+    f->minor = ip->minor;
   } else {
     f->type = FD_INODE;
     f->off = 0;

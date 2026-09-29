@@ -60,7 +60,7 @@ struct {
 // uses sleep() and UART interrupts.
 //
 int
-consolewrite(int user_src, uint64 src, int n)
+consolewrite(int user_src, int minor, uint64 src, int n)
 {
   char buf[32]; // move batches from user space to uart.
   int i = 0;
@@ -85,7 +85,7 @@ consolewrite(int user_src, uint64 src, int n)
 // or kernel address.
 //
 int
-consoleread(int user_dst, uint64 dst, int n)
+consoleread(int user_dst, int minor, uint64 dst, int n)
 {
   uint target;
   int c;
