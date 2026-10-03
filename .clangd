@@ -1,0 +1,11 @@
+CompileFlags:
+  Add: [
+    "-target", "riscv64",
+    "-nostdinc",
+    "-I.",
+    "--query-driver=/**/riscv64-unknown-elf-gcc,/**/riscv64-linux-gnu-gcc"
+  ]
+  Remove: [
+    "-mno-relax",
+    "-fno-tree-loop-distribute-patterns"
+  ]
