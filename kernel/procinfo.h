@@ -1,8 +1,8 @@
 #ifndef _PROC_INFO_H_
 #define _PROC_INFO_H_
 
-#include "proc.h"
 #include "types.h"
+#include "procstate.h"
 
 struct procinfo {
 	int pid;
@@ -12,4 +12,3 @@ struct procinfo {
 };
 
 #endif
-
