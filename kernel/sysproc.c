@@ -7,6 +7,9 @@
 #include "proc.h"
 #include "vm.h"
 
+
+uint64 sys_interpose(void);
+
 uint64
 sys_exit(void)
 {
@@ -109,4 +112,58 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_sleep(void)
+{
+  int n;
+  uint ticks0;
+
+  // 1. Get the requested number of ticks from user space
+  argint(0, &n);
+
+  // 2. Acquire the tick lock to safely inspect global ticks
+  acquire(&tickslock);
+  ticks0 = ticks;
+  
+  // 3. Loop until the required ticks have passed
+  while(ticks - ticks0 < n){
+    if(killed(myproc())){
+      release(&tickslock);
+      return -1;
+    }
+    
+    // Use the new modern xv6 sleep pattern:
+    // a. Prepare to sleep on the &ticks channel
+    sleep_prepare(&ticks);
+    
+    // b. Release the lock before sleeping (as required by sleep_prepare pattern)
+    release(&tickslock);
+    
+    // c. Call the parameterless sleep function you found
+    sleep();
+    
+    // d. Re-acquire the tick lock to check the loop condition again safely
+    acquire(&tickslock);
+  }
+  
+  release(&tickslock);
+  return 0;
+}
+
+
+uint64 sys_interpose(void) {
+  int mask;
+  char path[MAXPATH];
+
+  argint(0, &mask);
+  argstr(1, path, MAXPATH);
+
+  struct proc* p = myproc();
+
+  p->interpose_mask = mask;
+  strncpy(p->interpose_allowed_path, path, MAXPATH);
+
+  return 0;
 }

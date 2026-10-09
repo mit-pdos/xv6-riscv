@@ -203,8 +203,9 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_sync\
-
-
+	$U/_sleep\
+	$U/_sixfive\
+	$U/_sandbox\
 
 
 ifeq ($(LAB),syscall)

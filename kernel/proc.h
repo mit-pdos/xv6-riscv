@@ -91,6 +91,8 @@ struct proc {
 
   // wait_lock must be held when using this:
   struct proc *parent; // Parent process
+  uint64 interpose_mask;
+  char interpose_allowed_path[MAXPATH];
 
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack
