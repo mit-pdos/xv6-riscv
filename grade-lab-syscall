@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+
+import re
+from gradelib import *
+
+r = Runner(save("xv6.out"))
+
+@test(5, "answers-syscall.txt")
+def test_answers():
+    # just a simple sanity check, will be graded manually
+    check_answers("answers-syscall.txt")
+
+@test(5, "sandbox_mask")
+def test_sandbox_mask():
+    r.run_qemu(shell_script([
+        'sandbox 32768 - echo "hello"',
+        'sandbox 32768 - cat README',
+        'sandbox 32768 - grep xv6 README',
+        'sandbox 128 - grep xv6 README',
+        'sandbox 32896 - grep xv6 README',
+        'sandbox 128 - sh < exec.sh',
+    ]))
+    r.match('^"hello"')
+    r.match('^cat: cannot open README')
+    r.match('^grep: cannot open README')
+    r.match('^sandbox: exec grep failed')
+    r.match('^sandbox: exec sh failed')
+
+@test(5, "sandbox_fork")
+def test_sandbox_fork():
+    r.run_qemu(shell_script([
+        'sandbox 32768 - sh < exec.sh',
+        'echo DONE',
+    ], 'DONE'))
+    matches = re.findall("hello world", r.qemu.output)
+    assert_equal(len(matches), 1, "Number of appearances of 'hello world'")
+    matches = re.findall("cannot open .", r.qemu.output)
+    assert_equal(len(matches), 1, "Number of appearances of 'ls: cannot open .'")
+
+@test(5, "sandbox_path")
+def test_sandbox_path():
+    r.run_qemu(shell_script([
+        'sandbox 32768 README grep xv6 README',
+        'cat README > x',
+        'sandbox 32768 README grep xv6 x',
+        'sandbox 32768 x grep xv6 x',
+        'sandbox 128 sh sh < exec.sh',
+    ]))
+    matches = re.findall("xv6", r.qemu.output)
+    assert_equal(len(matches), 12, "Number of appearances of 'xv6'")
+    r.match('^grep: cannot open x')
+    matches = re.findall("hello world!", r.qemu.output)
+    assert_equal(len(matches), 0, "Number of appearances of 'hello world' failed")
+    matches = re.findall("exec ls failed", r.qemu.output)
+    assert_equal(len(matches), 0, "Number of appearances of 'zombie' failed")
+
+# sandbox all calls except: exit, and exec grep
+@test(5, "sandbox_most")
+def test_sandbox_most():
+    r.run_qemu(shell_script([
+        'sandbox 2147483643 grep grep xv6 README',
+    ]))
+    matches = re.findall("xv6", r.qemu.output)
+    assert_equal(len(matches), 2, "Number of appearances of 'xv6'")
+    matches = re.findall("exec", r.qemu.output)
+    assert_equal(len(matches), 0, "Number of appearances of 'exec'")
+
+    # sandbox all calls except: exit, and exec grep
+
+@test(5, "sandbox_minus")
+def test_sandbox_bigpath():
+    r.run_qemu(shell_script([
+        'echo hello! > ---',
+        'sandbox 32768 --- grep hello! ---',
+    ]))
+    matches = re.findall("hello!", r.qemu.output)
+    assert_equal(len(matches), 3, "Number of appearances of 'hello!'")
+
+SYS_fork = 1
+SYS_getpid = 11
+SYS_open = 15
+
+# A masked system call must not run, must return -1, and must leave the caller
+# running.
+@test(5, "sandbox_block")
+def test_sandbox_block():
+    r.run_qemu(shell_script([
+        'sandbox %d - sbtest getpid' % (1 << SYS_getpid),
+        'sandbox %d - sbtest fork' % (1 << SYS_fork),
+        'echo DONE',
+    ]))
+    r.match('^sbtest: getpid ret -1',
+            '^sbtest: fork ret -1',
+            no=['^sbtest: CHILD RAN'])
+    matches = re.findall("sbtest: alive", r.qemu.output)
+    assert_equal(len(matches), 2, "Number of appearances of 'sbtest: alive'")
+
+@test(5, "sandbox_escape")
+def test_sandbox_escape():
+    r.run_qemu(shell_script([
+        'sandbox %d - sbtest escape' % (1 << SYS_open),
+        'echo DONE',
+    ]))
+    r.match('^sbtest: escape confined',
+            no=['^sbtest: escape ESCAPED'])
+
+@test(5, "sandbox_forkpath")
+def test_sandbox_forkpath():
+    r.run_qemu(shell_script([
+        'sandbox %d README sbtest forkpath' % (1 << SYS_open),
+        'echo DONE',
+    ]))
+    r.match('^sbtest: forkpath child README ok',
+            '^sbtest: forkpath child exec.sh denied',
+            no=['^sbtest: forkpath child README denied',
+                '^sbtest: forkpath child exec.sh ok'])
+
+@test(14, "attack")
+def test_attack():
+    secret = random_str(8)
+    r.run_qemu(shell_script([
+        'secret ' + secret,
+        'attack',
+        'attack'
+    ]))
+    r.match('^'+secret+'.*')
+
+@test(1, "time")
+def test_time():
+    check_time()
+
+run_tests()
+
+
+

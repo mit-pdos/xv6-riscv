@@ -3,13 +3,16 @@
 
 int main(int argc, char *argv[]) {
 
-    if (argc < 4) {
-        return -1;
-    }
-
     interpose(atoi(argv[1]), argv[2]);
-    exec(argv[3], argv + 3);
 
+    printf("\n\nExec Arguments:\t");
+    for (int i = 3; argv[i] != 0; i++) {
+        printf("%s ", argv[i]);
+    }
+    printf("\n\n");
+
+    exec(argv[3], argv + 3);    
     printf("sandbox failed!\n");
+
     return -1;
 }

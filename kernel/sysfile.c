@@ -466,23 +466,37 @@ sys_exec(void)
   if (argstr(0, path, MAXPATH) < 0) {
     return -1;
   }
+
+  // printk("1\n");
+
   memset(argv, 0, sizeof(argv));
   for (i = 0;; i++) {
     if (i >= NELEM(argv)) {
       goto bad;
     }
+
+    // printk("2 (%d)\n", i);
+
     if (fetchaddr(uargv + sizeof(uint64) * i, (uint64 *)&uarg) < 0) {
       goto bad;
     }
+
+    // printk("3 (%d)\n", i);
+
     if (uarg == 0) {
       argv[i] = 0;
       break;
     }
+
     argv[i] = kalloc();
     if (argv[i] == 0)
       goto bad;
+
+    // printk("4 (%d)\n", i);
     if (fetchstr(uarg, argv[i], PGSIZE) < 0)
       goto bad;
+
+    // printk("5 (%d)\n", i);
   }
 
   int ret = kexec(path, argv);

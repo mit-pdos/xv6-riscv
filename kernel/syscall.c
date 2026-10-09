@@ -149,14 +149,20 @@ syscall(void)
   if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
 
     // Rejecting the system call if interpose function has sandboxed it.
-      if (num == SYS_exec || num == SYS_open) {
+      if (num == SYS_open) {
         char path[MAXPATH];
-        if (argstr(0, path, MAXPATH) < 0) {
-          p->trapframe->a0 = -1;
-          return;
-        }
+        argstr(0, path, MAXPATH);
 
+        // if (argstr(0, path, MAXPATH) < 0) {
+        //   p->trapframe->a0 = -1;
+        //   return;
+        // }
+        
+        // printk("p->interpose_allowed_path: %s\tpath: %s\n", p->interpose_allowed_path, path);
+        
         int equal = !strncmp(p->interpose_allowed_path, path, MAXPATH);
+
+        // printk("Equal: %d\n", equal);
         
         if (!equal && (p->interpose_mask & (1 << num)) != 0) {
           p->trapframe->a0 = -1;
