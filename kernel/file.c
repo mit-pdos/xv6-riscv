@@ -47,11 +47,19 @@ filealloc(void)
 struct file *
 filedup(struct file *f)
 {
+  int mutexref = 0;
+
   acquire(&ftable.lock);
   if (f->ref < 1)
     panic("filedup");
   f->ref++;
+  if (f->type == FD_MUTEX)
+    mutexref = f->ref;
   release(&ftable.lock);
+
+  if (mutexref)
+    printk("mutex %p: pid %d filedup, ref=%d\n",
+           f->mutex, myproc()->pid, mutexref);
   return f;
 }
 
@@ -60,6 +68,14 @@ void
 fileclose(struct file *f)
 {
   struct file ff;
+
+  // close/exit must release a mutex held by the closing process,
+  // even when other descriptors still refer to the same file.
+  if (f->type == FD_MUTEX && f->mutex != 0 && holdingsleep(f->mutex)) {
+    printk("mutex %p: pid %d auto-unlock on close\n",
+           f->mutex, myproc()->pid);
+    releasesleep(f->mutex);
+  }
 
   acquire(&ftable.lock);
   if (f->ref < 1)
@@ -79,6 +95,8 @@ fileclose(struct file *f)
     begin_op();
     iput(ff.ip);
     end_op();
+  } else if (ff.type == FD_MUTEX) {
+    mutexclose(ff.mutex);
   }
 }
 
@@ -108,6 +126,9 @@ fileread(struct file *f, uint64 addr, int n)
 {
   int r = 0;
 
+  if (f->type == FD_MUTEX)
+    return -1;
+
   if (f->readable == 0 || n < 0)
     return -1;
 
@@ -135,6 +156,9 @@ int
 filewrite(struct file *f, uint64 addr, int n)
 {
   int r, ret = 0;
+
+  if (f->type == FD_MUTEX)
+    return -1;
 
   if (f->writable == 0 || n < 0)
     return -1;

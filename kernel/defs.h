@@ -182,5 +182,11 @@ void            virtio_disk_init(void);
 void            virtio_disk_rw(struct buf *, int);
 void            virtio_disk_intr(void);
 
+int             argfd(int, int *, struct file **);
+int             fdalloc(struct file *);
+
+int             mutexalloc(struct file **);
+void            mutexclose(struct sleeplock *);
+
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x) / sizeof((x)[0]))
