@@ -46,3 +46,17 @@ You will need a RISC-V "newlib" tool chain from
 https://github.com/riscv/riscv-gnu-toolchain, and qemu compiled for
 riscv64-softmmu.  Once they are installed, and in your shell
 search path, you can run "make qemu".
+
+Operating System Modules:
+1. Smart Process Scheduler
+2. Memory Allocation Monitor
+3. Mini File System
+4. Deadlock Detection System
+5. Interrupt & Event Handler
+
+Computer Architecture Modules:
+1. CPU Register Simulator
+2. Instruction Cycle Simulator
+3. Mini ALU
+4. Cache Hit/Miss Simulator
+5. Instruction Decoder & Control Unit
