@@ -25,17 +25,18 @@ main(int argc, char **argv)
     exit(1);
   }
 
-  printf("pid\tstate\t\tsize\tppid\tname\n");
+  printf("pid\tstate\t\tsize\tppid\tpriority\tname\n");
 
   for(i = 0; i < nprocs; i++){
     state = states[uproc[i].state];
 
-    printf("%d\t%s\t%ld\t%d\t%s\n",
-           uproc[i].pid,
-           state,
-           uproc[i].size,
-           uproc[i].ppid,
-           uproc[i].name);
+    printf("%d\t%s\t%ld\t%d\t%d\t%s\n",
+       uproc[i].pid,
+       state,
+       uproc[i].size,
+       uproc[i].ppid,
+       uproc[i].priority,
+       uproc[i].name);
   }
 
   exit(0);

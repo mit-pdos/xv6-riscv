@@ -132,3 +132,20 @@ sys_getprocs(void)
   argaddr(0, &addr);
   return getprocs(addr);
 }
+
+// Return the current process priority.
+uint64
+sys_getpriority(void)
+{
+  return getpriority();
+}
+
+// Change the current process priority.
+uint64
+sys_setpriority(void)
+{
+  int priority;
+
+  argint(0, &priority);
+  return setpriority(priority);
+}

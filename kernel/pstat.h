@@ -9,6 +9,7 @@ struct pstat {
     enum procstate state;
     uint64 size;
     int ppid;
+    int priority;
     char name[16];
 };
 

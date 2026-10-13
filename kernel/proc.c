@@ -125,6 +125,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->cputime = 0;
+  p->priority = 0;
   p->state = USED;
 
   // Allocate a trapframe page.
@@ -169,6 +170,7 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->priority = 0;
   p->state = UNUSED;
 }
 
@@ -282,6 +284,11 @@ kfork(void)
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
+
+  // Child inherits the parent's priority.
+  acquire(&p->lock);
+  np->priority = p->priority;
+  release(&p->lock);
 
   // increment reference counts on open file descriptors.
   for (i = 0; i < NOFILE; i++)
@@ -762,6 +769,7 @@ getprocs(uint64 addr)
       info.state = p->state;
       info.size = p->sz;
       info.ppid = p->parent ? p->parent->pid : 0;
+      info.priority = p->priority;
       safestrcpy(info.name, p->name, sizeof(info.name));
 
       if(copyout(current->pagetable, current->sz,
@@ -810,4 +818,34 @@ procdump(void)
     printk("%d %s %s", p->pid, state, p->name);
     printk("\n");
   }
+}
+
+// Return the priority of the current process.
+int
+getpriority(void)
+{
+  struct proc *p = myproc();
+  int priority;
+
+  acquire(&p->lock);
+  priority = p->priority;
+  release(&p->lock);
+
+  return priority;
+}
+
+// Set the priority of the current process.
+int
+setpriority(int priority)
+{
+  struct proc *p = myproc();
+
+  if (priority < 0 || priority > 49)
+    return -1;
+
+  acquire(&p->lock);
+  p->priority = priority;
+  release(&p->lock);
+
+  return 0;
 }
