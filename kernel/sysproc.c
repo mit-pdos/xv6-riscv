@@ -122,3 +122,13 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// System call to retrieve process information.
+uint64
+sys_getprocs(void)
+{
+  uint64 addr;
+
+  argaddr(0, &addr);
+  return getprocs(addr);
+}

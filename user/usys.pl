@@ -44,3 +44,4 @@ entry("sbrk");
 entry("pause");
 entry("uptime");
 entry("sync");
+entry("getprocs");
