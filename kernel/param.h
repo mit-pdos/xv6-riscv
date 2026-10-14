@@ -19,3 +19,7 @@
 
 // Change this value to select the scheduler.
 #define SCHED_POLICY SCHED_PRIORITY
+
+// Priority aging configuration.
+#define AGING_ENABLED 1
+#define AGING_INTERVAL 5

@@ -523,7 +523,6 @@ scheduler(void)
 
 #if SCHED_POLICY == SCHED_RR
 
-    // Original round-robin scheduler.
     int found = 0;
 
     for(p = proc; p < &proc[NPROC]; p++) {
@@ -548,17 +547,31 @@ scheduler(void)
 
 #elif SCHED_POLICY == SCHED_PRIORITY
 
-    // Find the runnable process with the highest priority.
-    struct proc *best;
-    best = 0;
+    struct proc *best = 0;
     int highest = -1;
+    uint bestwait = 0;
+    uint now = ticks;
 
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
 
-      if(p->state == RUNNABLE && p->priority > highest) {
-        highest = p->priority;
-        best = p;
+      if(p->state == RUNNABLE) {
+        uint waited = now - p->readytime;
+        int effective = p->priority;
+
+        #if AGING_ENABLED
+            effective += waited / AGING_INTERVAL;
+
+            if(effective > 49)
+                effective = 49;
+        #endif
+
+        if(effective > highest ||
+           (effective == highest && waited > bestwait)) {
+          highest = effective;
+          bestwait = waited;
+          best = p;
+        }
       }
 
       release(&p->lock);
@@ -567,7 +580,6 @@ scheduler(void)
     if(best != 0) {
       acquire(&best->lock);
 
-      // Recheck because process state may have changed.
       if(best->state == RUNNABLE) {
         best->state = RUNNING;
         c->proc = best;
