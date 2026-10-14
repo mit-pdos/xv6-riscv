@@ -562,8 +562,8 @@ scheduler(void)
         #if AGING_ENABLED
             effective += waited / AGING_INTERVAL;
 
-            if(effective > 49)
-                effective = 49;
+            if(effective > 99)
+                effective = 99;
         #endif
 
         if(effective > highest ||
