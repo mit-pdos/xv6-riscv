@@ -90,6 +90,7 @@ struct proc {
   int pid;              // Process ID
   uint cputime;
   int priority;         // Process priority
+  uint readytime;       // Tick when the process became RUNNABLE.
 
   // wait_lock must be held when using this:
   struct proc *parent; // Parent process

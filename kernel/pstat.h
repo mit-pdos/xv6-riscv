@@ -10,6 +10,7 @@ struct pstat {
     uint64 size;
     int ppid;
     int priority;
+    uint readytime;
     char name[16];
 };
 
