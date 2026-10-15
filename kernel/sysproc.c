@@ -29,11 +29,20 @@ sys_fork(void)
 }
 
 uint64
-sys_wait(void)
+sys_wait(void) 
 {
   uint64 p;
   argaddr(0, &p);
   return kwait(p);
+}
+
+// getfilenum 
+uint64
+sys_getfilenum(void)
+{
+  int pid;
+  argint(0, &pid);
+  return getfilenum(pid);
 }
 
 uint64
