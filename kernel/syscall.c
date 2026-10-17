@@ -105,6 +105,8 @@ extern uint64 sys_close(void);
 extern uint64 sys_sync(void);
 extern uint64 sys_add(void);
 extern uint64 sys_mutex(void);
+extern uint64 sys_mutex_lock(void);
+extern uint64 sys_mutex_unlock(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.

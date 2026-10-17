@@ -153,6 +153,7 @@ UPROGS=\
 	$U/_sync\
 	$U/_test1\
 	$U/_sum\
+	$U/_usertest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

@@ -45,3 +45,5 @@ entry("uptime");
 entry("sync");
 entry("add");
 entry("mutex");
+entry("mutex_lock");
+entry("mutex_unlock");
