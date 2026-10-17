@@ -18,10 +18,10 @@ mutexalloc(struct file **f)
   if ((*f = filealloc()) == 0) // Если заняты все ячейки в файловой таблице
     goto bad;
   
-  if (lk = (struct sleeplock*)kalloc() == 0)
+  if ((lk = (struct sleeplock*)kalloc()) == 0)
     goto bad;
 
-  printf("kalloc pid %d: sleeplock %p\n", myproc()->pid, lk);
+  printk("kalloc pid %d: sleeplock %p\n", myproc()->pid, lk);
 
   initsleeplock(lk, "mutex"); // Создается освобожденным
 
@@ -30,7 +30,7 @@ mutexalloc(struct file **f)
   (*f)->writable = 0;
   (*f)->mutex = lk;
 
-  printf("mutexalloc pid %d: mutex %p, file %p\n", myproc()->pid, lk, *f);
+  printk("mutexalloc pid %d: mutex %p, file %p\n", myproc()->pid, lk, *f);
   return  0;
 
   bad:
@@ -42,8 +42,8 @@ mutexalloc(struct file **f)
 void
 mutexclose(struct sleeplock *lk)
 {
-  printf("mutexclose pid %d: mutex %p\n", myproc()->pid, lk);
-  printf("kfree pid %d: sleeplock %p\n", myproc()->pid, lk);
+  printk("mutexclose pid %d: mutex %p\n", myproc()->pid, lk);
+  printk("kfree pid %d: sleeplock %p\n", myproc()->pid, lk);
   kfree((void*)lk);
   
 }
