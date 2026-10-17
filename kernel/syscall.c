@@ -136,6 +136,8 @@ static uint64 (*syscalls[])(void) = {
   [SYS_sync]    = sys_sync,
   [SYS_add]     = sys_add,
   [SYS_mutex]   = sys_mutex,
+  [SYS_mutex_lock]   = sys_mutex_lock,
+  [SYS_mutex_unlock]   = sys_mutex_unlock,
   // clang-format on
 };
 
