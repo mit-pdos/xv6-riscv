@@ -48,3 +48,8 @@ void printf(const char *, ...) __attribute__((format(printf, 1, 2)));
 // umalloc.c
 void *malloc(uint);
 void free(void *);
+
+// mutex.c
+int mutex(void);
+int mutex_lock(int);
+int mutex_unlock(int);
