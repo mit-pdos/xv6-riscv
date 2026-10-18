@@ -16,6 +16,17 @@
 #include "file.h"
 #include "fcntl.h"
 
+static struct inode *create(char *, short, short, short);
+static struct sleeplock pwalk_lock;
+static uint64 pwalk_calls;
+
+void
+pwalkinit(void)
+{
+  initsleeplock(&pwalk_lock, "pwalk");
+  pwalk_calls = 0;
+}
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -92,6 +103,113 @@ sys_write(void)
     return -1;
 
   return filewrite(f, p, n);
+}
+
+static void
+pwalk_hex(char **dst, uint64 value, int digits)
+{
+  static char hex[] = "0123456789abcdef";
+
+  for (int i = digits - 1; i >= 0; i--)
+    *(*dst)++ = hex[(value >> (i * 4)) & 0xf];
+}
+
+static int
+pwalk_append(struct inode *ip, const char *line, int len)
+{
+  int written;
+  begin_op();
+  ilock(ip);
+  written = writei(ip, 0, (uint64)line, ip->size, len);
+  iunlock(ip);
+  end_op();
+  return written == len ? 0 : -1;
+}
+
+static int
+pwalk_header(struct inode *ip, uint64 call)
+{
+  char line[48];
+  char *p = line;
+  static const char prefix[] = "=== pwalk call 0x";
+
+  for (int i = 0; i < sizeof(prefix) - 1; i++)
+    *p++ = prefix[i];
+  pwalk_hex(&p, call, 16);
+  *p++ = ' ';
+  *p++ = '=';
+  *p++ = '=';
+  *p++ = '=';
+  *p++ = '\n';
+  return pwalk_append(ip, line, p - line);
+}
+
+static int
+pwalk_entry(struct inode *ip, int level, int index, pte_t pte)
+{
+  char line[32];
+  char *p = line;
+
+  *p++ = 'L';
+  *p++ = '0' + level;
+  *p++ = '[';
+  pwalk_hex(&p, index, 3);
+  *p++ = ']';
+  *p++ = ' ';
+  *p++ = '0';
+  *p++ = 'x';
+  pwalk_hex(&p, pte, 16);
+  *p++ = '\n';
+  return pwalk_append(ip, line, p - line);
+}
+
+static int
+pwalk_table(pagetable_t pagetable, int level, struct inode *ip)
+{
+  for (int i = 0; i < 512; i++) {
+    pte_t pte = pagetable[i];
+    if ((pte & PTE_V) == 0)
+      continue;
+    if (pwalk_entry(ip, level, i, pte) < 0)
+      return -1;
+    if (level > 0 && (pte & (PTE_R | PTE_W | PTE_X)) == 0 &&
+        pwalk_table((pagetable_t)PTE2PA(pte), level - 1, ip) < 0)
+      return -1;
+  }
+  return 0;
+}
+
+uint64
+sys_pwalk(void)
+{
+  struct inode *ip;
+  int result;
+
+  acquiresleep(&pwalk_lock);
+  begin_op();
+  if ((ip = create("/pwalk.txt", T_FILE, 0, 0)) == 0) {
+    end_op();
+    releasesleep(&pwalk_lock);
+    return -1;
+  }
+  if (ip->type != T_FILE) {
+    iunlockput(ip);
+    end_op();
+    releasesleep(&pwalk_lock);
+    return -1;
+  }
+  iunlock(ip);
+  end_op();
+
+  result = pwalk_header(ip, ++pwalk_calls);
+  if (result == 0)
+    result = pwalk_table(myproc()->pagetable, 2, ip);
+
+  begin_op();
+  iput(ip);
+  end_op();
+  releasesleep(&pwalk_lock);
+  return result;
 }
 
 uint64

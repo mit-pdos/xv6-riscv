@@ -27,6 +27,7 @@ main()
     binit();            // buffer cache
     iinit();            // inode table
     fileinit();         // file table
+    pwalkinit();        // initialize page-table dump serialization
     virtio_disk_init(); // emulated hard disk
     userinit();         // first user process
 

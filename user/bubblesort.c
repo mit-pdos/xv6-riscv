@@ -10,6 +10,7 @@ bubble_sort(int *numbers, int count)
   int i, j, temporary, swapped;
 
   for (i = 0; i < count - 1; i++) {
+    pwalk();
     count_g ++;
     swapped = 0;
     for (j = 0; j < count - i - 1; j++) {

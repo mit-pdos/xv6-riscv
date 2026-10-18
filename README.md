@@ -21,6 +21,25 @@ you want to trace. The default for symbol generation is `user/_bubblesort`.
 The plugin writes `qemu-trace.csv` in the repository root. Make sure the
 executable and `.sym` file used for analysis match the selected program.
 
+## Run the PolyBench 2mm benchmark
+
+The PolyBench 2mm matrix-multiplication benchmark is included in the xv6 file
+system image. Start xv6 with its executable selected for trace labels:
+
+```sh
+make qemu USER_PROGRAM=user/_polybench
+```
+
+At the xv6 shell, run the benchmark as a user process:
+
+```sh
+polybench
+```
+
+It prints elapsed xv6 ticks and a checksum for the result. `USER_PROGRAM`
+selects the executable used to label the QEMU trace; it does not start the
+benchmark automatically.
+
 ## Analyze a trace with the Python tools
 
 Run the scripts from the repository root with Python 3. They need no third-party
