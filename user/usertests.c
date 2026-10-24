@@ -2782,7 +2782,7 @@ lazy_sbrk(char *s)
   char *p = sbrk(0);
   while ((uint64)p < MAXVA - (1 << 30)) {
     p = sbrklazy(1 << 30);
-    if (p < 0) {
+    if (p == SBRK_ERROR) {
       printf("sbrklazy(%d) returned %p\n", 1 << 30, p);
       exit(1);
     }
@@ -2793,13 +2793,13 @@ lazy_sbrk(char *s)
   int n = TRAPFRAME - PGSIZE - (uint64)p;
 
   char *p1 = sbrklazy(n);
-  if (p1 < 0 || p1 != p) {
+  if (p1 == SBRK_ERROR || p1 != p) {
     printf("sbrklazy(%d) returned %p, not expected %p\n", n, p1, p);
     exit(1);
   }
 
   p = sbrk(PGSIZE);
-  if (p < 0 || (uint64)p != TRAPFRAME - PGSIZE) {
+  if (p == SBRK_ERROR || (uint64)p != TRAPFRAME - PGSIZE) {
     printf("sbrk(%d) returned %p, not expected TRAPFRAME-PGSIZE\n", PGSIZE, p);
     exit(1);
   }
