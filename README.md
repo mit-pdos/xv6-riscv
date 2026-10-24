@@ -63,12 +63,16 @@ python3 tools/trace_memory.py qemu-trace.csv --array-base 0x14fe0 --count 5
 # Pair each memory access with its disassembled instruction
 python3 tools/trace_disasm.py qemu-trace.csv user/_bubblesort \
   --symbols user/bubblesort.sym
+
+# Append per-page read/write counts, using the latest walk in pwalk.txt
+python3 tools/trace_page_accesses.py qemu-trace.csv
 ```
 
 The disassembly tool requires a RISC-V `objdump` executable in `PATH`. Symbol
 mapping is approximate: `.sym` files map function symbols, not stack addresses
 to local C variables. Trace memory replay only reflects recorded writes, and
-the CSV may not identify the process that owned an address.
+the CSV may not identify the process that owned an address. The page-access
+tool reports pages missing from the latest page-walk snapshot as unmapped.
 
 ## Ask the QEMU Trace Decoder agent
 
