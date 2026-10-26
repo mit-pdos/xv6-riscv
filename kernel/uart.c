@@ -38,8 +38,9 @@
 #define LSR_RX_READY    (1 << 0) // input is waiting to be read from RHR
 #define LSR_TX_IDLE     (1 << 5) // THR can accept another character to send
 
-// for sending threads to serialize their writes
-static struct sleeplock tx_lock;
+// for transmission.
+static struct spinlock tx_lock;
+static int tx_busy; // is the UART busy sending?
 static int tx_chan; // &tx_chan is the "wait channel"
 
 extern volatile int panicking; // from printk.c
@@ -70,7 +71,7 @@ uartinit(void)
   // enable transmit and receive interrupts.
   WriteReg(IER, IER_TX_ENABLE | IER_RX_ENABLE);
 
-  initsleeplock(&tx_lock, "uart");
+  initlock(&tx_lock, "uart");
 }
 
 // transmit buf[] to the uart. it blocks if the
@@ -79,20 +80,23 @@ uartinit(void)
 void
 uartwrite(char buf[], int n)
 {
-  acquiresleep(&tx_lock);
+  acquire(&tx_lock);
 
   int i = 0;
   while (i < n) {
-    sleep_prepare(&tx_chan);
-    if (ReadReg(LSR) & LSR_TX_IDLE) {
-      WriteReg(THR, buf[i]);
-      i += 1;
-    } else {
+    while(tx_busy != 0){
+      // wait for a UART interrupt to set tx_busy to 0.
+      sleep_prepare(&tx_chan);
+      release(&tx_lock);
       sleep();
+      acquire(&tx_lock);
     }
+    WriteReg(THR, buf[i]);
+    i += 1;
+    tx_busy = 1;
   }
 
-  releasesleep(&tx_lock);
+  release(&tx_lock);
 }
 
 // write a byte to the uart without using
@@ -140,10 +144,13 @@ uartintr(void)
 {
   ReadReg(ISR); // acknowledge the interrupt
 
+  acquire(&tx_lock);
   if (ReadReg(LSR) & LSR_TX_IDLE) {
     // UART finished transmitting; wake up sending thread.
+    tx_busy = 0;
     wakeup(&tx_chan);
   }
+  release(&tx_lock);
 
   // read and process incoming characters, if any.
   while (1) {
