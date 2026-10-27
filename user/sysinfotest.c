@@ -4,6 +4,7 @@
 
 static struct sysinfo info;
 
+#include "user/sysinfo_print.h"
 #include "user/test_file.h"
 #include "user/test_proc.h"
 #include "user/test_misc.h"
@@ -15,10 +16,12 @@ main(void)
     printf("sysinfo failed\n");
     exit(1);
   }
-  printf("nfile=%d nproc=%d\n", info.nfile, info.nproc);
+  print_sysinfo(&info);
 
   test_file();
   test_proc();
   test_misc();
-  exit(0);
+
+  printf("\nTOTAL: %d passed, %d failed\n", sysinfo_npass, sysinfo_nfail);
+  exit(sysinfo_nfail ? 1 : 0);
 }
