@@ -52,10 +52,10 @@ TOOLPREFIX := $(shell if riscv64-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' 
 	echo "***" 1>&2; exit 1; fi)
 endif
 
-QEMU = /home/kplat/qemu/build/qemu-system-riscv64
+QEMU ?= qemu-system-riscv64
 MIN_QEMU_VERSION = 7.2
 
-QEMU_SRC = /home/kplat/qemu
+QEMU_SRC ?= /usr/local
 
 PLUGIN_DIR = qemu-plugins
 PLUGIN_SRC = $(PLUGIN_DIR)/xv6trace.c
@@ -71,7 +71,8 @@ PLUGIN_CC = gcc
 
 QEMU_PLUGIN_INC := $(firstword \
 	$(wildcard $(QEMU_SRC)/include/plugins) \
-	$(wildcard $(QEMU_SRC)/include/qemu))
+	$(wildcard $(QEMU_SRC)/include/qemu) \
+	$(wildcard /usr/include/qemu))
 
 PLUGIN_CFLAGS = \
 	-O3 \

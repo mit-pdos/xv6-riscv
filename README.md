@@ -66,7 +66,6 @@ python3 tools/trace_disasm.py qemu-trace.csv user/_bubblesort \
 
 # Append per-page read/write counts, using the latest walk in pwalk.txt
 python3 tools/trace_page_accesses.py qemu-trace.csv
-```
 
 The disassembly tool requires a RISC-V `objdump` executable in `PATH`. Symbol
 mapping is approximate: `.sym` files map function symbols, not stack addresses

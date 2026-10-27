@@ -46,6 +46,7 @@ parse_integer(char *text)
 int
 main(int argc, char *argv[])
 {
+  kwalk();
   int i;
   int *numbers;
 
@@ -72,6 +73,7 @@ main(int argc, char *argv[])
   }
   printf("\n");
 
+  kwalk();
   free(numbers);
   exit(0);
 }

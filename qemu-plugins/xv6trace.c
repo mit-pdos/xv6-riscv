@@ -296,9 +296,9 @@ static void user_pc_exec(unsigned int vcpu_index, void *userdata)
  * We extract the information we need here because the TB handle is only
  * valid for the duration of this callback.
  */
-static void tb_trans(struct qemu_plugin_tb *tb, void *userdata)
+static void tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
 {
-    (void)userdata;
+    (void)id;
 
     uint64_t pc = qemu_plugin_tb_vaddr(tb);
 
@@ -346,8 +346,9 @@ static void tb_trans(struct qemu_plugin_tb *tb, void *userdata)
 /*
  * Called when QEMU shuts down.
  */
-static void plugin_exit(void *userdata)
+static void plugin_exit(qemu_plugin_id_t id, void *userdata)
 {
+    (void)id;
     (void)userdata;
 
     if (trace_file != NULL) {
@@ -469,11 +470,7 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(
     /*
      * Ask QEMU to notify us whenever it translates a block.
      */
-    qemu_plugin_register_vcpu_tb_trans_cb(
-        id,
-        tb_trans,
-        NULL
-    );
+    qemu_plugin_register_vcpu_tb_trans_cb(id, tb_trans);
 
     /*
      * Cleanly close the trace when QEMU exits.

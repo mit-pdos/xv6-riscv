@@ -104,3 +104,4 @@ struct proc {
 };
 
 extern struct proc *initproc;
+extern struct proc proc[NPROC];
