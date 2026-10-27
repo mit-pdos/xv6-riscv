@@ -701,3 +701,10 @@ procdump(void)
     printk("\n");
   }
 }
+
+// TODO(B): thay stub này bằng bản đầy đủ
+int
+fill_procinfo(uint64 addr)
+{
+  return 0;
+}

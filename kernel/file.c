@@ -177,3 +177,17 @@ filewrite(struct file *f, uint64 addr, int n)
 
   return ret;
 }
+
+// TODO(A): thay stub này bằng bản đầy đủ
+int
+fill_fileinfo(uint64 addr)
+{
+  return 0;
+}
+
+// Chỉ số của f trong ftable.file (B dùng trong fill_procinfo)
+int
+fileindex(struct file *f)
+{
+  return f - ftable.file;
+}
