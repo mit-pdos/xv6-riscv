@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "sysinfo.h"
 
 struct cpu cpus[NCPU];
 
@@ -124,6 +125,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->sched_count = 0;
 
   // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
@@ -449,6 +451,7 @@ scheduler(void)
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
+        p->sched_count++;
         c->proc = p;
         swtch(&c->context, &p->context);
 
@@ -702,9 +705,52 @@ procdump(void)
   }
 }
 
-// TODO(B): thay stub này bằng bản đầy đủ
+// Fill the nproc and procs[] fields of the user's struct sysinfo.
+// (fill_fileinfo fills the file fields; both write to the same struct.)
+// struct sysinfo is too big for the 4KB kernel stack, so each procinfo
+// is built in a small local variable and copied out on its own.
 int
 fill_procinfo(uint64 addr)
 {
+  struct proc *mp = myproc();
+  struct proc *p;
+  struct procinfo pi;
+  int n = 0;
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    // lock order: wait_lock (protects p->parent), then p->lock
+    acquire(&wait_lock);
+    acquire(&p->lock);
+    if (p->state == UNUSED) {
+      release(&p->lock);
+      release(&wait_lock);
+      continue;
+    }
+    memset(&pi, 0, sizeof(pi));
+    pi.pid = p->pid;
+    pi.state = p->state;
+    pi.ppid = p->parent ? p->parent->pid : 0;
+    pi.sched_count = p->sched_count;
+    for (int fd = 0; fd < NOFILE; fd++) {
+      if (p->ofile[fd]) {
+        pi.fds[pi.nfd] = fd;
+        pi.fileids[pi.nfd] = fileindex(p->ofile[fd]);
+        pi.nfd++;
+      }
+    }
+    release(&p->lock);
+    release(&wait_lock);
+
+    // copyout must not run while holding a spinlock
+    if (copyout(mp->pagetable, mp->sz,
+                addr + offsetof(struct sysinfo, procs) + n * sizeof(pi),
+                (char *)&pi, sizeof(pi)) < 0)
+      return -1;
+    n++;
+  }
+
+  if (copyout(mp->pagetable, mp->sz, addr + offsetof(struct sysinfo, nproc),
+              (char *)&n, sizeof(n)) < 0)
+    return -1;
   return 0;
 }
