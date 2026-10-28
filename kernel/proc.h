@@ -101,4 +101,7 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // p->lock must be held when using this:
+  int sched_count;             // Number of times scheduled to run
 };
