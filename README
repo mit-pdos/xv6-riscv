@@ -46,3 +46,193 @@ You will need a RISC-V "newlib" tool chain from
 https://github.com/riscv/riscv-gnu-toolchain, and qemu compiled for
 riscv64-softmmu.  Once they are installed, and in your shell
 search path, you can run "make qemu".
+
+-------------------------------------------------------------------------------------
+submitted by: Roha Fawad Kundi (BCS-F24-M10)
+DEPARTMENT OF COMPUTER SCIENCE, 5TH SEMESTER(Regular)
+
+
+Proposed xv6-RISC-V Kernel Enhancements
+
+Project Overview
+
+This project proposes ten enhancements to the existing xv6-RISC-V educational operating system. The aim is to improve process scheduling, memory monitoring, security, resource management, fault diagnosis, and kernel testing.
+
+The enhancements will be studied and developed incrementally. Each module will be tested in the xv6-RISC-V environment to evaluate its correctness and impact on existing kernel functionality.
+
+Objectives
+
+* Improve process and resource management.
+* Introduce additional kernel-level security controls.
+* Make memory and system-call behavior easier to analyze.
+* Improve fault diagnosis and process-failure handling.
+* Provide repeatable tests for selected kernel components.
+
+Proposed Modules
+
+1. Adaptive Process Scheduler
+
+Purpose: Improve CPU scheduling by considering process waiting time and CPU usage.
+
+Proposed features:
+
+* Track how long a process waits for CPU time.
+* Adjust scheduling priority according to a defined policy.
+* Reduce the risk of processes waiting indefinitely.
+* Record scheduling statistics for evaluation.
+
+Expected outcome: A scheduling policy that can be compared with the existing xv6 scheduler.
+
+2. Memory Allocation Tracker
+
+Purpose: Monitor memory allocation and release activity in the kernel.
+
+Proposed features:
+
+* Count memory allocation and deallocation events.
+* Track allocated and free physical pages.
+* Report memory usage statistics.
+* Identify suspicious allocation patterns for debugging.
+
+Expected outcome: Better visibility into memory usage and allocation behavior.
+
+3. System Call Permission Guard
+
+Purpose: Introduce configurable restrictions on selected system calls.
+
+Proposed features:
+
+* Define a policy for allowing or blocking selected system calls.
+* Apply restrictions to designated processes.
+* Record blocked system-call attempts.
+* Test whether restrictions are enforced by the kernel.
+
+Expected outcome: A basic kernel-level mechanism for experimenting with system-call access control.
+
+4. Kernel Fault Diagnosis Module
+
+Purpose: Make selected kernel errors easier to investigate.
+
+Proposed features:
+
+* Record important diagnostic events.
+* Include relevant process IDs and error information.
+* Maintain a limited history of recent events.
+* Provide a command to display diagnostic records.
+
+Expected outcome: More useful information for debugging kernel behavior.
+
+5. Resource Quota Manager
+
+Purpose: Apply configurable resource limits to processes.
+
+Proposed features:
+
+* Define a supported resource limit for a process.
+* Monitor resource consumption against that limit.
+* Handle quota violations according to a documented policy.
+* Report processes that reach their limits.
+
+Expected outcome: A basic mechanism for testing controlled resource consumption.
+
+6. File Integrity Verification
+
+Purpose: Detect unexpected changes to selected files.
+
+Proposed features:
+
+* Calculate a checksum for a selected file.
+* Store or provide a reference checksum for comparison.
+* Verify a file against its reference checksum.
+* Report mismatches and verification errors.
+
+Expected outcome: A basic file-change detection mechanism, subject to xv6 filesystem capabilities.
+
+7. Process Failure Monitoring and Recovery
+
+Purpose: Improve visibility into process failures and explore controlled recovery.
+
+Proposed features:
+
+* Record process termination and available exit information.
+* Maintain statistics about failed or terminated processes.
+* Identify repeated failures in test scenarios.
+* Explore restarting a designated user-level test program through a supervisor.
+
+Expected outcome: Better process-failure diagnostics and a foundation for controlled recovery experiments.
+
+8. System Call Performance Analyzer
+
+Purpose: Analyze system-call frequency and performance.
+
+Proposed features:
+
+* Count calls by system-call type.
+* Measure elapsed timer ticks where supported.
+* Identify frequently used or comparatively expensive calls.
+* Display collected statistics through a user-level command.
+
+Expected outcome: Quantitative information for evaluating system-call behavior.
+
+9. Process Sleep and Wake Monitor
+
+Purpose: Study process waiting and wake-up behavior.
+
+Proposed features:
+
+* Record selected sleep and wake-up events.
+* Track waiting and wake-up statistics.
+* Identify repeated wake-ups in test programs.
+* Display collected information for analysis.
+
+Expected outcome: Better understanding of process synchronization and waiting behavior.
+
+10. Kernel Self-Test and Health Monitor
+
+Purpose: Provide repeatable tests for selected kernel functionality.
+
+Proposed features:
+
+* Test memory allocation and release behavior.
+* Test process creation and termination.
+* Check selected system-call results.
+* Report test outcomes and diagnostic information.
+
+Expected outcome: A repeatable testing mechanism to help detect regressions after kernel changes.
+
+Proposed Development Approach
+
+1. Study the relevant xv6-RISC-V source code and documentation.
+2. Review the feasibility and scope of each proposed module.
+3. Implement changes incrementally, beginning with manageable modules.
+4. Test each enhancement in the xv6-RISC-V environment.
+5. Check that existing kernel functionality continues to work.
+6. Document implementation decisions, limitations, and test results.
+
+Tools and Environment
+
+* xv6-RISC-V source code
+* C and RISC-V assembly, where required
+* RISC-V toolchain and QEMU emulator
+* Git and GitHub for version control
+* xv6-RISC-V book and documentation
+
+Project Status
+
+Current stage: Proposal and planning.
+
+The modules listed above are proposed enhancements. Their implementation and testing will be documented as development progresses. Final scope may be refined after feasibility analysis and supervisor feedback.
+
+References
+
+* xv6-RISC-V source code: https://github.com/mit-pdos/xv6-riscv
+* xv6-RISC-V book: https://github.com/mit-pdos/xv6-riscv-book
+
+
+
+
+
+
+
+
+
