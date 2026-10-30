@@ -740,6 +740,69 @@ exectest(char *s)
   }
 }
 
+// A zero-length pipe read must not wait for data or consume any.
+static void
+pipezeroread(char *s)
+{
+  int fds[2];
+  char c = 'z';
+
+  if (pipe(fds) < 0) {
+    printf("%s: pipe failed\n", s);
+    exit(1);
+  }
+  // Keep the write end open so an empty pipe is not at EOF.
+  if (read(fds[0], &c, 0) != 0 || c != 'z') {
+    printf("%s: zero-length read on empty pipe failed\n", s);
+    exit(1);
+  }
+  if (write(fds[1], "x", 1) != 1 || read(fds[0], &c, 0) != 0 || c != 'z' ||
+      read(fds[0], &c, 1) != 1 || c != 'x') {
+    printf("%s: zero-length read consumed data\n", s);
+    exit(1);
+  }
+  close(fds[0]);
+  close(fds[1]);
+}
+
+void
+pipezero(char *s)
+{
+  int reader, timer, pid, status;
+
+  if ((reader = fork()) < 0) {
+    printf("%s: fork failed\n", s);
+    exit(1);
+  }
+  if (reader == 0) {
+    pipezeroread(s);
+    exit(0);
+  }
+  if ((timer = fork()) < 0) {
+    kill(reader);
+    wait(0);
+    printf("%s: fork failed\n", s);
+    exit(1);
+  }
+  if (timer == 0) {
+    pause(50);
+    exit(0);
+  }
+
+  // Reap both children, even if the reader blocks indefinitely.
+  pid = wait(&status);
+  if (pid == timer) {
+    kill(reader);
+    wait(0);
+    printf("%s: zero-length read timed out\n", s);
+    exit(1);
+  }
+  kill(timer);
+  wait(0);
+  if (pid != reader || status != 0)
+    exit(1);
+}
+
 // simple fork and pipe read/write
 
 void
@@ -2983,6 +3046,7 @@ struct test {
   {createtest, "createtest"},
   {dirtest, "dirtest"},
   {exectest, "exectest"},
+  {pipezero, "pipezero"},
   {pipe1, "pipe1"},
   {killstatus, "killstatus"},
   {killzero, "killzero"},
