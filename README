@@ -46,3 +46,53 @@ You will need a RISC-V "newlib" tool chain from
 https://github.com/riscv/riscv-gnu-toolchain, and qemu compiled for
 riscv64-softmmu.  Once they are installed, and in your shell
 search path, you can run "make qemu".
+
+PROPOSED FEATURES AND ENHANCEMENTS
+
+The following features are proposed enhancements for this xv6 project.
+They are planned kernel-level additions and should not be considered
+implemented until they have been developed and tested.
+
+1. Process Information System 
+   Add functionality to display process
+   information, including process ID (PID), parent process ID (PPID),
+   process state, and memory usage.
+
+2. Priority-Based CPU Scheduling 
+   Extend the process scheduler to
+   support process priorities, allowing the scheduler to select
+   processes based on their assigned priority.
+3. Process Execution Statistics
+   Track process execution information,
+   including CPU ticks, execution time, and scheduling activity.
+
+4. Kernel Memory Statistics 
+   Provide information about physical memory,
+   including total memory, allocated memory, and available memory.
+
+5. Custom System Calls 
+   Introduce additional system calls to allow user
+   programs to request selected kernel-level information and services.
+
+6. Process Limit Management
+   Add a configurable limit on the number of
+   processes that can exist or run simultaneously in the system.
+
+7. Semaphore Synchronization
+   Implement semaphore-based synchronization
+   to coordinate processes and control access to shared resources.
+
+8. Kernel Event Logging
+   Maintain a kernel event log containing
+   important events, such as process creation, process termination, and
+   selected kernel activities.
+
+9. CPU Core Information 
+   Provide information about the available CPU
+   cores and their basic configuration in the RISC-V multiprocessor
+   environment.
+
+10. Process Resource Monitoring
+    Add monitoring of per-process resource
+    usage, including CPU utilization information and memory allocation
+
