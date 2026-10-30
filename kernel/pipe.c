@@ -116,7 +116,7 @@ piperead(struct pipe *pi, uint64 addr, int n)
   char ch;
 
   acquire(&pi->lock);
-  while (pi->nread == pi->nwrite && pi->writeopen) { //DOC: pipe-empty
+  while (n > 0 && pi->nread == pi->nwrite && pi->writeopen) { //DOC: pipe-empty
     if (killed(pr)) {
       release(&pi->lock);
       return -1;
