@@ -171,6 +171,7 @@ clockintr()
     ticks++;
     wakeup(&ticks);
     release(&tickslock);
+    procstats_tick();
   }
 
   // ask for the next timer interrupt. this also clears

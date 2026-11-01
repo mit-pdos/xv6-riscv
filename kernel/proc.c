@@ -359,6 +359,7 @@ kexit(int status)
   acquire(&p->lock);
 
   p->xstate = status;
+  p->stats.etime = ticks;
   p->state = ZOMBIE;
 
   release(&wait_lock);
@@ -427,6 +428,27 @@ kwait(uint64 addr, uint64 staddr)
   }
 }
 
+static void stats_on_sched(struct proc *p) {
+  p->stats.sched_count++;
+  if(p->stats.first_run == -1) {
+    p->stats.first_run = ticks;
+  }
+}
+
+void procstats_tick(void) {
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == RUNNING)
+      ++p->stats.run_ticks;
+    else if(p->state == RUNNABLE)
+      ++p->stats.runnable_ticks;
+    else if(p->state == SLEEPING)
+      ++p->stats.sleep_ticks;
+    release(&p->lock);
+  }
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -454,6 +476,7 @@ scheduler(void)
     for (p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if (p->state == RUNNABLE) {
+        stats_on_sched(p);
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
