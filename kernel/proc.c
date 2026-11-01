@@ -371,7 +371,7 @@ kexit(int status)
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-kwait(uint64 addr)
+kwait(uint64 addr, uint64 staddr)
 {
   struct proc *pp;
   int havekids, pid;
@@ -394,6 +394,11 @@ kwait(uint64 addr)
           if (addr != 0 &&
               copyout(p->pagetable, p->sz, addr, (char *)&pp->xstate,
                       sizeof(pp->xstate)) < 0) {
+            release(&pp->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          if(staddr != 0 && copyout(p->pagetable, p->sz, staddr, (char *)&pp->stats, sizeof(pp->stats)) < 0) {
             release(&pp->lock);
             release(&wait_lock);
             return -1;
