@@ -16,6 +16,27 @@ void kernelvec();
 
 extern int devintr();
 
+/* Account one timer interrupt for the running process. */
+static int
+account_tick(struct proc *p)
+{
+  int should_yield = 0;
+
+  if (p == 0)
+    return 0;
+
+  acquire(&p->lock);
+  if (p->state == RUNNING) {
+    p->rticks++;
+    p->used++;
+    if (p->used >= p->slice)
+      should_yield = 1;
+  }
+  release(&p->lock);
+  return should_yield;
+}
+
+
 void
 trapinit(void)
 {
@@ -81,8 +102,8 @@ usertrap(void)
   if (killed(p))
     kexit(-1);
 
-  // give up the CPU if this is a timer interrupt.
-  if (which_dev == 2)
+  // Give up the CPU when this process has consumed its time slice.
+  if (which_dev == 2 && account_tick(p))
     yield();
 
   prepare_return();
@@ -153,8 +174,8 @@ kerneltrap()
     panic("kerneltrap");
   }
 
-  // give up the CPU if this is a timer interrupt.
-  if (which_dev == 2 && myproc() != 0)
+  // Give up the CPU when this process has consumed its time slice.
+  if (which_dev == 2 && account_tick(myproc()))
     yield();
 
   // the yield() may have caused some traps to occur,

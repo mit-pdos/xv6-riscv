@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "schedinfo.h"
 #include "defs.h"
 
 struct cpu cpus[NCPU];
@@ -25,6 +26,16 @@ extern char trampoline[]; // trampoline.S
 // memory model when using p->parent.
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
+
+static volatile int forkwatch_enabled;
+
+int
+kforkwatch(int on)
+{
+  int old = forkwatch_enabled;
+  forkwatch_enabled = (on != 0);
+  return old;
+}
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -64,7 +75,9 @@ procinit(void)
 int
 cpuid()
 {
+  push_off();
   int id = r_tp();
+  pop_off();
   return id;
 }
 
@@ -124,6 +137,14 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->nsched = 0;
+  p->rticks = 0;
+  p->lastcpu = -1;
+  p->slice = 1;
+  p->used = 0;
+  p->ctime = 0;
+  p->ftime = 0;
+  p->firstcpu = -1;
 
   // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
@@ -261,6 +282,11 @@ kfork(void)
   int i, pid;
   struct proc *np;
   struct proc *p = myproc();
+  int parent_slice;
+
+  acquire(&p->lock);
+  parent_slice = p->slice;
+  release(&p->lock);
 
   // Allocate process.
   if ((np = allocproc()) == 0) {
@@ -280,6 +306,7 @@ kfork(void)
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
+  np->slice = parent_slice;
 
   // increment reference counts on open file descriptors.
   for (i = 0; i < NOFILE; i++)
@@ -297,7 +324,14 @@ kfork(void)
   np->parent = p;
   release(&wait_lock);
 
+  // Record the fork time without taking tickslock while holding p->lock.
+  uint fork_ticks;
+  acquire(&tickslock);
+  fork_ticks = ticks;
+  release(&tickslock);
+
   acquire(&np->lock);
+  np->ctime = fork_ticks;
   np->state = RUNNABLE;
   release(&np->lock);
 
@@ -449,6 +483,9 @@ scheduler(void)
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
+        p->nsched++;
+        p->lastcpu = cpuid();
+        p->used = 0;
         c->proc = p;
         swtch(&c->context, &p->context);
 
@@ -516,8 +553,18 @@ forkret(void)
   static int first = 1;
   struct proc *p = myproc();
 
-  // Still holding p->lock from scheduler.
+  // Still holding p->lock from scheduler. Record the first run now.
+  p->ftime = ticks;
+  p->firstcpu = cpuid();
+  int waited = p->ftime - p->ctime;
+  int print_first_run = forkwatch_enabled;
+  int first_pid = p->pid;
+  int first_hart = p->firstcpu;
   release(&p->lock);
+
+  if (print_first_run)
+    printk("pid %d: first run on hart %d, %d ticks after fork\n",
+           first_pid, first_hart, waited);
 
   if (first) {
     first = 0;
@@ -700,4 +747,65 @@ procdump(void)
     printk("%d %s %s", p->pid, state, p->name);
     printk("\n");
   }
+}
+
+// Copy scheduling information for pid into a kernel buffer.
+// The caller performs copyout after this function releases p->lock.
+int
+get_schedinfo(int pid, struct schedinfo *si)
+{
+  struct proc *p;
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->state != UNUSED && p->pid == pid) {
+      si->pid = p->pid;
+      si->state = p->state;
+      si->nsched = p->nsched;
+      si->rticks = p->rticks;
+      si->lastcpu = p->lastcpu;
+      si->slice = p->slice;
+      si->ctime = p->ctime;
+      si->ftime = p->ftime;
+      si->firstcpu = p->firstcpu;
+      si->affinity = 0;
+      si->prio = 0;
+      safestrcpy(si->name, p->name, sizeof(si->name));
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+
+// Set the time slice for pid; pid 0 means the calling process.
+int
+set_process_slice(int pid, int n)
+{
+  struct proc *p;
+
+  if (n < 1 || n > 100)
+    return -1;
+
+  if (pid == 0) {
+    p = myproc();
+    acquire(&p->lock);
+    p->slice = n;
+    p->used = 0;
+    release(&p->lock);
+    return 0;
+  }
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->state != UNUSED && p->pid == pid) {
+      p->slice = n;
+      p->used = 0;
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
 }

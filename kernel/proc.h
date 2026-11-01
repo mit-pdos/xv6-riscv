@@ -88,6 +88,14 @@ struct proc {
   int killed;           // If non-zero, have been killed
   int xstate;           // Exit status to be returned to parent's wait
   int pid;              // Process ID
+  int nsched;            // Number of times selected by scheduler
+  int rticks;            // Timer interrupts while RUNNING
+  int lastcpu;           // Hart on which process last ran
+  int slice;             // Time slice in ticks
+  int used;              // Ticks consumed in current turn
+  int ctime;             // Tick when fork made process RUNNABLE
+  int ftime;             // Tick when process first ran
+  int firstcpu;          // Hart on which process first ran
 
   // wait_lock must be held when using this:
   struct proc *parent; // Parent process

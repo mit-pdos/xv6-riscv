@@ -21,3 +21,7 @@
 #define SYS_mkdir  20
 #define SYS_close  21
 #define SYS_sync   22
+#define SYS_getcpu  23
+#define SYS_schedinfo 24
+#define SYS_setslice 25
+#define SYS_forkwatch 26

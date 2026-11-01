@@ -43,3 +43,7 @@ entry("sbrk");
 entry("pause");
 entry("uptime");
 entry("sync");
+entry("getcpu");
+entry("schedinfo");
+entry("setslice");
+entry("forkwatch");

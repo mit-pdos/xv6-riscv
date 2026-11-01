@@ -8,6 +8,7 @@ struct proc;
 struct spinlock;
 struct sleeplock;
 struct stat;
+struct schedinfo;
 struct superblock;
 
 // bio.c
@@ -82,6 +83,9 @@ void            printkinit(void);
 int             cpuid(void);
 void            kexit(int);
 int             kfork(void);
+int             get_schedinfo(int, struct schedinfo *);
+int             set_process_slice(int, int);
+int             kforkwatch(int);
 int             growproc(int);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);

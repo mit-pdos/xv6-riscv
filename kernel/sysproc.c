@@ -5,6 +5,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "schedinfo.h"
 #include "vm.h"
 
 uint64
@@ -109,4 +110,44 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_getcpu(void)
+{
+  return cpuid();
+}
+
+uint64
+sys_schedinfo(void)
+{
+  int pid;
+  uint64 addr;
+  struct schedinfo si;
+  struct proc *p = myproc();
+
+  argint(0, &pid);
+  argaddr(1, &addr);
+  if (get_schedinfo(pid, &si) < 0)
+    return -1;
+  if (copyout(p->pagetable, p->sz, addr, (char *)&si, sizeof(si)) < 0)
+    return -1;
+  return 0;
+}
+
+uint64
+sys_setslice(void)
+{
+  int pid, n;
+  argint(0, &pid);
+  argint(1, &n);
+  return set_process_slice(pid, n);
+}
+
+uint64
+sys_forkwatch(void)
+{
+  int on;
+  argint(0, &on);
+  return kforkwatch(on);
 }
