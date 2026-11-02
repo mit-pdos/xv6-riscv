@@ -12,6 +12,9 @@
 #include "file.h"
 #include "stat.h"
 #include "proc.h"
+#include "sysinfo.h"
+
+extern struct proc proc[NPROC];
 
 struct devsw devsw[NDEV];
 struct {
@@ -182,6 +185,53 @@ filewrite(struct file *f, uint64 addr, int n)
 int
 fill_fileinfo(uint64 addr)
 {
+  struct proc *p = myproc();
+  struct fileinfo fi; // ~88 bytes, ok cho kernel stack
+  int n = 0;
+
+  for (int i = 0; i < NFILE && n < MAXFILEINFO; i++) {
+    struct file *f = &ftable.file[i];
+
+    // 1) Chụp thông tin file dưới ftable.lock, rồi thả lock
+    acquire(&ftable.lock);
+    if (f->ref == 0) {
+      release(&ftable.lock);
+      continue;
+    }
+    memset(&fi, 0, sizeof(fi));
+    fi.id = i;
+    fi.type = (int)f->type;
+    fi.readable = f->readable;
+    fi.writable = f->writable;
+    fi.ref = f->ref;
+    release(&ftable.lock);
+
+    // 2) Tìm các pid đang trỏ tới f (không giữ ftable.lock ở đây)
+    for (struct proc *q = proc; q < &proc[NPROC]; q++) {
+      acquire(&q->lock);
+      if (q->state != UNUSED) {
+        for (int fd = 0; fd < NOFILE; fd++) {
+          if (q->ofile[fd] == f) {
+            if (fi.npid < MAXPIDREF)
+              fi.pids[fi.npid++] = q->pid;
+            break; // mỗi pid chỉ liệt kê 1 lần dù dup nhiều fd
+          }
+        }
+      }
+      release(&q->lock);
+    }
+
+    // 3) copyout từng phần, vì mảng files[] quá lớn cho kernel stack
+    uint64 dst = addr + offsetof(struct sysinfo, files) +
+                 (uint64)n * sizeof(struct fileinfo);
+    if (copyout(p->pagetable, p->sz, dst, (char *)&fi, sizeof(fi)) < 0)
+      return -1;
+    n++;
+  }
+
+  if (copyout(p->pagetable, p->sz, addr + offsetof(struct sysinfo, nfile),
+              (char *)&n, sizeof(n)) < 0)
+    return -1;
   return 0;
 }
 
