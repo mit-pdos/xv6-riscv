@@ -126,7 +126,6 @@ found:
   p->state = USED;
   memset(&p->stats, 0, sizeof(p->stats));
   p->stats.pid = p->pid;
-  p->stats.ctime = ticks;
   p->stats.first_run = -1;
 
   // Allocate a trapframe page.
@@ -302,6 +301,7 @@ kfork(void)
   release(&wait_lock);
 
   acquire(&np->lock);
+  np->stats.arrival = ticks;
   np->state = RUNNABLE;
   release(&np->lock);
 

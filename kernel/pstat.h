@@ -3,7 +3,7 @@
 
 struct pstat {
   int pid;
-  int ctime;
+  int arrival;
   int first_run;
   int etime;
   int run_ticks;
