@@ -1,11 +1,13 @@
 #define SBRK_ERROR ((char *)-1)
 
 struct stat;
+struct pstat;
 
 // system calls
 int fork(void);
 int exit(int) __attribute__((noreturn));
 int wait(int *);
+int waitstat(int *, struct pstat *);
 int pipe(int *);
 int write(int, const void *, int);
 int read(int, void *, int);

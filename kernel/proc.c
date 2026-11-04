@@ -124,6 +124,9 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  memset(&p->stats, 0, sizeof(p->stats));
+  p->stats.pid = p->pid;
+  p->stats.first_run = -1;
 
   // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
@@ -298,6 +301,7 @@ kfork(void)
   release(&wait_lock);
 
   acquire(&np->lock);
+  np->stats.arrival = ticks;
   np->state = RUNNABLE;
   release(&np->lock);
 
@@ -355,6 +359,7 @@ kexit(int status)
   acquire(&p->lock);
 
   p->xstate = status;
+  p->stats.etime = ticks;
   p->state = ZOMBIE;
 
   release(&wait_lock);
@@ -367,7 +372,7 @@ kexit(int status)
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-kwait(uint64 addr)
+kwait(uint64 addr, uint64 staddr)
 {
   struct proc *pp;
   int havekids, pid;
@@ -394,6 +399,11 @@ kwait(uint64 addr)
             release(&wait_lock);
             return -1;
           }
+          if(staddr != 0 && copyout(p->pagetable, p->sz, staddr, (char *)&pp->stats, sizeof(pp->stats)) < 0) {
+            release(&pp->lock);
+            release(&wait_lock);
+            return -1;
+          }
           pp->parent = 0;
           freeproc(pp);
           release(&pp->lock);
@@ -415,6 +425,27 @@ kwait(uint64 addr)
     release(&wait_lock);
     sleep();
     acquire(&wait_lock);
+  }
+}
+
+static void stats_on_sched(struct proc *p) {
+  p->stats.sched_count++;
+  if(p->stats.first_run == -1) {
+    p->stats.first_run = ticks;
+  }
+}
+
+void procstats_tick(void) {
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == RUNNING)
+      ++p->stats.run_ticks;
+    else if(p->state == RUNNABLE)
+      ++p->stats.runnable_ticks;
+    else if(p->state == SLEEPING)
+      ++p->stats.sleep_ticks;
+    release(&p->lock);
   }
 }
 
@@ -445,6 +476,7 @@ scheduler(void)
     for (p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if (p->state == RUNNABLE) {
+        stats_on_sched(p);
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
