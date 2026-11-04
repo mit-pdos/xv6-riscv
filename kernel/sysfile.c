@@ -475,8 +475,10 @@ sys_chroot(void)
   }
   iunlock(ip);
   iput(p->root);
+  iput(p->cwd);
   end_op();
   p->root = ip;
+  p->cwd = idup(ip);
   return 0;
 }
 
