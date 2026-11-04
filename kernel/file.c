@@ -91,6 +91,7 @@ filestat(struct file *f, uint64 addr)
   struct stat st;
 
   if (f->type == FD_INODE || f->type == FD_DEVICE) {
+    memset(&st, 0, sizeof(st));
     ilock(f->ip);
     stati(f->ip, &st);
     iunlock(f->ip);
