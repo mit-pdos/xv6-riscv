@@ -84,7 +84,7 @@ uartwrite(char buf[], int n)
 
   int i = 0;
   while (i < n) {
-    while(tx_busy != 0){
+    while (tx_busy != 0) {
       // wait for a UART interrupt to set tx_busy to 0.
       sleep_prepare(&tx_chan);
       release(&tx_lock);
