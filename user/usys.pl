@@ -44,3 +44,4 @@ entry("pause");
 entry("uptime");
 entry("sync");
 entry("waitstat");
+entry("setweight");
