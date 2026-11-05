@@ -88,3 +88,35 @@ malloc(uint nbytes)
         return 0;
   }
 }
+
+void *
+realloc(void *p, uint nbytes)
+{
+  void *new_p, *ret;
+  Header *old_hp;
+  uint old_nunits, nunits, obytes;
+
+  if (p == 0)
+    return malloc(nbytes);
+  old_hp = (Header *)p - 1;
+  old_nunits = old_hp->s.size;
+  obytes = (old_nunits - 1)*sizeof(Header);
+  nunits = (nbytes + sizeof(Header) - 1) / sizeof(Header) + 1;
+  if (old_nunits == nunits){
+    ret = p;
+    goto done;
+  }
+  else{
+    new_p = malloc(nbytes);
+    if (new_p == 0) {
+      ret = 0;
+      goto done;
+    }
+    if (nunits != 0 && old_nunits != 0)
+      memcpy(new_p, p, obytes < nbytes ? obytes : nbytes);
+    free(p);
+    ret = new_p;
+  }
+  done:
+    return ret;
+}
