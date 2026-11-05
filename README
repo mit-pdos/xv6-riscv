@@ -1,48 +1,140 @@
-xv6 is a re-implementation of Dennis Ritchie's and Ken Thompson's Unix
-Version 6 (v6).  xv6 loosely follows the structure and style of v6,
-but is implemented for a modern RISC-V multiprocessor using ANSI C.
+# xv6-riscv
 
-ACKNOWLEDGMENTS
+xv6 is a teaching operating system: a compact reimplementation of Dennis Ritchie’s and Ken Thompson’s Unix Version 6, written in ANSI C for a modern RISC-V multiprocessor. It keeps the structure and style of Sixth Edition Unix while using contemporary hardware features—paging, traps, and device interrupts—so the whole kernel can be read and modified in a course.
 
-xv6 is inspired by John Lions's Commentary on UNIX 6th Edition (Peer
-to Peer Communications; ISBN: 1-57398-013-7; 1st edition (June 14,
-2000)).  See also https://pdos.csail.mit.edu/6.1810/, which provides
-pointers to on-line resources for v6.
+xv6 is the operating system used in MIT’s 6.1810 (Operating System Engineering). It is meant to be understood, not deployed. Simplifications and clearer code matter more here than new features.
 
-The following people have made contributions: Russ Cox (context switching,
-locking), Cliff Frey (MP), Xiao Yu (MP), Nickolai Zeldovich, and Austin
-Clements.
+## What is included
 
-We are also grateful for the bug reports and patches contributed by
-Abhinavpatel00, Takahiro Aoyagi, Marcelo Arroyo, Hirbod Behnam, Silas
-Boyd-Wickizer, Anton Burtsev, carlclone, Ian Chen, clivezeng, Dan
-Cross, Cody Cutler, Mike CAT, Tej Chajed, Asami Doi,Wenyang Duan,
-echtwerner, eyalz800, Nelson Elhage, Saar Ettinger, Alice Ferrazzi,
-Nathaniel Filardo, flespark, Peter Froehlich, Yakir Goaron, Shivam
-Handa, Matt Harvey, Bryan Henry, jaichenhengjie, Jim Huang, Matúš
-Jókay, John Jolly, Alexander Kapshuk, Anders Kaseorg, kehao95,
-Wolfgang Keller, Jungwoo Kim, Jonathan Kimmitt, Eddie Kohler, Vadim
-Kolontsov, Austin Liew, Bruce Lowekamp, l0stman, Pavan Maddamsetti,
-Imbar Marinescu, Yandong Mao, Matan Shabtay, Hitoshi Mitake, Carmi
-Merimovich, mes900903, Mark Morrissey, mtasm, Joel Nider, Hayato Ohhashi,
-OptimisticSide, papparapa, phosphagos, Harry Porter, Greg Price, Zheng
-qhuo, Quancheng, RayAndrew, Jude Rich, segfault, Ayan Shafqat, Eldar
-Sehayek, Yongming Shen, Fumiya Shigemitsu, snoire, Taojie, Cam Tenny,
-tyfkda, Warren Toomey, Stephen Tu, Alissa Tung, Rafael Ubal, unicornx,
-Amane Uehara, Pablo Ventura, Luc Videau, Xi Wang, WaheedHafez, Keiichi
-Watanabe, Lucas Wolf, Nicolas Wolovick, wxdao, Grant Wu, x653, Andy
-Zhang, Jindong Zhang, Icenowy Zheng, ZhUyU1997, and Zou Chang Wei.
+The kernel is a small monolithic system that boots on the QEMU `virt` machine:
 
-ERROR REPORTS
+| Area | What it does |
+| --- | --- |
+| Processes | Creation, exit, wait, scheduling, and context switch across up to 8 CPUs (3 by default in QEMU) |
+| Memory | Physical page allocator and a per-process page table, with a trampoline for user/kernel transitions |
+| Traps | System calls, timer interrupts, and device interrupts through the PLIC |
+| File system | Buffer cache, logging, inodes, directories, pipes, and a virtio block disk |
+| Console | UART console and a small shell |
 
-Please send errors and suggestions to Frans Kaashoek and Robert Morris
-(kaashoek,rtm@mit.edu).  The main purpose of xv6 is as a teaching
-operating system for MIT's 6.1810, so we are more interested in
-simplifications and clarifications than new features.
+User programs built into the disk image include `sh`, `ls`, `cat`, `echo`, `grep`, `wc`, `mkdir`, `rm`, `ln`, `kill`, `zombie`, plus stress and regression programs (`usertests`, `grind`, `stressfs`, `logstress`, `forktest`, `forphan`, `dorphan`, `sync`). The shell starts from `init`.
 
-BUILDING AND RUNNING XV6
+Limits such as the maximum number of processes (`NPROC`), open files, and file-system size live in `kernel/param.h`.
 
-You will need a RISC-V "newlib" tool chain from
-https://github.com/riscv/riscv-gnu-toolchain, and qemu compiled for
-riscv64-softmmu.  Once they are installed, and in your shell
-search path, you can run "make qemu".
+## Repository layout
+
+```
+kernel/     Kernel sources (C and RISC-V assembly)
+user/       User-space programs and the small C library
+mkfs/       Host tool that builds fs.img
+Makefile    Kernel, user programs, disk image, and QEMU targets
+test-xv6.py Boots xv6 under QEMU and runs named tests
+```
+
+## Requirements
+
+Build and run xv6 on Linux, macOS, or Windows Subsystem for Linux. You need:
+
+- GNU Make
+- A RISC-V ELF cross compiler. The Makefile looks, in order, for `riscv64-unknown-elf-`, `riscv64-elf-`, `riscv64-none-elf-`, `riscv64-linux-gnu-`, and `riscv64-unknown-linux-gnu-`. A newlib toolchain from the [RISC-V GNU toolchain](https://github.com/riscv/riscv-gnu-toolchain) is the usual choice; Debian and Ubuntu’s `gcc-riscv64-linux-gnu` also works.
+- `qemu-system-riscv64` version 7.2 or newer
+- Perl (to generate `user/usys.S`) and a host C compiler (to build `mkfs`)
+- Python 3, if you run `test-xv6.py`
+- `bc`, used by the QEMU version check
+- `clang-format`, if you run `make fmt`
+
+On Ubuntu or Debian:
+
+```sh
+sudo apt-get update
+sudo apt-get install -y build-essential gcc-riscv64-linux-gnu qemu-system-misc python3 perl bc clang-format
+```
+
+On macOS, with Homebrew:
+
+```sh
+brew install riscv64-elf-gcc qemu python3
+```
+
+If the cross compiler is not on `PATH`, set the prefix explicitly:
+
+```sh
+make TOOLPREFIX=riscv64-linux-gnu-
+```
+
+## Build and run
+
+From the repository root:
+
+```sh
+make qemu
+```
+
+That builds `kernel/kernel`, builds the user programs, creates `fs.img` with `mkfs`, and starts QEMU with 128 MiB of RAM, three CPUs, no BIOS, a serial console, and a virtio block device backed by `fs.img`. The number of CPUs can be changed up to `NCPU`:
+
+```sh
+make CPUS=1 qemu
+```
+
+QEMU is started with `-nographic`. The xv6 shell prompt is `$`. Leave QEMU with `Ctrl-A` then `X`.
+
+Other useful targets:
+
+| Command | Effect |
+| --- | --- |
+| `make qemu-gdb` | Boot QEMU paused and wait for GDB. Prints the port to connect to. |
+| `make print-gdbport` | Print the GDB TCP port (`25000` plus your user id modulo 5000). |
+| `make kernel/kernel` | Build only the kernel. |
+| `make fs.img` | Rebuild the file-system image. `README` is copied onto it. |
+| `make clean` | Remove objects, the kernel, `fs.img`, and generated sources. |
+| `make fmt` | Format kernel, user, and `mkfs` C sources with `clang-format`. |
+
+## Debugging
+
+In one terminal:
+
+```sh
+make qemu-gdb
+```
+
+In another, from this directory (so `.gdbinit` is picked up):
+
+```sh
+riscv64-unknown-elf-gdb kernel/kernel
+```
+
+Use the `gdb` binary that matches your toolchain prefix (`riscv64-linux-gnu-gdb`, `riscv64-elf-gdb`, and so on). `.gdbinit` is generated from `.gdbinit.tmpl-riscv` and points GDB at the QEMU stub.
+
+`make qemu` and `make qemu-gdb` also write `kernel/kernel.asm` and `kernel/kernel.sym`, which are the disassembly and symbol table of the linked kernel.
+
+## Testing
+
+`test-xv6.py` boots xv6 and drives the shell without manual input:
+
+```sh
+./test-xv6.py usertests
+./test-xv6.py -q usertests
+./test-xv6.py crash
+./test-xv6.py log
+```
+
+`-q` runs the shorter subset of `usertests`. `crash` and `log` exercise file-system recovery after a crash. The script rebuilds the kernel and disk image when it needs a clean file system.
+
+Continuous integration on Linux builds the kernel and disk image, checks `clang-format`, and runs `usertests` and the crash tests. The macOS job checks that the kernel and disk image still build.
+
+## Scope
+
+xv6 implements the ideas needed to teach an operating system course: processes, virtual memory, system calls, interrupts, a buffer cache, and a logging file system. It does not aim to be a general-purpose Unix. Device support is the QEMU `virt` UART, PLIC, and virtio disk. There is no networking, and the scheduler, file system, and shell are deliberately small.
+
+Bug reports and suggestions are welcome, especially when they make the code simpler or clearer. Send them to Frans Kaashoek and Robert Morris at kaashoek,rtm@mit.edu. Course materials and pointers to Sixth Edition Unix sources are at <https://pdos.csail.mit.edu/6.1810/>.
+
+## Acknowledgments
+
+xv6 is inspired by John Lions’s *Commentary on UNIX 6th Edition* (Peer-to-Peer Communications, ISBN 1-57398-013-7, 1st edition, June 14, 2000).
+
+Contributions include work by Russ Cox (context switching, locking), Cliff Frey (multiprocessor), Xiao Yu (multiprocessor), Nickolai Zeldovich, and Austin Clements.
+
+Bug reports and patches have come from Abhinavpatel00, Takahiro Aoyagi, Marcelo Arroyo, Hirbod Behnam, Silas Boyd-Wickizer, Anton Burtsev, carlclone, Ian Chen, clivezeng, Dan Cross, Cody Cutler, Mike CAT, Tej Chajed, Asami Doi, Wenyang Duan, echtwerner, eyalz800, Nelson Elhage, Saar Ettinger, Alice Ferrazzi, Nathaniel Filardo, flespark, Peter Froehlich, Yakir Goaron, Shivam Handa, Matt Harvey, Bryan Henry, jaichenhengjie, Jim Huang, Matúš Jókay, John Jolly, Alexander Kapshuk, Anders Kaseorg, kehao95, Wolfgang Keller, Jungwoo Kim, Jonathan Kimmitt, Eddie Kohler, Vadim Kolontsov, Austin Liew, Bruce Lowekamp, l0stman, Pavan Maddamsetti, Imbar Marinescu, Yandong Mao, Matan Shabtay, Hitoshi Mitake, Carmi Merimovich, mes900903, Mark Morrissey, mtasm, Joel Nider, Hayato Ohhashi, OptimisticSide, papparapa, phosphagos, Harry Porter, Greg Price, Zheng qhuo, Quancheng, RayAndrew, Jude Rich, segfault, Ayan Shafqat, Eldar Sehayek, Yongming Shen, Fumiya Shigemitsu, snoire, Taojie, Cam Tenny, tyfkda, Warren Toomey, Stephen Tu, Alissa Tung, Rafael Ubal, unicornx, Amane Uehara, Pablo Ventura, Luc Videau, Xi Wang, WaheedHafez, Keiichi Watanabe, Lucas Wolf, Nicolas Wolovick, wxdao, Grant Wu, x653, Andy Zhang, Jindong Zhang, Icenowy Zheng, ZhUyU1997, and Zou Chang Wei.
+
+## License
+
+xv6 is released under the MIT License. Copyright (c) 2006–2024 Frans Kaashoek, Robert Morris, Russ Cox, and the Massachusetts Institute of Technology. See [LICENSE](LICENSE).
