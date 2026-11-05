@@ -23,10 +23,6 @@ main(int argc, char **argv)
       fprintf(2, "chroot: chroot failed\n");
       exit(1);
     }
-    if (chdir("/") < 0) {
-      fprintf(2, "chroot: chdir failed\n");
-      exit(1);
-    }
     exec(argv[2], argv + 2);
     fprintf(2, "chroot: exec %s failed\n", argv[2]);
     exit(1);
