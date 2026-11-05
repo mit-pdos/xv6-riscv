@@ -5,6 +5,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "riscv.h"
+#include "pmetrics.h"
 
 struct cpu cpus[NCPU];
 
@@ -118,12 +120,20 @@ allocproc(void)
     } else {
       release(&p->lock);
     }
+    // 
+
   }
   return 0;
 
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->arrival_time = r_time();
+  p-> complete_time = 0;
+  p->first_run_time = 0;
+  p->first_run  = 0;
+  p->runnable_time  = 0;
+  p->total_waiting_time = 0;
 
   // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
@@ -226,6 +236,7 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  p->runnable = r_time();
 
   release(&p->lock);
 }
@@ -299,6 +310,7 @@ kfork(void)
 
   acquire(&np->lock);
   np->state = RUNNABLE;
+  np-> runnable_time = r_time();
   release(&np->lock);
 
   return pid;
@@ -356,6 +368,7 @@ kexit(int status)
 
   p->xstate = status;
   p->state = ZOMBIE;
+  p->complete_time = r_time();
 
   release(&wait_lock);
 
@@ -367,7 +380,7 @@ kexit(int status)
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-kwait(uint64 addr)
+kwait(uint64 addr, uint64 metricsaddr)
 {
   struct proc *pp;
   int havekids, pid;
@@ -394,6 +407,21 @@ kwait(uint64 addr)
             release(&wait_lock);
             return -1;
           }
+          if (metricsaddr != 0) {
+  struct pmetrics m;
+
+  m.pid = pp->pid;
+  m.turnaround = pp->complete_time - pp->arrival_time;
+  m.response = pp->first_run_time - pp->arrival_time;
+  m.waiting = pp->total_waiting_time;
+
+  if (copyout(p->pagetable, p->sz, metricsaddr,
+              (char *)&m, sizeof(m)) < 0) {
+    release(&pp->lock);
+    release(&wait_lock);
+    return -1;
+  }
+}
           pp->parent = 0;
           freeproc(pp);
           release(&pp->lock);
@@ -448,6 +476,11 @@ scheduler(void)
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
+        uint64 now = r_time();
+        p->total_waiting_time += now - p-> runnable_time;
+        if (p-> first_run ==0) {
+          p-> first_run_time = now;
+          p->first_run = 1;}
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
@@ -503,6 +536,7 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
+  p-> runnable_time = r_time();
   sched();
   release(&p->lock);
 }
@@ -588,6 +622,7 @@ wakeup(void *chan)
       // go to sleep, also set it back to RUNNING.
       if (p->state == SLEEPING) {
         p->state = RUNNABLE;
+        p->runnable_time = r_time();
       }
     }
     release(&p->lock);
@@ -612,6 +647,7 @@ kkill(int pid)
       if (p->state == SLEEPING) {
         // Wake process from sleep().
         p->state = RUNNABLE;
+        p->runnable_time = r_time();
       }
       release(&p->lock);
       return 0;
