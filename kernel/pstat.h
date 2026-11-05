@@ -10,6 +10,9 @@ struct pstat {
   int runnable_ticks;
   int sleep_ticks;
   int sched_count;
+  int max_wait;
+  int cur_wait;
+  int weight;
 };
 
 #endif

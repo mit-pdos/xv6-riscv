@@ -125,6 +125,7 @@ found:
   p->pid = allocpid();
   p->state = USED;
   memset(&p->stats, 0, sizeof(p->stats));
+  p->stats.weight = 1;
   p->stats.pid = p->pid;
   p->stats.first_run = -1;
 
@@ -293,6 +294,7 @@ kfork(void)
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
+  np->stats.weight = p->stats.weight;
 
   release(&np->lock);
 
@@ -439,12 +441,17 @@ void procstats_tick(void) {
   struct proc *p;
   for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
-    if(p->state == RUNNING)
+    if(p->state == RUNNING) {
       ++p->stats.run_ticks;
-    else if(p->state == RUNNABLE)
+      p->stats.cur_wait = 0;
+    } else if(p->state == RUNNABLE) {
       ++p->stats.runnable_ticks;
-    else if(p->state == SLEEPING)
+      if(++p->stats.cur_wait > p->stats.max_wait)
+        p->stats.max_wait = p->stats.cur_wait;
+    } else if(p->state == SLEEPING) {
       ++p->stats.sleep_ticks;
+      p->stats.cur_wait = 0;
+    }
     release(&p->lock);
   }
 }

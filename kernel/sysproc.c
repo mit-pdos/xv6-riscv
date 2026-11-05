@@ -74,6 +74,20 @@ sys_sbrk(void)
 }
 
 uint64
+sys_setweight(void)
+{
+  int w;
+  struct proc *p = myproc();
+  argint(0, &w);
+  if(w < 1)
+    return -1;
+  acquire(&p->lock);
+  p->stats.weight = w;
+  release(&p->lock);
+  return 0;
+}
+
+uint64
 sys_pause(void)
 {
   int n;
