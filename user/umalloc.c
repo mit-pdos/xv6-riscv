@@ -85,7 +85,6 @@ insert_into_free_list(Header *block)
 static Header *
 grow_heap(uint size)
 {
-
   uint needed_payload = size < MIN_PAYLOAD ? MIN_PAYLOAD : size;
   uint alloc_size = HEADER_SIZE + needed_payload;
   alloc_size = PGROUNDUP(alloc_size);
@@ -94,6 +93,8 @@ grow_heap(uint size)
   if (p == (void *)-1) {
     return 0;
   }
+
+  total_heap_sbrk_bytes += alloc_size;
 
   Header *block = (Header *)p;
   block->size = alloc_size - HEADER_SIZE;
@@ -116,12 +117,11 @@ grow_heap(uint size)
 void *
 malloc(uint nbytes)
 {
-
   uint needed_size = nbytes < MIN_PAYLOAD ? MIN_PAYLOAD : nbytes;
 
   int idx = get_class_index(needed_size);
-  Header *found_block = 0;
 
+  Header *found_block = 0;
   for (int i = idx; i < NUM_CLASSES; i++) {
     Header *curr = free_lists[i];
     while (curr) {
@@ -169,6 +169,7 @@ malloc(uint nbytes)
   }
 
   found_block->is_free = 0;
+  total_allocated_payload += found_block->size;
   return (void *)(found_block->payload);
 }
 
@@ -217,4 +218,49 @@ free(void *ap)
   }
 
   insert_into_free_list(block);
+}
+
+void
+dump_heap_structure()
+{
+  void *current_brk = sbrk(0);
+  printf("Data segment break: %p\n", current_brk);
+  printf("Total heap allocated via sbrk: %ld bytes\n", total_heap_sbrk_bytes);
+  printf("Real user payload active: %ld bytes\n", total_allocated_payload);
+
+  if (total_heap_sbrk_bytes > 0) {
+    int efficiency = (total_allocated_payload * 100) / total_heap_sbrk_bytes;
+    printf("Utilization: %d%%\n", efficiency);
+  }
+
+  printf("Physical blocks sequence:\n");
+  Header *first = last_phys_block;
+  if (first) {
+    while (first->prev_phys) {
+      first = first->prev_phys;
+    }
+  }
+
+  Header *curr_phys = first;
+  while (curr_phys) {
+    printf("  [Block %p | Size: %d | %s]\n", curr_phys, curr_phys->size,
+           curr_phys->is_free ? "FREE" : "USED");
+    curr_phys = curr_phys->next_phys;
+  }
+
+  printf("Segregated Free Lists State:\n");
+  for (int i = 0; i < NUM_CLASSES; i++) {
+    printf("  Class %d: ", i);
+    Header *curr_free = free_lists[i];
+    if (!curr_free) {
+      printf("empty\n");
+      continue;
+    }
+    while (curr_free) {
+      printf("[Address:%p, Size:%d] -> ", curr_free, curr_free->size);
+      curr_free = GET_PTRS(curr_free)->next_free;
+    }
+    printf("NULL\n");
+  }
+  printf("----------------------------------------\n\n");
 }

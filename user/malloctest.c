@@ -3,11 +3,13 @@
 
 int main(void) {
   int size = 1, n = 0;
+  dump_heap_structure();
   int *a = (int*)malloc(size * sizeof(int));
   if (!a) { printf("malloc failed\n"); exit(1); }
 
   for (int i = 0; i < 200; i++) {
     if (n == size) {
+      dump_heap_structure();
       size *= 2;
       int *na = (int*)malloc(size * sizeof(int));
       if (!na) { printf("realloc failed\n"); exit(1); }
