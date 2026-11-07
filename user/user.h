@@ -25,6 +25,7 @@ char *sys_sbrk(int, int);
 int pause(int);
 int uptime(void);
 int sync(void);
+int print_pagetable(void);
 
 // ulib.c
 int stat(const char *, struct stat *);
