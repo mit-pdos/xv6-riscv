@@ -23,6 +23,12 @@ sys_getpid(void)
 }
 
 uint64
+sys_getyear(void)
+{
+  return 2026;
+}
+
+uint64
 sys_fork(void)
 {
   return kfork();
