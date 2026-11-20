@@ -152,6 +152,7 @@ UPROGS=\
 	$U/_sync\
 	$U/_testplus\
 	$U/_plus \
+	$U/_alcotest
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
