@@ -55,10 +55,10 @@ uartinit(void)
   // special mode to set baud rate.
   WriteReg(LCR, LCR_BAUD_LATCH);
 
-  // LSB for baud rate of 38.4K.
+  // Low byte of the baud-rate divisor (3).
   WriteReg(0, 0x03);
 
-  // MSB for baud rate of 38.4K.
+  // High byte of the baud-rate divisor.
   WriteReg(1, 0x00);
 
   // leave set-baud mode,
