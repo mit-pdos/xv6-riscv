@@ -2361,6 +2361,21 @@ sbrkarg(char *s)
   }
 }
 
+// a request too big for sbrk()'s int argument must
+// make malloc() return 0, not crash.
+void
+mallochuge(char *s)
+{
+  if (malloc(0xFFFFFFF0) != 0) {
+    printf("%s: malloc(0xFFFFFFF0) succeeded\n", s);
+    exit(1);
+  }
+  if (malloc(0x80000000) != 0) {
+    printf("%s: malloc(0x80000000) succeeded\n", s);
+    exit(1);
+  }
+}
+
 void
 validatetest(char *s)
 {
@@ -3079,6 +3094,7 @@ struct test {
   {MAXVAplus, "MAXVAplus"},
   {sbrkfail, "sbrkfail"},
   {sbrkarg, "sbrkarg"},
+  {mallochuge, "mallochuge"},
   {validatetest, "validatetest"},
   {bsstest, "bsstest"},
   {bigargtest, "bigargtest"},

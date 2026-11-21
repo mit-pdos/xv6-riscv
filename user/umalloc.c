@@ -51,6 +51,9 @@ morecore(uint nu)
 
   if (nu < 4096)
     nu = 4096;
+  // sbrk() takes an int; a larger request would be truncated.
+  if (nu > 0x7fffffff / sizeof(Header))
+    return 0;
   p = sbrk(nu * sizeof(Header));
   if (p == SBRK_ERROR)
     return 0;
