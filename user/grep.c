@@ -11,26 +11,44 @@ int match(char *, char *);
 void
 grep(char *pattern, int fd)
 {
-  int n, m;
+  int n, m, skip;
   char *p, *q;
 
   m = 0;
+  skip = 0; // discarding the rest of a line too long for buf?
   while ((n = read(fd, buf + m, sizeof(buf) - m - 1)) > 0) {
     m += n;
     buf[m] = '\0';
     p = buf;
     while ((q = strchr(p, '\n')) != 0) {
       *q = 0;
-      if (match(pattern, p)) {
+      if (!skip && match(pattern, p)) {
         *q = '\n';
         write(1, p, q + 1 - p);
       }
+      skip = 0;
       p = q + 1;
     }
-    if (m > 0) {
-      m -= p - buf;
-      memmove(buf, p, m);
+    m -= p - buf;
+    memmove(buf, p, m);
+    if (m == sizeof(buf) - 1) {
+      // buf is full with no newline: match the line's first
+      // part, then skip the rest of it.
+      buf[m] = '\0';
+      if (!skip && match(pattern, buf)) {
+        write(1, buf, m);
+        write(1, "\n", 1);
+      }
+      skip = 1;
+      m = 0;
     }
+  }
+
+  // the last line may lack a trailing newline.
+  buf[m] = '\0';
+  if (m > 0 && !skip && match(pattern, buf)) {
+    write(1, buf, m);
+    write(1, "\n", 1);
   }
 }
 

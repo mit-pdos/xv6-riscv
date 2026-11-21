@@ -2361,6 +2361,85 @@ sbrkarg(char *s)
   }
 }
 
+// run grep pattern file, put its output in out, return output length.
+static int
+rungrep(char *s, char *pattern, char *file, char *out, int max)
+{
+  int fds[2], pid, n, tot, xstatus;
+  char *argv[] = {"grep", pattern, file, 0};
+
+  if (pipe(fds) < 0) {
+    printf("%s: pipe failed\n", s);
+    exit(1);
+  }
+  pid = fork();
+  if (pid < 0) {
+    printf("%s: fork failed\n", s);
+    exit(1);
+  }
+  if (pid == 0) {
+    close(1);
+    dup(fds[1]);
+    close(fds[0]);
+    close(fds[1]);
+    exec("grep", argv);
+    fprintf(2, "%s: exec grep failed\n", s);
+    exit(1);
+  }
+  close(fds[1]);
+  tot = 0;
+  while (tot < max - 1 && (n = read(fds[0], out + tot, max - 1 - tot)) > 0)
+    tot += n;
+  out[tot] = 0;
+  close(fds[0]);
+  wait(&xstatus);
+  if (xstatus != 0) {
+    printf("%s: grep exited with %d\n", s, xstatus);
+    exit(1);
+  }
+  return tot;
+}
+
+// grep must match a final line without a trailing newline,
+// and keep going after a line longer than its buffer.
+void
+grepedge(char *s)
+{
+  char out[64], line[1500];
+  int fd;
+
+  fd = open("grepnonl", O_CREATE | O_WRONLY | O_TRUNC);
+  if (fd < 0) {
+    printf("%s: create failed\n", s);
+    exit(1);
+  }
+  write(fd, "one match\ntwo match", 19);
+  close(fd);
+  rungrep(s, "match", "grepnonl", out, sizeof(out));
+  unlink("grepnonl");
+  if (strcmp(out, "one match\ntwo match\n") != 0) {
+    printf("%s: no trailing newline: got \"%s\"\n", s, out);
+    exit(1);
+  }
+
+  fd = open("greplong", O_CREATE | O_WRONLY | O_TRUNC);
+  if (fd < 0) {
+    printf("%s: create failed\n", s);
+    exit(1);
+  }
+  memset(line, 'x', sizeof(line));
+  line[sizeof(line) - 1] = '\n';
+  write(fd, line, sizeof(line));
+  write(fd, "after long\n", 11);
+  close(fd);
+  rungrep(s, "after", "greplong", out, sizeof(out));
+  unlink("greplong");
+  if (strcmp(out, "after long\n") != 0) {
+    printf("%s: after long line: got \"%s\"\n", s, out);
+    exit(1);
+  }
+}
+
 void
 validatetest(char *s)
 {
@@ -3079,6 +3158,7 @@ struct test {
   {MAXVAplus, "MAXVAplus"},
   {sbrkfail, "sbrkfail"},
   {sbrkarg, "sbrkarg"},
+  {grepedge, "grepedge"},
   {validatetest, "validatetest"},
   {bsstest, "bsstest"},
   {bigargtest, "bigargtest"},
