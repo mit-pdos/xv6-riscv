@@ -381,6 +381,8 @@ icache_fence()
   asm volatile("fence.i" ::: "memory");
 }
 
+// there are 2^9 = 512 PTEs in a page table.
+#define NPTE 512
 typedef uint64 pte_t;
 typedef uint64 *pagetable_t; // 512 PTEs
 
