@@ -1,5 +1,10 @@
 #define SBRK_ERROR ((char *)-1)
-
+#ifndef PTE_A
+#define PTE_A (1 << 6)
+#endif
+#ifndef PTE_D
+#define PTE_D (1 << 7)
+#endif
 struct stat;
 
 // system calls
@@ -25,6 +30,9 @@ char *sys_sbrk(int, int);
 int pause(int);
 int uptime(void);
 int sync(void);
+int pgprint(void);
+int pgclear(void *addr, int len, int flags);
+int pgcheck(void *addr, int len, int flags);
 
 // ulib.c
 int stat(const char *, struct stat *);

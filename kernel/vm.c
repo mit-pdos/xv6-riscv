@@ -489,3 +489,111 @@ ismapped(pagetable_t pagetable, uint64 va)
   }
   return 0;
 }
+static void
+print_hex(uint64 val, int digits)
+{
+  static const char hex[] = "0123456789ABCDEF";
+  char buf[17];
+  if (digits > 16) digits = 16;
+  for(int i =  digits - 1; i >= 0; i--) {
+    buf[i] = hex[val & 0xF];
+    val >>= 4;
+  }
+  buf[digits] = '\0';
+  printk("0x%s",buf);
+}
+
+static void
+print_flags(pte_t pte)
+{
+  char f[8];
+  f[0] = (pte & PTE_R) ? 'R' : '_';
+  f[1] = (pte & PTE_W) ? 'W' : '_';
+  f[2] = (pte & PTE_X) ? 'X' : '_';
+  f[3] = (pte & PTE_U) ? 'U' : '_';
+  f[4] = (pte & PTE_G) ? 'G' : '_';
+  f[5] = (pte & PTE_A) ? 'A' : '_';
+  f[6] = (pte & PTE_D) ? 'D' : '_';
+  f[7] = '\0';
+  printk("%s", f);
+}
+
+static void
+vmprint_rec(pagetable_t pagetable, int level)
+{
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if((pte & PTE_V)==0) continue;
+    uint64 pa = PTE2PA(pte);
+
+    if(level == 1) printk("......... ");
+    else if (level == 0) printk("................... ");
+        print_hex((uint64)i, 3);
+    printk(" -> ");
+    print_hex(pa, 16);
+    printk(" ");
+    print_flags(pte);
+    printk("\n");
+        if ((pte & (PTE_R | PTE_W | PTE_X)) == 0 && level > 0) {
+      vmprint_rec((pagetable_t)pa, level - 1);
+    }
+  }
+}
+
+void
+vmprint(pagetable_t pagetable)
+{
+  printk("PAGETABLE ");
+  print_hex((uint64)pagetable, 16);
+  printk("\n");
+  vmprint_rec(pagetable,2);
+}
+
+static int 
+validate_user_range(pagetable_t pagetable, uint64 va, uint64 len)
+{
+  if(len==0) return -1;
+
+  uint64 start = PGROUNDDOWN(va);
+  uint64 end = PGROUNDDOWN(va + len -1);
+
+  for(uint64 a = start; a <= end; a += PGSIZE){
+    pte_t* pte = walk(pagetable, a, 0);
+    if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U)==0) return -1;
+  }
+  return 0;
+}
+
+int
+vmclearflags(pagetable_t pagetable, uint64 va, uint64 len, int flags)
+{
+  if(flags == 0 || (flags & ~(PTE_A | PTE_D))) return -1;
+
+  if(validate_user_range(pagetable, va,len) < 0) return -1;
+  uint64 start = PGROUNDDOWN(va);
+  uint64 end = PGROUNDDOWN(va + len - 1);
+
+  for(uint64 a = start; a <= end; a+=PGSIZE)
+  {
+    pte_t *pte = walk(pagetable, a, 0);
+    *pte &= ~((pte_t)flags);
+  }
+  sfence_vma();
+  return 0;
+}
+
+int
+vmcheckflags(pagetable_t pagetable, uint64 va, uint64 len, int flags)
+{
+  if(flags == 0 || (flags & ~(PTE_A | PTE_D)) != 0) return -1;
+  if (validate_user_range(pagetable, va, len) < 0) return -1;
+
+  uint64 start = PGROUNDDOWN(va);
+  uint64 end = PGROUNDDOWN(va + len - 1);
+
+  for(uint64 a = start; a <= end; a += PGSIZE){
+    pte_t *pte = walk(pagetable, a, 0);
+    if((*pte & (pte_t)flags) != 0) return -1;
+  }
+  return 0;
+}

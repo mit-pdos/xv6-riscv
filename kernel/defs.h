@@ -152,6 +152,9 @@ void            uartwrite(char [], int);
 void            uartputc_sync(int);
 
 // vm.c
+void            vmprint(pagetable_t);
+int             vmclearflags(pagetable_t, uint64, uint64, int);
+int             vmcheckflags(pagetable_t, uint64, uint64, int);
 void            kvminit(void);
 void            kvminithart(void);
 void            kvmmap(pagetable_t, uint64, uint64, uint64, int);
