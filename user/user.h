@@ -26,6 +26,10 @@ int pause(int);
 int uptime(void);
 int sync(void);
 
+int pgdump(void);
+int pgclear(const volatile void *, uint64, int);
+int pgcheck(const volatile void *, uint64, int);
+
 // ulib.c
 int stat(const char *, struct stat *);
 char *strcpy(char *, const char *);

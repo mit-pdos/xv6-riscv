@@ -145,11 +145,13 @@ UPROGS=\
 	$U/_usertests\
 	$U/_grind\
 	$U/_wc\
+	$U/_pgdemo\
 	$U/_zombie\
 	$U/_logstress\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_sync\
+	$U/_hello
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

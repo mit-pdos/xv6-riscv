@@ -489,3 +489,110 @@ ismapped(pagetable_t pagetable, uint64 va)
   }
   return 0;
 }
+
+// printk does not implement field widths. Format indices and addresses explicitly.
+static void pghex(char *dst, uint64 value, int digits)
+{
+  static const char hex[] = "0123456789ABCDEF";
+  dst[digits] = 0;
+  while (digits > 0) {
+    dst[--digits] = hex[value & 15];
+    value >>= 4;
+  }
+}
+
+static void dump_level(pagetable_t pt, int depth)
+{
+  static const char *indent[] = {"", "......... ", "..................."};
+  static const int bits[] = {PTE_R, PTE_W, PTE_X, PTE_U, PTE_G, PTE_A, PTE_D};
+  for (int i = 0; i < PGSIZE / sizeof(pte_t); i++) {
+    pte_t entry = pt[i];
+    if ((entry & PTE_V) == 0)
+      continue;
+    uint64 pa = PTE2PA(entry);
+    char index[4], addr[17], flags[8];
+    pghex(index, i, 3);
+    pghex(addr, pa, 16);
+    for (int j = 0; j < 7; j++)
+      flags[j] = (entry & bits[j]) ? "RWXUGAD"[j] : '_';
+    flags[7] = 0;
+    printk("%s0x%s -> 0x%s %s\n", indent[depth], index, addr, flags);
+    if (depth < 2 && !(entry & (PTE_R | PTE_W | PTE_X)))
+      dump_level((pagetable_t)pa, depth + 1);
+  }
+}
+
+void pgdump(pagetable_t pt)
+{
+  char addr[17];
+  pghex(addr, (uint64)pt, 16); // xv6 directly maps physical RAM
+  printk("PAGETABLE 0x%s\n", addr);
+  dump_level(pt, 0);
+}
+
+// Save matching PTE pointers until the complete interval has been validated
+// Each target mapping is looked up once. Small requests use only the stack
+struct pg_batch {
+  struct pg_batch *prev;
+  pte_t *entries[PGSIZE / sizeof(pte_t *) - 1];
+};
+
+int pgflags(struct proc *p, uint64 va, uint64 len, int mask, int clear)
+{
+  if (!mask || (mask & ~(PTE_A | PTE_D)) ||
+      va > p->sz || len > p->sz - va)
+    return -1;
+  if (len == 0)
+    return 0;
+
+  pte_t *local[16];
+  pte_t **entries = local;
+  struct pg_batch *batch = 0;
+  int used = 0, capacity = NELEM(local), result = 0;
+  uint64 last = PGROUNDDOWN(va + len - 1);
+  for (uint64 page = PGROUNDDOWN(va); page <= last; page += PGSIZE) {
+    pte_t *pte = walk(p->pagetable, page, 0);
+    if (!pte || (*pte & (PTE_V | PTE_U)) != (PTE_V | PTE_U) ||
+        !(*pte & (PTE_R | PTE_X))) {
+      result = -1;
+      break;
+    }
+    if (!(*pte & mask))
+      continue;
+    if (!clear) {
+      result = 1;
+      continue; // A later page can still invalidate the request.
+    }
+    if (used == capacity) {
+      struct pg_batch *next = kalloc();
+      if (!next) {
+        result = -1;
+        break;
+      }
+      next->prev = batch;
+      batch = next;
+      entries = batch->entries;
+      capacity = NELEM(batch->entries);
+      used = 0;
+    }
+    entries[used++] = pte;
+  }
+  if (clear) {
+    for (;;) {
+      if (result == 0) {
+        for (int i = 0; i < used; i++)
+          *entries[i] &= ~(pte_t)mask;
+      }
+      if (!batch)
+        break;
+      struct pg_batch *prev = batch->prev;
+      kfree(batch);
+      batch = prev;
+      entries = batch ? batch->entries : local;
+      used = batch ? NELEM(batch->entries) : NELEM(local);
+    }
+    if (result == 0)
+      sfence_vma();
+  }
+  return result;
+}

@@ -100,8 +100,7 @@ sys_kill(void)
 
 // return how many clock tick interrupts have occurred
 // since start.
-uint64
-sys_uptime(void)
+uint64 sys_uptime(void)
 {
   uint xticks;
 
@@ -109,4 +108,30 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64 sys_pgdump(void)
+{
+  pgdump(myproc()->pagetable);
+  return 0;
+}
+
+static int bufferflags(int clear)
+{
+  uint64 va, len;
+  int mask;
+  argaddr(0, &va);
+  argaddr(1, &len);
+  argint(2, &mask);
+  return pgflags(myproc(), va, len, mask, clear);
+}
+
+uint64 sys_pgclear(void)
+{
+  return bufferflags(1);
+}
+
+uint64 sys_pgcheck(void)
+{
+  return bufferflags(0);
 }

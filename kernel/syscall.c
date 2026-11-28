@@ -103,7 +103,9 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_sync(void);
-
+extern uint64 sys_pgdump(void);
+extern uint64 sys_pgclear(void);
+extern uint64 sys_pgcheck(void);
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
@@ -130,6 +132,9 @@ static uint64 (*syscalls[])(void) = {
   [SYS_mkdir]   = sys_mkdir,
   [SYS_close]   = sys_close,
   [SYS_sync]    = sys_sync,
+  [SYS_pgdump] = sys_pgdump,
+  [SYS_pgclear] = sys_pgclear,
+  [SYS_pgcheck] = sys_pgcheck,
   // clang-format on
 };
 
