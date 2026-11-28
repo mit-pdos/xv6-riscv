@@ -110,3 +110,74 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+static void
+vmprint_indent(int level)
+{
+  for (int i = 0; i < level; i++)
+    printk(".........");
+  if (level > 0)
+    printk(" ");
+}
+
+static void
+vmprint_index(int index)
+{
+  static char digits[] = "0123456789abcdef";
+
+  printk("0x%c%c%c",
+         digits[(index >> 8) & 0xf],
+         digits[(index >> 4) & 0xf],
+         digits[index & 0xf]);
+}
+
+static void
+vmprint_flags(pte_t pte)
+{
+  char flags[8];
+
+  flags[0] = (pte & PTE_R) ? 'R' : '_';
+  flags[1] = (pte & PTE_W) ? 'W' : '_';
+  flags[2] = (pte & PTE_X) ? 'X' : '_';
+  flags[3] = (pte & PTE_U) ? 'U' : '_';
+  flags[4] = (pte & PTE_G) ? 'G' : '_';
+  flags[5] = (pte & PTE_A) ? 'A' : '_';
+  flags[6] = (pte & PTE_D) ? 'D' : '_';
+  flags[7] = '\0';
+
+  printk("%s", flags);
+}
+
+static void
+vmprint_walk(pagetable_t pagetable, int level)
+{
+  for (int index = 0; index < 512; index++) {
+    pte_t pte = pagetable[index];
+
+    if ((pte & PTE_V) == 0)
+      continue;
+
+    vmprint_indent(level);
+    vmprint_index(index);
+    printk(" -> %p ", (void *)PTE2PA(pte));
+    vmprint_flags(pte);
+    printk("\n");
+
+    // A valid PTE without access bits points to the next-level table.
+    if (level < 2 && (pte & (PTE_R | PTE_W | PTE_X)) == 0)
+      vmprint_walk((pagetable_t)PTE2PA(pte), level + 1);
+  }
+}
+
+uint64
+sys_vmprint(void)
+{
+  struct proc *p = myproc();
+
+  if (p == 0 || p->pagetable == 0)
+    return -1;
+
+  printk("PAGETABLE %p\n", p->pagetable);
+  vmprint_walk(p->pagetable, 0);
+  return 0;
+}
